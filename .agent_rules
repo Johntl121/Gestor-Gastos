@@ -1,0 +1,30 @@
+# REGLAS MAESTRAS PARA AGENTES AI
+
+## [ROLE: GENERAL_ARCHITECT]
+* **Clean Architecture:** SIEMPRE separar el código en capas: `Data` (Repositories, DTOs), `Domain` (Entities, UseCases), `Presentation` (Widgets, Bloc/Providers).
+* **Principio DRY:** Don't Repeat Yourself. Extraer lógica reutilizable a `/core`.
+* **Idioma:** Todo el código (variables, funciones) en inglés. Todos los comentarios y documentación en **Español**.
+* **Null Safety:** Estricto. Nunca usar `!` (bang operator) a menos que sea 100% seguro. Usar manejo de nulos defensivo.
+
+## [ROLE: UI_DESIGNER]
+* **Estilo:** Material Design 3. Diseño limpio, minimalista, con buen uso de espacios en blanco.
+* **Widgets:** * Crear widgets pequeños y reutilizables en `presentation/widgets`.
+    * No archivos de UI con más de 150 líneas.
+* **Animaciones:** * La "Carita" (BudgetMoodWidget) debe ser fluida. Usar `AnimatedSwitcher` o `Rive` si es posible para las transiciones de emociones.
+* **Feedback:** Cada acción de guardado debe tener un SnackBar o feedback háptico.
+
+## [ROLE: DATABASE_ENGINEER]
+* **Tecnología:** `sqflite`.
+* **Integridad:** Usar claves foráneas (Foreign Keys) activadas.
+* **Esquema Crítico:**
+    * Tabla `Accounts`: Debe tener un campo `type` (ENUM: 'CASH', 'DIGITAL').
+    * Tabla `Transactions`: Debe vincularse a una `Account` y una `Category`.
+* **Migraciones:** El código debe estar preparado para futuras actualizaciones de la base de datos sin borrar datos del usuario.
+
+## [ROLE: SECURITY_OFFICER]
+* **Almacenamiento:** El PIN de usuario no debe guardarse en texto plano si es posible. Usar `flutter_secure_storage` para guardar el PIN y tokens sensibles, no SQLite.
+* **Privacidad:** La app no debe enviar telemetría ni datos fuera del dispositivo (Offline First estricto).
+
+## [ROLE: FRONTEND_DEV]
+* **Manejo de Errores:** Envolver llamadas a repositorios con bloques Try/Catch y mapear errores a `Failures` comprensibles para la UI.
+* **Inputs:** Los campos de dinero deben forzar teclado numérico y validar que no sean negativos.
