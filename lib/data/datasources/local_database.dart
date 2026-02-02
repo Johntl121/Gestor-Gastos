@@ -28,12 +28,12 @@ class LocalDatabase {
   }
 
   Future<void> _onConfigure(Database db) async {
-    // Enable Foreign Keys
+    // Habilitar claves foráneas
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // 1. Accounts Table
+    // 1. Tabla de Cuentas
     await db.execute('''
       CREATE TABLE accounts(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +44,7 @@ class LocalDatabase {
       )
     ''');
 
-    // 2. Categories Table
+    // 2. Tabla de Categorias
     await db.execute('''
       CREATE TABLE categories(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +55,7 @@ class LocalDatabase {
       )
     ''');
 
-    // 3. Transactions Table
+    // 3. Tabla de Transacciones
     await db.execute('''
       CREATE TABLE transactions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,14 +69,14 @@ class LocalDatabase {
       )
     ''');
 
-    // Seed Initial Data (Optional, but good for UX)
+    // Semilla de Datos Inicial (Opcional, pero bueno para UX)
     await _seedData(db);
   }
 
   Future<void> _seedData(Database db) async {
-    // Default Account
+    // Cuenta por defecto
     await db.rawInsert('''
       INSERT INTO accounts(name, type, balance, color) VALUES('Efectivo', 'CASH', 0.0, 4283215696)
-    '''); // Green color
+    '''); // Color Verde
   }
 }

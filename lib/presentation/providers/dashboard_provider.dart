@@ -20,7 +20,7 @@ class DashboardProvider extends ChangeNotifier {
   });
 
   BalanceBreakdown? _balanceBreakdown;
-  BudgetMood _budgetMood = BudgetMood.neutral; // Default state
+  BudgetMood _budgetMood = BudgetMood.neutral; // Estado por defecto
   bool _isLoading = false;
   Failure? _failure;
 
@@ -34,17 +34,17 @@ class DashboardProvider extends ChangeNotifier {
     _failure = null;
     notifyListeners();
 
-    // Fetch Balance
+    // Obtener Saldo
     final balanceResult = await getAccountBalance(NoParams());
     balanceResult.fold(
       (fail) => _failure = fail,
       (balance) => _balanceBreakdown = balance,
     );
 
-    // Fetch Mood (Only if balance fetch didn't fail critically, though independent is better)
+    // Obtener Estado de Ánimo (Solo si la carga de saldo no falló críticamente, aunque independiente es mejor)
     final moodResult = await getBudgetMood(NoParams());
     moodResult.fold(
-      (fail) {// Keep previous mood or handle separately? For now, just log failure strictly
+      (fail) {// ¿Mantener estado previo o manejar separado? Por ahora, registrar fallo estrictamente
          if (_failure == null) _failure = fail;
       },
       (mood) => _budgetMood = mood,
@@ -67,7 +67,7 @@ class DashboardProvider extends ChangeNotifier {
         notifyListeners();
       },
       (_) {
-        // Success -> Reload Data to update UI
+        // Éxito -> Recargar Datos para actualizar UI
         loadData(); 
       },
     );

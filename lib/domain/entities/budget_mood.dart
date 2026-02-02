@@ -1,5 +1,5 @@
 enum BudgetMood {
-  happy,   // < 50% spent
-  neutral, // 50% - 80% spent
-  sad,     // > 80% spent
+  happy,   // < 50% gasto
+  neutral, // 50% - 80% gasto
+  sad,     // > 80% gasto
 }

@@ -13,7 +13,7 @@ import 'package:equatable/equatable.dart';
 class AccountEntity extends Equatable {
   final int? id;
   final String name;
-  final AccountEnumType type; // 'CASH' or 'DIGITAL'
+  final AccountEnumType type; // 'CASH' o 'DIGITAL'
   final double currentBalance;
   final String? icon;
   final int color;
