@@ -44,8 +44,9 @@ class DashboardProvider extends ChangeNotifier {
     // Obtener Estado de Ánimo (Solo si la carga de saldo no falló críticamente, aunque independiente es mejor)
     final moodResult = await getBudgetMood(NoParams());
     moodResult.fold(
-      (fail) {// ¿Mantener estado previo o manejar separado? Por ahora, registrar fallo estrictamente
-         if (_failure == null) _failure = fail;
+      (fail) {
+        // ¿Mantener estado previo o manejar separado? Por ahora, registrar fallo estrictamente
+        _failure ??= fail;
       },
       (mood) => _budgetMood = mood,
     );
@@ -58,7 +59,8 @@ class DashboardProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final result = await addTransactionUseCase(AddTransactionParams(transaction: transaction));
+    final result = await addTransactionUseCase(
+        AddTransactionParams(transaction: transaction));
 
     result.fold(
       (fail) {
@@ -68,7 +70,7 @@ class DashboardProvider extends ChangeNotifier {
       },
       (_) {
         // Éxito -> Recargar Datos para actualizar UI
-        loadData(); 
+        loadData();
       },
     );
   }

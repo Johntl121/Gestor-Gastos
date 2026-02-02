@@ -1,14 +1,14 @@
-enum AccountType {
-  const accountTypeCash = 'CASH';
-  const accountTypeDigital = 'DIGITAL';
+import 'package:equatable/equatable.dart';
+
+class AccountType {
+  static const String cash = 'CASH';
+  static const String digital = 'DIGITAL';
 }
 
 enum AccountEnumType {
   cash,
   digital,
 }
-
-import 'package:equatable/equatable.dart';
 
 class AccountEntity extends Equatable {
   final int? id;

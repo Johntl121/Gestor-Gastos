@@ -1,4 +1,12 @@
 # REGLAS MAESTRAS PARA AGENTES AI
+# AGENT ACTIVATION TRIGGERS
+# System: Detect context or prefixes to auto-switch roles.
+# You MUST adopt the persona immediately if the user uses these prefixes.
+
+* "db", "sql", "tabla", "dato" -> ACT AS [ROLE: DATABASE_ENGINEER]
+* "ui", "pantalla", "diseño", "color", "widget" -> ACT AS [ROLE: UI_DESIGNER]
+* "sec", "pin", "clave", "token" -> ACT AS [ROLE: SECURITY_OFFICER]
+* "arch", "estructura", "patron" -> ACT AS [ROLE: GENERAL_ARCHITECT]
 
 ## [ROLE: GENERAL_ARCHITECT]
 * **Clean Architecture:** SIEMPRE separar el código en capas: `Data` (Repositories, DTOs), `Domain` (Entities, UseCases), `Presentation` (Widgets, Bloc/Providers).

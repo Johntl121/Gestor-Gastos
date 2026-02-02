@@ -21,10 +21,41 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Migración V1 -> V2: Asegurar que existan categorías y segunda cuenta
+
+      // 1. Verificar si falta cuenta Bancaria
+      final accounts =
+          await db.query('accounts', where: "type = ?", whereArgs: ['DIGITAL']);
+      if (accounts.isEmpty) {
+        await db.rawInsert('''
+            INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)
+         ''');
+      }
+
+      // 2. Verificar si faltan categorías
+      final categoriesCount = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM categories'));
+      if (categoriesCount == 0) {
+        // Insertar categorías por defecto
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -74,9 +105,26 @@ class LocalDatabase {
   }
 
   Future<void> _seedData(Database db) async {
-    // Cuenta por defecto
+    // Cuentas Iniciales
     await db.rawInsert('''
       INSERT INTO accounts(name, type, balance, color) VALUES('Efectivo', 'CASH', 0.0, 4283215696)
-    '''); // Color Verde
+    ''');
+    await db.rawInsert('''
+      INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)
+    '''); // Color Azul
+
+    // Categorías Iniciales (Gastos)
+    await db.rawInsert('''
+      INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')
+    '''); // Orange
+    await db.rawInsert('''
+      INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')
+    '''); // Blue
+    await db.rawInsert('''
+      INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')
+    '''); // Purple
+    await db.rawInsert('''
+      INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')
+    '''); // Grey
   }
 }

@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../core/errors/failure.dart';
+import '../../domain/entities/account_entity.dart';
 import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
@@ -14,11 +15,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionRepositoryImpl(this.localDatabase);
 
   @override
-  Future<Either<Failure, void>> addTransaction(TransactionEntity transaction) async {
+  Future<Either<Failure, void>> addTransaction(
+      TransactionEntity transaction) async {
     try {
       final db = await localDatabase.database;
       final transactionModel = TransactionModel.fromEntity(transaction);
-      
+
       await db.transaction((txn) async {
         // 1. Insertar Transacción
         await txn.insert(
@@ -38,28 +40,28 @@ class TransactionRepositoryImpl implements TransactionRepository {
           where: 'id = ?',
           whereArgs: [transaction.categoryId],
         );
-        
-        if (categoryResult.isNotEmpty) {
-           final type = categoryResult.first['type'] as String;
-           double amountToApply = transaction.amount;
-           
-           // Si es Gasto, restamos
-           if (type == 'EXPENSE') {
-             amountToApply = -transaction.amount.abs();
-           } else {
-             // Ingreso suma
-             amountToApply = transaction.amount.abs();
-           }
 
-           // Actualizar Cuenta
-           await txn.rawUpdate('''
+        if (categoryResult.isNotEmpty) {
+          final type = categoryResult.first['type'] as String;
+          double amountToApply = transaction.amount;
+
+          // Si es Gasto, restamos
+          if (type == 'EXPENSE') {
+            amountToApply = -transaction.amount.abs();
+          } else {
+            // Ingreso suma
+            amountToApply = transaction.amount.abs();
+          }
+
+          // Actualizar Cuenta
+          await txn.rawUpdate('''
              UPDATE accounts 
              SET balance = balance + ? 
              WHERE id = ?
            ''', [amountToApply, transaction.accountId]);
         }
       });
-      
+
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
@@ -70,10 +72,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<Either<Failure, BalanceBreakdown>> getBalanceBreakdown() async {
     try {
       final db = await localDatabase.database;
-      
+
       // Obtener todas las cuentas
       final List<Map<String, dynamic>> accountsMap = await db.query('accounts');
-      final accounts = accountsMap.map((e) => AccountModel.fromJson(e)).toList();
+      final accounts =
+          accountsMap.map((e) => AccountModel.fromJson(e)).toList();
 
       double total = 0;
       double cash = 0;
@@ -128,7 +131,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<Either<Failure, double>> getMonthlyBudget() async {
-    // TODO: Implementar lógica para obtener presupuesto definido.
+    // Implementar lógica para obtener presupuesto definido.
     // Para MVP, retornando valor fijo o obteniendo de tabla de configuración.
     // Asumamos presupuesto por defecto o crearemos tabla de configuración luego.
     return const Right(2000.00); // Presupuesto Mock: 2000 Soles

@@ -1,6 +1,8 @@
 import 'injection_container.dart' as di;
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'presentation/pages/home_page.dart';
 import 'presentation/providers/dashboard_provider.dart';
 
 void main() async {
@@ -23,16 +25,12 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.teal, // More financial color?
-            brightness: Brightness.light, 
+            seedColor: Colors.teal,
+            brightness: Brightness.light,
           ),
           useMaterial3: true,
         ),
-        home: const Scaffold(
-          body: Center(
-            child: Text('Hola Mundo - Provider Configurado'),
-          ),
-        ),
+        home: const HomePage(),
       ),
     );
   }

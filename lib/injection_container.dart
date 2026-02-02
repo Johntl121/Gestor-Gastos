@@ -1,5 +1,4 @@
 import 'package:get_it/get_it.dart';
-import 'package:sqflite/sqflite.dart';
 
 // Fuentes de Datos
 import 'data/datasources/local_database.dart';
