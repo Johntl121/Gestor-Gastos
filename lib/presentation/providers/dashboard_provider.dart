@@ -10,6 +10,8 @@ import '../../domain/usecases/get_budget_mood_usecase.dart';
 
 import '../../domain/usecases/get_transactions_usecase.dart';
 
+/// DashboardProvider: Gestiona el estado principal de la aplicación.
+/// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
 class DashboardProvider extends ChangeNotifier {
   final GetAccountBalanceUseCase getAccountBalance;
   final GetBudgetMoodUseCase getBudgetMood;
@@ -31,7 +33,7 @@ class DashboardProvider extends ChangeNotifier {
   Failure? _failure;
   List<TransactionEntity> _transactions = [];
 
-  double _budgetLimit = 2400.00; // Mock default value for now
+  double _budgetLimit = 2400.00; // Valor temporal por defecto
 
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
   BudgetMood get budgetMood => _budgetMood;
@@ -40,6 +42,10 @@ class DashboardProvider extends ChangeNotifier {
   double get budgetLimit => _budgetLimit;
   List<TransactionEntity> get transactions => _transactions;
 
+  /// Carga todos los datos necesarios para el Dashboard:
+  /// 1. Balance total
+  /// 2. Estado de ánimo (Mood)
+  /// 3. Lista de transacciones recientes
   Future<void> loadData() async {
     _isLoading = true;
     _failure = null;
@@ -63,17 +69,20 @@ class DashboardProvider extends ChangeNotifier {
     final transactionsResult = await getTransactionsUseCase(NoParams());
     transactionsResult.fold((fail) => _failure ??= fail, (transactions) {
       _transactions = transactions;
-      _transactions.sort((a, b) => b.date.compareTo(a.date)); // Sort descending
+      _transactions.sort((a, b) => b.date
+          .compareTo(a.date)); // Ordenar descendente (más recientes primero)
     });
 
     _isLoading = false;
     notifyListeners();
   }
 
+  /// Actualiza el límite de presupuesto mensual.
+  /// Afecta cómo se calcula el progreso del presupuesto en el Home.
   void setBudgetLimit(double newLimit) {
     _budgetLimit = newLimit;
     notifyListeners();
-    // In a real app, we would persist this value here
+    // TODO: En una app real, deberíamos persistir este valor aquí (SharedPrefs)
   }
 
   Future<void> addTransaction(TransactionEntity transaction) async {

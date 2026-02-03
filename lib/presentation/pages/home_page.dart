@@ -5,29 +5,36 @@ import '../../domain/entities/transaction_entity.dart';
 import '../providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
 
+/// HomePage: Pantalla principal de la aplicación.
+/// Muestra el balance general, el estado de ánimo financiero, el progreso del presupuesto
+/// y las transacciones recientes.
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Usamos Consumer para escuchar cambios en DashboardProvider
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
+        // Obtener el balance total (o 0.00 si es nulo)
         final balance = provider.balanceBreakdown?.total ?? 0.00;
         final mood = provider.budgetMood;
 
-        // Calculate Today's Income/Expense
+        // Calcular Ingresos y Gastos de Hoy
         double todayIncome = 0;
         double todayExpense = 0;
         final now = DateTime.now();
 
-        // Calculate Monthly Spent for Budget
+        // Calcular Gasto Mensual para el Presupuesto
         double monthSpent = 0;
 
         for (var t in provider.transactions) {
+          // Verificar si la fecha es hoy
           final isToday = t.date.year == now.year &&
               t.date.month == now.month &&
               t.date.day == now.day;
 
+          // Verificar si es del mes actual
           final isSameMonth =
               t.date.year == now.year && t.date.month == now.month;
 
@@ -54,7 +61,7 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // --- Header Code Omitted for Brevity (Same as before) ---
+                  // --- Header: Avatar y Notificaciones ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -94,12 +101,14 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // Budget Mood Widget
+                  const SizedBox(height: 30),
+
+                  // Widget de Estado de Ánimo Financiero
                   _buildMoodIndicator(mood),
 
                   const SizedBox(height: 10),
 
-                  // Balance
+                  // Saldo Actual
                   const Text("SALDO DISPONIBLE",
                       style: TextStyle(
                           color: Colors.grey,
@@ -123,12 +132,12 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // Budget Card
+                  // Tarjeta de Presupuesto
                   _buildBudgetCard(provider.budgetLimit, monthSpent),
 
                   const SizedBox(height: 20),
 
-                  // Income / Expenses Summary
+                  // Resumen de Ingresos / Gastos
                   Row(
                     children: [
                       Expanded(
@@ -151,7 +160,7 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // Recent Activity Header
+                  // Cabecera de Actividad Reciente
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: const [
@@ -166,7 +175,7 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Recent Activity List (Real Data)
+                  // Lista de Actividad Reciente (Datos Reales)
                   provider.transactions.isEmpty
                       ? const Padding(
                           padding: EdgeInsets.all(20),
@@ -195,7 +204,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // ... (Mood Indicator & Quote methods remain same) ...
+  /// Construye el widget del indicador de estado de ánimo (la carita)
   Widget _buildMoodIndicator(BudgetMood mood) {
     IconData icon;
     Color color;
@@ -238,6 +247,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  /// Retorna una frase motivacional según el estado de ánimo
   String _getMoodQuote(BudgetMood mood) {
     switch (mood) {
       case BudgetMood.happy:
@@ -249,11 +259,14 @@ class HomePage extends StatelessWidget {
     }
   }
 
+  /// Construye la tarjeta de progreso del presupuesto mensual
   Widget _buildBudgetCard(double limit, double spent) {
+    // Calculamos el progreso (0.0 a 1.0)
     final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
+      // ... Resto del código visual
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -319,6 +332,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  /// Construye las tarjetas pequeñas de resumen (Ingresos/Gastos de hoy)
   Widget _buildSummaryCard(
       {required IconData icon,
       required Color iconColor,
@@ -356,6 +370,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  /// Construye un item individual de la lista de transacciones
   Widget _buildTransactionItem(TransactionEntity transaction) {
     final isExpense = transaction.amount < 0;
     final amountColor = isExpense ? Colors.black87 : Colors.teal;
@@ -363,7 +378,7 @@ class HomePage extends StatelessWidget {
     final color = isExpense ? Colors.orange.shade100 : Colors.green.shade100;
     final iconColor = isExpense ? Colors.orange : Colors.green;
 
-    // TODO: Map categoryId to real icons/colors
+    // TODO: Mapear categoryId a iconos y colores reales
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),

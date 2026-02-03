@@ -32,7 +32,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final db = await localDatabase.database;
 
       // Obtener categoría para verificar tipo
-      // Nota: Si migramos todo a SP, esto también debería cambiar.
+      // Nota: Si migramos todo a SharedPrefs, esto también debería cambiar.
       // Por ahora asumimos que Categories y Accounts siguen en SQLite.
       final List<Map<String, dynamic>> categoryResult = await db.query(
         'categories',
@@ -103,7 +103,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Either<Failure, double>> getCurrentMonthExpenses() async {
     try {
-      // Obtener transacciones desde SP
+      // Obtener transacciones desde SharedPrefs
       final transactions = await transactionLocalDataSource.getTransactions();
 
       final now = DateTime.now();
@@ -113,13 +113,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       // Nota: Para filtrar correctamente por tipo 'EXPENSE', necesitaríamos
       // saber el tipo de la categoría de cada transacción.
-      // Como TransactionModel suele tener categoryId, tendríamos que consultar las categorías.
-      // SIN EMBARGO, para simplificar y cumplir con "cargar datos guardados",
-      // asumiremos que podemos cruzar datos o que el usuario acepta esta limitación por ahora.
-      // O leemos categorías de DB.
+      // Leemos categorías de la base de datos local.
 
       final db = await localDatabase.database;
       final categoriesMap = await db.query('categories');
+
       // Crear mapa de categoryId -> type
       final Map<int, String> categoryTypes = {
         for (var c in categoriesMap) c['id'] as int: c['type'] as String
@@ -143,9 +141,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Either<Failure, double>> getMonthlyBudget() async {
     // Implementar lógica para obtener presupuesto definido.
-    // Para MVP, retornando valor fijo o obteniendo de tabla de configuración.
-    // Asumamos presupuesto por defecto o crearemos tabla de configuración luego.
-    return const Right(2000.00); // Presupuesto Mock: 2000 Soles
+    // Para MVP, retornando valor fijo o obteniendo de configuración futura.
+    return const Right(2000.00); // Presupuesto Mock inicial
   }
 
   @override
@@ -153,9 +150,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       final transactionModels =
           await transactionLocalDataSource.getTransactions();
-      // Models are already entities or easy to map usually
-      // TransactionModel extends TransactionEntity, so it should be fine to return them directly if typed correctly or cast.
-      // But let's check TransactionModel definition. Assuming it extends Entity.
+      // Los modelos (TransactionModel) extienden de la entidad (TransactionEntity),
+      // por lo que podemos retornarlos directamente como una lista de entidades.
       return Right(transactionModels);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

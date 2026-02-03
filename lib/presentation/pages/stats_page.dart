@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+/// StatsPage: Pantalla de Estadísticas.
+/// Muestra un desglose visual de los gastos mediante gráficos y listas detalladas.
 class StatsPage extends StatelessWidget {
   const StatsPage({super.key});
 
@@ -45,7 +47,7 @@ class StatsPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 2. Gráfico (Donut Chart)
+            // 2. Gráfico Circular (Donut Chart)
             SizedBox(
               height: 250,
               child: Stack(
@@ -63,18 +65,18 @@ class StatsPage extends StatelessWidget {
                           radius: 25,
                         ),
                         PieChartSectionData(
-                          color: const Color(0xFFFF6B6B), // Coral Red
+                          color: const Color(0xFFFF6B6B), // Rojo Coral
                           value: 28,
                           showTitle: false,
                           radius: 25,
                         ),
                         PieChartSectionData(
-                          color: const Color(0xFF009688), // Teal Dark
-                          value: 12, // Remaining mock portion
+                          color: const Color(0xFF009688), // Teal Oscuro
+                          value: 12, // Porción restante mock
                           showTitle: false,
                           radius: 25,
                         ),
-                        // Transparent/Empty filler if needed or just sum to 100
+                        // Relleno transparente/vacío si es necesario
                         PieChartSectionData(
                             color: Colors.grey.shade300,
                             value: 18,
@@ -121,7 +123,7 @@ class StatsPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // 3. Top Spending Header
+            // 3. Cabecera de Mayores Gastos
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
@@ -138,8 +140,8 @@ class StatsPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 4. Spending List
-            // TODO: Conectar con DashboardProvider
+            // 4. Lista de Gastos
+            // TODO: Conectar con DashboardProvider para datos reales
             _buildSpendingItem(
               "Vivienda",
               "Esencial • 42% del total",
@@ -178,6 +180,7 @@ class StatsPage extends StatelessWidget {
     );
   }
 
+  /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
   Widget _buildPeriodTab(String text, bool isSelected) {
     return Expanded(
       child: Container(
@@ -206,6 +209,7 @@ class StatsPage extends StatelessWidget {
     );
   }
 
+  /// Construye un item de la lista de gastos
   Widget _buildSpendingItem(
       String title,
       String subtitle,
@@ -275,7 +279,7 @@ class StatsPage extends StatelessWidget {
           const SizedBox(width: 16),
           ConstrainedBox(
             constraints: const BoxConstraints(
-                maxWidth: 120), // Constraint to prevent overflow
+                maxWidth: 120), // Restricción para evitar desbordamiento
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
