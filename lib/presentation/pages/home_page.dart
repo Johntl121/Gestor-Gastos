@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/budget_mood.dart';
+import '../../domain/entities/transaction_entity.dart';
 import '../providers/dashboard_provider.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -10,19 +12,40 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
-        final balance =
-            provider.balanceBreakdown?.total ?? 0.00; // Default mock if needed
+        final balance = provider.balanceBreakdown?.total ?? 0.00;
         final mood = provider.budgetMood;
 
-        // Mock Data specifically requested if no data
-        final displayBalance =
-            provider.isLoading && provider.balanceBreakdown == null
-                ? 2450.00
-                : balance;
+        // Calculate Today's Income/Expense
+        double todayIncome = 0;
+        double todayExpense = 0;
+        final now = DateTime.now();
+
+        // Calculate Monthly Spent for Budget
+        double monthSpent = 0;
+
+        for (var t in provider.transactions) {
+          final isToday = t.date.year == now.year &&
+              t.date.month == now.month &&
+              t.date.day == now.day;
+
+          final isSameMonth =
+              t.date.year == now.year && t.date.month == now.month;
+
+          if (isToday) {
+            if (t.amount > 0) {
+              todayIncome += t.amount;
+            } else {
+              todayExpense += t.amount.abs();
+            }
+          }
+
+          if (isSameMonth && t.amount < 0) {
+            monthSpent += t.amount.abs();
+          }
+        }
 
         return Scaffold(
-          backgroundColor:
-              const Color(0xFFF8FAFC), // Slight off-white background
+          backgroundColor: const Color(0xFFF8FAFC),
           body: SafeArea(
             bottom: false,
             child: SingleChildScrollView(
@@ -31,7 +54,7 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Header: Avatar & Notification
+                  // --- Header Code Omitted for Brevity (Same as before) ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -39,8 +62,8 @@ class HomePage extends StatelessWidget {
                         children: [
                           const CircleAvatar(
                             radius: 20,
-                            backgroundImage: NetworkImage(
-                                'https://i.pravatar.cc/150?img=1'), // Placeholder avatar
+                            backgroundImage:
+                                NetworkImage('https://i.pravatar.cc/150?img=1'),
                           ),
                           const SizedBox(width: 10),
                           Column(
@@ -71,7 +94,7 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 30),
 
-                  // Budget Mood Widget (Central Face)
+                  // Budget Mood Widget
                   _buildMoodIndicator(mood),
 
                   const SizedBox(height: 10),
@@ -85,7 +108,7 @@ class HomePage extends StatelessWidget {
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 5),
                   Text(
-                    "S/ ${displayBalance.toStringAsFixed(2)}",
+                    "S/ ${balance.toStringAsFixed(2)}",
                     style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
@@ -101,7 +124,7 @@ class HomePage extends StatelessWidget {
                   const SizedBox(height: 30),
 
                   // Budget Card
-                  _buildBudgetCard(),
+                  _buildBudgetCard(provider.budgetLimit, monthSpent),
 
                   const SizedBox(height: 20),
 
@@ -112,18 +135,16 @@ class HomePage extends StatelessWidget {
                           child: _buildSummaryCard(
                               icon: Icons.arrow_upward,
                               iconColor: Colors.green,
-                              backgroundColor:
-                                  const Color(0xFFE0F2F1), // Very light teal
-                              amount: "+S/ 120.00",
+                              backgroundColor: const Color(0xFFE0F2F1),
+                              amount: "+S/ ${todayIncome.toStringAsFixed(2)}",
                               label: "Ingresos Hoy")),
                       const SizedBox(width: 15),
                       Expanded(
                           child: _buildSummaryCard(
                               icon: Icons.arrow_downward,
                               iconColor: Colors.redAccent,
-                              backgroundColor:
-                                  const Color(0xFFFFEBEE), // Very light red
-                              amount: "-S/ 45.00",
+                              backgroundColor: const Color(0xFFFFEBEE),
+                              amount: "-S/ ${todayExpense.toStringAsFixed(2)}",
                               label: "Gastos Hoy")),
                     ],
                   ),
@@ -145,18 +166,25 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 15),
 
-                  // Recent Activity List (Mock)
-                  ListView.separated(
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: 3,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      return _buildTransactionItem(index);
-                    },
-                  ),
+                  // Recent Activity List (Real Data)
+                  provider.transactions.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text("No hay transacciones recientes",
+                              style: TextStyle(color: Colors.grey)),
+                        )
+                      : ListView.separated(
+                          physics: const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          itemCount: provider.transactions.take(3).length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final transaction = provider.transactions[index];
+                            return _buildTransactionItem(transaction);
+                          },
+                        ),
 
-                  // Bottom padding for FAB
                   const SizedBox(height: 40),
                 ],
               ),
@@ -167,6 +195,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // ... (Mood Indicator & Quote methods remain same) ...
   Widget _buildMoodIndicator(BudgetMood mood) {
     IconData icon;
     Color color;
@@ -220,11 +249,8 @@ class HomePage extends StatelessWidget {
     }
   }
 
-  Widget _buildBudgetCard() {
-    // Mock values for visual adherence
-    const double totalBudget = 4000.00;
-    const double spent = 1200.00;
-    const double progress = spent / totalBudget;
+  Widget _buildBudgetCard(double limit, double spent) {
+    final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -252,20 +278,20 @@ class HomePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               RichText(
-                text: const TextSpan(children: [
+                text: TextSpan(children: [
                   TextSpan(
-                      text: "S/ 1,200.00",
-                      style: TextStyle(
+                      text: "S/ ${spent.toStringAsFixed(2)}",
+                      style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 16)),
                   TextSpan(
-                      text: " / S/ 4,000.00",
-                      style: TextStyle(color: Colors.grey, fontSize: 14)),
+                      text: " / S/ ${limit.toStringAsFixed(2)}",
+                      style: const TextStyle(color: Colors.grey, fontSize: 14)),
                 ]),
               ),
-              const Text("70% restante",
-                  style: TextStyle(
+              Text("${((1 - progress) * 100).toInt()}% restante",
+                  style: const TextStyle(
                       color: Colors.teal, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -275,7 +301,7 @@ class HomePage extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.grey.shade200,
-              color: Colors.cyan,
+              color: progress > 0.9 ? Colors.redAccent : Colors.cyan,
               minHeight: 8,
             ),
           ),
@@ -284,7 +310,7 @@ class HomePage extends StatelessWidget {
             children: const [
               Icon(Icons.access_time_filled, size: 14, color: Colors.teal),
               SizedBox(width: 5),
-              Text("12 días restantes en el mes",
+              Text("Calculado al día de hoy", // Simplificado
                   style: TextStyle(color: Colors.teal, fontSize: 12))
             ],
           )
@@ -330,65 +356,37 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionItem(int index) {
-    // Mock Data List
-    final List<Map<String, dynamic>> transactions = [
-      {
-        'title': 'Supermercado',
-        'subtitle': 'Compras • 2:30 PM',
-        'amount': '-S/ 32.50',
-        'icon': Icons.shopping_cart,
-        'color': Colors.blue.shade100,
-        'iconColor': Colors.blue,
-      },
-      {
-        'title': 'Cafetería',
-        'subtitle': 'Comida y Bebida • 11:15 AM',
-        'amount': '-S/ 12.50',
-        'icon': Icons.coffee,
-        'color': Colors.orange.shade100,
-        'iconColor': Colors.orange,
-      },
-      {
-        'title': 'Pago Freelance',
-        'subtitle': 'Ingreso • Ayer',
-        'amount': '+S/ 120.00',
-        'amountColor': Colors.teal,
-        'icon': Icons.account_balance_wallet,
-        'color': Colors.green.shade100,
-        'iconColor': Colors.green,
-      },
-    ];
+  Widget _buildTransactionItem(TransactionEntity transaction) {
+    final isExpense = transaction.amount < 0;
+    final amountColor = isExpense ? Colors.black87 : Colors.teal;
+    final icon = isExpense ? Icons.shopping_cart : Icons.account_balance_wallet;
+    final color = isExpense ? Colors.orange.shade100 : Colors.green.shade100;
+    final iconColor = isExpense ? Colors.orange : Colors.green;
 
-    final item = transactions[index];
+    // TODO: Map categoryId to real icons/colors
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        // No visual shadow in the image for list items, just white cards maybe?
-        // The image has them as detached cards or just rows.
-        // Let's make them white cards.
       ),
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: item['color'],
+            color: color,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(item['icon'], color: item['iconColor'], size: 24),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
-        title: Text(item['title'],
+        title: Text(transaction.description,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(item['subtitle'],
+        subtitle: Text(DateFormat('MMM d, h:mm a').format(transaction.date),
             style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        trailing: Text(item['amount'],
+        trailing: Text("S/ ${transaction.amount.toStringAsFixed(2)}",
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: item['amountColor'] ?? Colors.black87)),
+                fontWeight: FontWeight.bold, fontSize: 16, color: amountColor)),
       ),
     );
   }

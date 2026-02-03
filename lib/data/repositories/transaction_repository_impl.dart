@@ -147,4 +147,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
     // Asumamos presupuesto por defecto o crearemos tabla de configuración luego.
     return const Right(2000.00); // Presupuesto Mock: 2000 Soles
   }
+
+  @override
+  Future<Either<Failure, List<TransactionEntity>>> getTransactions() async {
+    try {
+      final transactionModels =
+          await transactionLocalDataSource.getTransactions();
+      // Models are already entities or easy to map usually
+      // TransactionModel extends TransactionEntity, so it should be fine to return them directly if typed correctly or cast.
+      // But let's check TransactionModel definition. Assuming it extends Entity.
+      return Right(transactionModels);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
 }

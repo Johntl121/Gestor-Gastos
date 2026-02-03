@@ -14,31 +14,41 @@ class AddTransactionPage extends StatefulWidget {
 class _AddTransactionPageState extends State<AddTransactionPage> {
   final TextEditingController _amountController = TextEditingController();
 
-  // 1 = Efectivo, 2 = Digital (Basado en el seed)
-  int _selectedAccountId = 1;
+  // State variables
+  bool _isExpense = true;
+  int _selectedSourceId = 1; // 1: Cash, 2: Bank, 3: Savings
+  int _selectedCategoryId = 3; // Default Shopping
 
-  // Categorias (Basado en el seed)
-  int _selectedCategoryId = 1;
-
-  final Map<int, IconData> _categoryIcons = {
-    1: Icons.fastfood, // Comida
-    2: Icons.directions_bus, // Transporte
-    3: Icons.movie, // Ocio
-    4: Icons.category, // Varios
+  // Data definitions
+  final Map<int, String> _sourceNames = {
+    1: 'Efectivo',
+    2: 'Banco',
+    3: 'Ahorros',
   };
 
-  final Map<int, String> _categoryNames = {
-    1: 'Comida',
-    2: 'Transporte',
-    3: 'Ocio',
-    4: 'Varios',
+  final Map<int, IconData> _sourceIcons = {
+    1: Icons.account_balance_wallet,
+    2: Icons.account_balance,
+    3: Icons.savings,
   };
 
-  final Map<int, Color> _categoryColors = {
-    1: Colors.orange,
-    2: Colors.blue,
-    3: Colors.purple,
-    4: Colors.grey,
+  final Map<int, Map<String, dynamic>> _categories = {
+    1: {'name': 'Comida', 'icon': Icons.restaurant, 'color': Colors.orange},
+    2: {
+      'name': 'Transporte',
+      'icon': Icons.directions_car,
+      'color': Colors.blue
+    },
+    3: {
+      'name': 'Compras',
+      'icon': Icons.shopping_bag,
+      'color': Colors.tealAccent
+    }, // Cyan for Shopping in design
+    4: {'name': 'Ocio', 'icon': Icons.movie, 'color': Colors.purpleAccent},
+    5: {'name': 'Salud', 'icon': Icons.medical_services, 'color': Colors.green},
+    6: {'name': 'Servicios', 'icon': Icons.home, 'color': Colors.amber},
+    7: {'name': 'Regalos', 'icon': Icons.card_giftcard, 'color': Colors.pink},
+    8: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.indigo},
   };
 
   @override
@@ -51,7 +61,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     final amountText = _amountController.text;
     if (amountText.isEmpty) return;
 
-    final amount = double.tryParse(amountText);
+    double? amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingresa un monto válido')),
@@ -59,15 +69,21 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       return;
     }
 
+    // Apply sign based on type
+    if (_isExpense) {
+      amount = amount * -1;
+    }
+
     final transaction = TransactionEntity(
-      accountId: _selectedAccountId,
+      accountId:
+          _selectedSourceId, // Mapping source to accountId simply for MVP
       categoryId: _selectedCategoryId,
       amount: amount,
       date: DateTime.now(),
-      description: _categoryNames[_selectedCategoryId] ?? 'Gasto',
+      description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
     );
 
-    // Llamar al provider
+    // Call provider
     Provider.of<DashboardProvider>(context, listen: false)
         .addTransaction(transaction);
 
@@ -76,195 +92,378 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Colors
+    const backgroundColor = Color(0xFF121C22);
+    const cyanColor = Color(0xFF00E5FF); // Vibrant Cyan
+    const darkSurface = Color(0xFF1E2A32); // Slightly lighter for elements
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black),
+          icon: const Icon(Icons.close, color: Colors.white, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
-        title:
-            const Text('Agregar Gasto', style: TextStyle(color: Colors.black)),
+        title: const Text('Entrada Rápida',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: darkSurface,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.camera_alt, color: cyanColor, size: 20),
+          )
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'Monto',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-            const SizedBox(height: 10),
-
-            // 1. Input de Monto Grande
-            TextField(
-              controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 48,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-              decoration: const InputDecoration(
-                hintText: '0.00',
-                border: InputBorder.none,
-                prefixText: 'S/ ',
-                prefixStyle: TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black),
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-              ],
-              autofocus: true,
-            ),
-
-            const SizedBox(height: 40),
-
-            // 2. Selector de Cuenta
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _buildAccountToggleOption('Efectivo', 1),
-                  _buildAccountToggleOption('Digital', 2),
+                  const SizedBox(height: 20),
+
+                  // 1. AMOUNT HERO & VOICE
+                  _buildHeroInput(cyanColor, darkSurface),
+
+                  const SizedBox(height: 30),
+
+                  // 2. TOGGLE TYPE
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildTypeToggle("GASTO", true, cyanColor),
+                        _buildTypeToggle("INGRESO", false, cyanColor),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // 3. SOURCE CHIPS
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("CUENTA",
+                        style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildSourceChip(1, cyanColor, darkSurface),
+                      const SizedBox(width: 10),
+                      _buildSourceChip(2, cyanColor, darkSurface),
+                      const SizedBox(width: 10),
+                      _buildSourceChip(3, cyanColor, darkSurface),
+                    ],
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // 4. CATEGORY GRID
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("CATEGORÍA",
+                        style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 20,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 0.8,
+                    ),
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final catId = index + 1;
+                      return _buildCategoryItem(catId, cyanColor, darkSurface);
+                    },
+                  ),
+
+                  const SizedBox(height: 100), // Space for footer
                 ],
               ),
             ),
+          ),
 
-            const SizedBox(height: 40),
+          // FOOTER: SAVE BUTTON
+          _buildFooter(cyanColor),
+        ],
+      ),
+    );
+  }
 
-            // 3. Selector de Categoría
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Categoría',
+  Widget _buildHeroInput(Color cyanColor, Color darkSurface) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'S/ ',
+              style: TextStyle(
+                fontSize: 60,
+                fontWeight: FontWeight.bold,
+                color: cyanColor,
+              ),
+            ),
+            IntrinsicWidth(
+              child: TextField(
+                controller: _amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 18,
+                  fontSize: 60,
+                  fontWeight: FontWeight.bold,
+                  color: cyanColor,
+                  height: 1,
+                ),
+                decoration: InputDecoration(
+                  hintText: '0.00',
+                  hintStyle: TextStyle(color: cyanColor.withOpacity(0.5)),
+                  border: InputBorder.none,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                autofocus: true,
+              ),
+            ),
+            // Cursor line animation mock
+            Container(
+              width: 2,
+              height: 60,
+              color: cyanColor.withOpacity(0.5),
+            )
+          ],
+        ),
+        const SizedBox(height: 20),
+        Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                  color: cyanColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: cyanColor.withOpacity(0.3),
+                        blurRadius: 10,
+                        spreadRadius: 2)
+                  ]),
+              child: const Icon(Icons.mic, color: Colors.black, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text("VOZ",
+                style: TextStyle(
+                    color: cyanColor,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey[800]),
+                    letterSpacing: 1.0))
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildTypeToggle(
+      String text, bool isOptionExpense, Color activeColor) {
+    final isSelected = _isExpense == isOptionExpense;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isExpense = isOptionExpense;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? Colors.transparent
+                : Colors
+                    .transparent, // Background handled by parent or custom if needed
+            // For the design, the selected part usually has a background.
+            // Let's approximate the 'SegmentedControl' look
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+                color: isSelected
+                    ? activeColor.withOpacity(0.15)
+                    : Colors.transparent, // Highlight logic
+                borderRadius: BorderRadius.circular(24),
+                border: isSelected
+                    ? Border.all(color: activeColor.withOpacity(0.3))
+                    : null // Optional border
+                ),
+            // Actually, the request said: "Selected State: Dark Cyan Background and Bright White Text"
+            // Let's adhere to that more strictly
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF004D40)
+                    : Colors.transparent, // Dark teal/cyan bg for selected
+                borderRadius: BorderRadius.circular(24),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                text,
+                style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
               ),
             ),
-            const SizedBox(height: 20),
+          ),
+        ),
+      ),
+    );
+  }
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildCategoryOption(1),
-                _buildCategoryOption(2),
-                _buildCategoryOption(3),
-                _buildCategoryOption(4),
-              ],
-            ),
-
-            const SizedBox(height: 50),
-
-            // 4. Botón Guardar
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _saveTransaction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 5,
-                ),
-                child: const Text(
-                  'Guardar Gasto',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+  Widget _buildSourceChip(int id, Color activeColor, Color darkSurface) {
+    final isSelected = _selectedSourceId == id;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedSourceId = id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : darkSurface,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(_sourceIcons[id],
+                color: isSelected ? Colors.black : Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              _sourceNames[id]!,
+              style: TextStyle(
+                color: isSelected ? Colors.black : Colors.white,
+                fontWeight: FontWeight.bold,
               ),
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAccountToggleOption(String label, int id) {
-    final isSelected = _selectedAccountId == id;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedAccountId = id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        spreadRadius: 1)
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.black : Colors.grey,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryOption(int id) {
+  Widget _buildCategoryItem(int id, Color activeColor, Color darkSurface) {
     final isSelected = _selectedCategoryId == id;
-    final color = _categoryColors[id]!;
+    final catData = _categories[id]!;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedCategoryId = id),
       child: Column(
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+          Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? color.withValues(alpha: 0.1)
-                  : Colors.grey[50], // Fondo sutil si seleccionado
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? color : Colors.transparent,
-                width: 2,
-              ),
-            ),
+                color: darkSurface,
+                shape: BoxShape.circle,
+                border: isSelected
+                    ? Border.all(color: activeColor, width: 2)
+                    : null,
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                            color: activeColor.withOpacity(0.4), blurRadius: 8)
+                      ]
+                    : null),
             child: Icon(
-              _categoryIcons[id],
-              color: isSelected ? color : Colors.grey[400],
-              size: 28,
+              catData['icon'] as IconData,
+              color: catData['color'] as Color,
+              size: 24,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            _categoryNames[id]!,
-            style: TextStyle(
+            catData['name'] as String,
+            style: const TextStyle(
+              color: Colors.white,
               fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? color : Colors.grey,
+            ),
+            textAlign: TextAlign.center,
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(Color mainColor) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
+      decoration: BoxDecoration(
+          gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+            const Color(0xFF121C22).withOpacity(0.0),
+            const Color(0xFF121C22),
+          ])),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: ElevatedButton(
+              onPressed: _saveTransaction,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: mainColor,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                elevation: 0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    'Guardar',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(width: 10),
+                  Icon(Icons.arrow_forward, size: 24)
+                ],
+              ),
             ),
           ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.edit_note, color: Colors.grey, size: 20),
+              label: const Text("Añadir nota o archivo",
+                  style: TextStyle(color: Colors.grey)))
         ],
       ),
     );

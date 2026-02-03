@@ -13,6 +13,7 @@ import 'data/repositories/transaction_repository_impl.dart';
 import 'domain/usecases/add_transaction_usecase.dart';
 import 'domain/usecases/get_account_balance_usecase.dart';
 import 'domain/usecases/get_budget_mood_usecase.dart';
+import 'domain/usecases/get_transactions_usecase.dart';
 import 'presentation/providers/dashboard_provider.dart';
 
 final sl = GetIt.instance;
@@ -42,6 +43,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => AddTransactionUseCase(sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
   sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl()));
+  sl.registerLazySingleton(() => GetTransactionsUseCase(sl()));
 
   //! Proveedores
   sl.registerFactory(
@@ -49,6 +51,7 @@ Future<void> init() async {
       getAccountBalance: sl(),
       getBudgetMood: sl(),
       addTransactionUseCase: sl(),
+      getTransactionsUseCase: sl(),
     ),
   );
 }

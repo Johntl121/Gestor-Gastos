@@ -8,4 +8,5 @@ abstract class TransactionRepository {
   Future<Either<Failure, BalanceBreakdown>> getBalanceBreakdown();
   Future<Either<Failure, double>> getCurrentMonthExpenses();
   Future<Either<Failure, double>> getMonthlyBudget();
+  Future<Either<Failure, List<TransactionEntity>>> getTransactions();
 }

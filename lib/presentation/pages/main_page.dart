@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'add_transaction_page.dart';
+import 'settings_page.dart';
+import 'stats_page.dart';
+import 'history_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -14,9 +17,9 @@ class _MainPageState extends State<MainPage> {
 
   final List<Widget> _pages = [
     const HomePage(),
-    const Center(child: Text("Estadísticas (Próximamente)")), // Placeholder
-    const Center(child: Text("Billetera (Próximamente)")), // Placeholder
-    const Center(child: Text("Perfil (Próximamente)")), // Placeholder
+    const StatsPage(),
+    const HistoryPage(),
+    const SettingsPage(),
   ];
 
   void _onItemTapped(int index) {
