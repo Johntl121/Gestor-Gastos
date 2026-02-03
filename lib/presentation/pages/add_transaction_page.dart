@@ -112,12 +112,20 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: darkSurface,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.camera_alt, color: cyanColor, size: 20),
+            child: IconButton(
+              icon: const Icon(Icons.camera_alt, color: cyanColor, size: 20),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          "Voice & Scan features coming soon in v2.0! 🚀")),
+                );
+              },
+            ),
           )
         ],
       ),
@@ -265,18 +273,27 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         const SizedBox(height: 20),
         Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: cyanColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: cyanColor.withOpacity(0.3),
-                        blurRadius: 10,
-                        spreadRadius: 2)
-                  ]),
-              child: const Icon(Icons.mic, color: Colors.black, size: 28),
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          "Voice & Scan features coming soon in v2.0! 🚀")),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: cyanColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: cyanColor.withOpacity(0.3),
+                          blurRadius: 10,
+                          spreadRadius: 2)
+                    ]),
+                child: const Icon(Icons.mic, color: Colors.black, size: 28),
+              ),
             ),
             const SizedBox(height: 8),
             Text("VOZ",

@@ -4,8 +4,24 @@ import 'package:intl/intl.dart';
 import '../providers/dashboard_provider.dart';
 import '../../domain/entities/transaction_entity.dart';
 
-class HistoryPage extends StatelessWidget {
+class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
+
+  @override
+  State<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends State<HistoryPage> {
+  String _selectedCategory = 'Todos';
+
+  // Mapping simple chips for MVP
+  final List<String> _filterOptions = [
+    'Todos',
+    'Comida',
+    'Transporte',
+    'Compras',
+    'Ocio'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +64,15 @@ class HistoryPage extends StatelessWidget {
           final grouped = <String, List<TransactionEntity>>{};
           final now = DateTime.now();
 
-          for (var t in provider.transactions) {
+          // Apply Filter
+          var displayedTransactions = provider.transactions;
+          if (_selectedCategory != 'Todos') {
+            displayedTransactions = displayedTransactions
+                .where((t) => t.description == _selectedCategory)
+                .toList();
+          }
+
+          for (var t in displayedTransactions) {
             String key;
             final isToday = t.date.year == now.year &&
                 t.date.month == now.month &&
@@ -76,20 +100,28 @@ class HistoryPage extends StatelessWidget {
               // 1. Filtros Horizontales
               SizedBox(
                 height: 60,
-                child: ListView(
+                child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  children: [
-                    _buildFilterChip("Este Mes", true, primaryBlue),
-                    const SizedBox(width: 8),
-                    _buildFilterChip("Categoría", false, Colors.transparent,
-                        icon: Icons.tune),
-                    const SizedBox(width: 8),
-                    _buildFilterChip("Comida", false, Colors.transparent),
-                    const SizedBox(width: 8),
-                    _buildFilterChip("Transporte", false, Colors.transparent),
-                  ],
+                  itemCount: _filterOptions.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final label = _filterOptions[index];
+                    final isSelected = label == _selectedCategory;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedCategory = label;
+                        });
+                      },
+                      child: _buildFilterChip(
+                        label,
+                        isSelected,
+                        primaryBlue,
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -97,7 +129,7 @@ class HistoryPage extends StatelessWidget {
               Expanded(
                 child: grouped.isEmpty
                     ? Center(
-                        child: Text("No hay historial",
+                        child: Text("No hay transacciones",
                             style: TextStyle(color: Colors.grey[600])))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -113,7 +145,7 @@ class HistoryPage extends StatelessWidget {
                               ...transactions.map((t) => _buildTransactionItem(
                                     title: t.description,
                                     subtitle:
-                                        "${DateFormat('h:mm a').format(t.date)} • Categoría", // TODO: Real category name
+                                        "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
                                     amount:
                                         "${t.amount > 0 ? '+' : ''}S/ ${t.amount.toStringAsFixed(2)}",
                                     paymentMethod: "CASH", // Mocked for now
@@ -157,7 +189,7 @@ class HistoryPage extends StatelessWidget {
           ),
           if (isSelected) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16)
+            const Icon(Icons.check, color: Colors.white, size: 16)
           ] else if (icon != null) ...[
             const SizedBox(width: 4),
             Icon(icon, color: Colors.white70, size: 16)

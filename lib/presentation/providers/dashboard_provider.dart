@@ -9,6 +9,7 @@ import '../../domain/usecases/get_account_balance_usecase.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
 
 import '../../domain/usecases/get_transactions_usecase.dart';
+import '../../domain/usecases/get_monthly_budget_usecase.dart';
 
 /// DashboardProvider: Gestiona el estado principal de la aplicación.
 /// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
@@ -17,12 +18,14 @@ class DashboardProvider extends ChangeNotifier {
   final GetBudgetMoodUseCase getBudgetMood;
   final AddTransactionUseCase addTransactionUseCase;
   final GetTransactionsUseCase getTransactionsUseCase;
+  final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
 
   DashboardProvider({
     required this.getAccountBalance,
     required this.getBudgetMood,
     required this.addTransactionUseCase,
     required this.getTransactionsUseCase,
+    required this.getMonthlyBudgetUseCase,
   }) {
     loadData();
   }
@@ -33,7 +36,7 @@ class DashboardProvider extends ChangeNotifier {
   Failure? _failure;
   List<TransactionEntity> _transactions = [];
 
-  double _budgetLimit = 2400.00; // Valor temporal por defecto
+  double _budgetLimit = 2400.00;
 
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
   BudgetMood get budgetMood => _budgetMood;
@@ -65,6 +68,13 @@ class DashboardProvider extends ChangeNotifier {
       (mood) => _budgetMood = mood,
     );
 
+    // Obtener Límite de Presupuesto
+    final budgetResult = await getMonthlyBudgetUseCase(NoParams());
+    budgetResult.fold(
+      (fail) => _failure ??= fail,
+      (budget) => _budgetLimit = budget,
+    );
+
     // Obtener Transacciones
     final transactionsResult = await getTransactionsUseCase(NoParams());
     transactionsResult.fold((fail) => _failure ??= fail, (transactions) {
@@ -83,6 +93,31 @@ class DashboardProvider extends ChangeNotifier {
     _budgetLimit = newLimit;
     notifyListeners();
     // TODO: En una app real, deberíamos persistir este valor aquí (SharedPrefs)
+  }
+
+  /// Obtiene el gasto total por categoría para el mes actual.
+  /// Retorna un mapa: {'Comida': 150.0, 'Transporte': 50.0}
+  Map<String, double> get spendingByCategory {
+    final now = DateTime.now();
+    final expenses = _transactions.where((t) =>
+        t.amount < 0 && t.date.month == now.month && t.date.year == now.year);
+
+    final Map<String, double> result = {};
+    for (var t in expenses) {
+      final category =
+          t.description; // La descripción guarda el nombre de la categoría
+      if (result.containsKey(category)) {
+        result[category] = result[category]! + t.amount.abs();
+      } else {
+        result[category] = t.amount.abs();
+      }
+    }
+    return result;
+  }
+
+  /// Obtiene el total de gastos del mes actual.
+  double get totalMonthlyExpenses {
+    return spendingByCategory.values.fold(0.0, (sum, item) => sum + item);
   }
 
   Future<void> addTransaction(TransactionEntity transaction) async {

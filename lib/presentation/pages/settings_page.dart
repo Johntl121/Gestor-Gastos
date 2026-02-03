@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../data/datasources/transaction_local_data_source.dart';
+import '../../injection_container.dart' as sl;
 import '../providers/dashboard_provider.dart';
+import 'onboarding_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -233,15 +236,27 @@ class SettingsPage extends StatelessWidget {
               width: double.infinity,
               height: 50,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () async {
+                  // Reset "First Time" flag
+                  final dataSource = sl.sl<TransactionLocalDataSource>();
+                  await dataSource.setFirstTime(true);
+
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                          builder: (context) => const OnboardingPage()),
+                      (route) => false,
+                    );
+                  }
+                },
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.redAccent.withOpacity(0.5)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15)),
                   foregroundColor: Colors.redAccent,
                 ),
-                icon: const Icon(Icons.logout),
-                label: const Text("Cerrar Sesión"),
+                icon: const Icon(Icons.restart_alt),
+                label: const Text("Reiniciar App (Demo)"),
               ),
             ),
             const SizedBox(height: 16),

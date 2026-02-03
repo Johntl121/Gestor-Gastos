@@ -2,17 +2,24 @@ import 'injection_container.dart' as di;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'data/datasources/transaction_local_data_source.dart';
 import 'presentation/pages/main_page.dart';
+import 'presentation/pages/onboarding_page.dart';
 import 'presentation/providers/dashboard_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.init();
-  runApp(const MyApp());
+
+  // Check First Time
+  final isFirstTime = di.sl<TransactionLocalDataSource>().isFirstTime();
+
+  runApp(MyApp(isFirstTime: isFirstTime));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isFirstTime;
+  const MyApp({super.key, required this.isFirstTime});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +37,7 @@ class MyApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
-        home: const MainPage(),
+        home: isFirstTime ? const OnboardingPage() : const MainPage(),
       ),
     );
   }

@@ -140,9 +140,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<Either<Failure, double>> getMonthlyBudget() async {
-    // Implementar lógica para obtener presupuesto definido.
-    // Para MVP, retornando valor fijo o obteniendo de configuración futura.
-    return const Right(2000.00); // Presupuesto Mock inicial
+    try {
+      final budget = transactionLocalDataSource.getBudgetLimit();
+      return Right(budget);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
   }
 
   @override

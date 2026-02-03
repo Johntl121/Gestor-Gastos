@@ -4,6 +4,7 @@ import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
+import 'settings_page.dart';
 
 /// HomePage: Pantalla principal de la aplicación.
 /// Muestra el balance general, el estado de ánimo financiero, el progreso del presupuesto
@@ -65,27 +66,36 @@ class HomePage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const CircleAvatar(
-                            radius: 20,
-                            backgroundImage:
-                                NetworkImage('https://i.pravatar.cc/150?img=1'),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text("Bienvenido,",
-                                  style: TextStyle(
-                                      color: Colors.teal, fontSize: 12)),
-                              Text("Alex",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
-                            ],
-                          )
-                        ],
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const SettingsPage()),
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            const CircleAvatar(
+                              radius: 20,
+                              backgroundImage: NetworkImage(
+                                  'https://i.pravatar.cc/150?img=1'),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text("Bienvenido,",
+                                    style: TextStyle(
+                                        color: Colors.teal, fontSize: 12)),
+                                Text("Alex",
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
+                              ],
+                            )
+                          ],
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(8),

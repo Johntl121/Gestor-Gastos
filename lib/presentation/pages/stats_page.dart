@@ -1,5 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/dashboard_provider.dart';
 
 /// StatsPage: Pantalla de Estadísticas.
 /// Muestra un desglose visual de los gastos mediante gráficos y listas detalladas.
@@ -8,176 +10,188 @@ class StatsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Fondo claro suave
-      appBar: AppBar(
-        title: const Text(
-          "Gastos",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today, color: Colors.black),
-            onPressed: () {},
+    return Consumer<DashboardProvider>(builder: (context, provider, child) {
+      final spendingMap = provider.spendingByCategory;
+      final totalSpent = provider.totalMonthlyExpenses;
+
+      // Prepare Chart Data
+      List<PieChartSectionData> chartSections = [];
+      final List<Color> colors = [
+        Colors.cyan,
+        const Color(0xFFFF6B6B),
+        const Color(0xFF009688),
+        Colors.orange,
+        Colors.purple,
+        Colors.blue
+      ];
+
+      if (spendingMap.isEmpty) {
+        chartSections.add(PieChartSectionData(
+            color: Colors.grey.shade300,
+            value: 1,
+            radius: 25,
+            showTitle: false));
+      } else {
+        int colorIndex = 0;
+        spendingMap.forEach((category, amount) {
+          final color = colors[colorIndex % colors.length];
+          chartSections.add(PieChartSectionData(
+            color: color,
+            value: amount,
+            radius: 25,
+            showTitle: false,
+          ));
+          colorIndex++;
+        });
+      }
+
+      // Prepare List Data (Sorted)
+      final sortedEntries = spendingMap.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC), // Fondo claro suave
+        appBar: AppBar(
+          title: const Text(
+            "Gastos",
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // 1. Selector de Periodo
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  _buildPeriodTab("Semana", false),
-                  _buildPeriodTab("Mes", true),
-                  _buildPeriodTab("Año", false),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // 2. Gráfico Circular (Donut Chart)
-            SizedBox(
-              height: 250,
-              child: Stack(
-                children: [
-                  PieChart(
-                    PieChartData(
-                      sectionsSpace: 0,
-                      centerSpaceRadius: 80,
-                      startDegreeOffset: -90,
-                      sections: [
-                        PieChartSectionData(
-                          color: Colors.cyan,
-                          value: 42,
-                          showTitle: false,
-                          radius: 25,
-                        ),
-                        PieChartSectionData(
-                          color: const Color(0xFFFF6B6B), // Rojo Coral
-                          value: 28,
-                          showTitle: false,
-                          radius: 25,
-                        ),
-                        PieChartSectionData(
-                          color: const Color(0xFF009688), // Teal Oscuro
-                          value: 12, // Porción restante mock
-                          showTitle: false,
-                          radius: 25,
-                        ),
-                        // Relleno transparente/vacío si es necesario
-                        PieChartSectionData(
-                            color: Colors.grey.shade300,
-                            value: 18,
-                            showTitle: false,
-                            radius: 25)
-                      ],
-                    ),
-                  ),
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text("GASTADO",
-                            style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.2)),
-                        const SizedBox(height: 5),
-                        const Text("S/ 2,450",
-                            style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1)),
-                        const SizedBox(height: 5),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.arrow_downward,
-                                color: Colors.redAccent, size: 14),
-                            Text("12%",
-                                style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // 3. Cabecera de Mayores Gastos
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text("Mayores Gastos",
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text("Ver todos",
-                    style: TextStyle(
-                        color: Colors.cyan,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14)),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 4. Lista de Gastos
-            // TODO: Conectar con DashboardProvider para datos reales
-            _buildSpendingItem(
-              "Vivienda",
-              "Esencial • 42% del total",
-              "S/ 1,029.00",
-              "En presupuesto",
-              Icons.home,
-              Colors.lightBlueAccent,
-              true,
-              0.42,
-            ),
-            const SizedBox(height: 15),
-            _buildSpendingItem(
-              "Comida y Bebida",
-              "Variable • 28% del total",
-              "S/ 686.00",
-              "+5% sobre promedio",
-              Icons.restaurant,
-              Colors.redAccent.shade100,
-              false,
-              0.28,
-            ),
-            const SizedBox(height: 15),
-            _buildSpendingItem(
-              "Transporte",
-              "Rutina • 15% del total",
-              "S/ 367.50",
-              "En camino",
-              Icons.directions_car,
-              Colors.teal.shade100,
-              true,
-              0.15,
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.calendar_today, color: Colors.black),
+              onPressed: () {},
             ),
           ],
         ),
-      ),
-    );
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // 1. Selector de Periodo
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    _buildPeriodTab("Semana", false),
+                    _buildPeriodTab("Mes", true),
+                    _buildPeriodTab("Año", false),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // 2. Gráfico Circular (Donut Chart)
+              SizedBox(
+                height: 250,
+                child: Stack(
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 0,
+                        centerSpaceRadius: 80,
+                        startDegreeOffset: -90,
+                        sections: chartSections,
+                      ),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text("GASTADO",
+                              style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1.2)),
+                          const SizedBox(height: 5),
+                          Text(
+                              "S/ ${totalSpent > 0 ? totalSpent.toStringAsFixed(2) : '0.00'}",
+                              style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1)),
+                          const SizedBox(height: 5),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.arrow_downward,
+                                  color: Colors.redAccent, size: 14),
+                              Text("Este Mes",
+                                  style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // 3. Cabecera de Mayores Gastos
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: const [
+                  Text("Mayores Gastos",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Ver todos",
+                      style: TextStyle(
+                          color: Colors.cyan,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // 4. Lista de Gastos
+              if (sortedEntries.isEmpty)
+                const Center(
+                    child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text("No hay gastos registrados este mes."),
+                ))
+              else
+                ...List.generate(sortedEntries.length, (index) {
+                  final entry = sortedEntries[index];
+                  final amount = entry.value;
+                  final percentage = totalSpent > 0 ? amount / totalSpent : 0.0;
+                  final color = colors[index % colors.length];
+
+                  return Column(
+                    children: [
+                      _buildSpendingItem(
+                        entry.key, // Title (Category Name)
+                        "${(percentage * 100).toStringAsFixed(1)}% del total", // Subtitle
+                        "S/ ${amount.toStringAsFixed(2)}", // Amount
+                        "Variable", // Status (Mock)
+                        Icons.label, // Icon (Generic)
+                        color, // IconBgColor
+                        true, // isGoodStatus (Mock)
+                        percentage, // Percentage
+                      ),
+                      const SizedBox(height: 15),
+                    ],
+                  );
+                }),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
