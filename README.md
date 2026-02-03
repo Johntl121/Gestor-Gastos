@@ -1,57 +1,133 @@
 # 💰 Gestor de Gastos: Cash vs Digital
 
-> **Una aplicación móvil Offline-First diseñada para cerrar la brecha entre tus finanzas digitales y el dinero en efectivo que llevas en el bolsillo.**
+![Flutter](https://img.shields.io/badge/Flutter-3.0%2B-02569B?logo=flutter)
+![Dart](https://img.shields.io/badge/Dart-3.0%2B-0175C2?logo=dart)
+![Architecture](https://img.shields.io/badge/Architecture-Clean-success)
+![Status](https://img.shields.io/badge/Status-En%20Desarrollo-orange)
+
+> **Tu salud financiera en tu bolsillo. Sin internet, sin nubes, 100% privado.**
+> Una aplicación móvil diseñada para cerrar la brecha entre tus finanzas digitales y el dinero en efectivo, con un feedback emocional único.
 
 ---
 
-## 📋 Descripción del Proyecto
+## 📱 Vistazo Rápido a la Aplicación
 
-A diferencia de las aplicaciones bancarias tradicionales que solo rastrean movimientos digitales, este **Gestor de Gastos** trata al **Efectivo (Cash)** como una cuenta de primera clase. 
+La aplicación cuenta con una interfaz moderna en **Modo Oscuro**, diseñada para ser elegante y funcional.
 
-El objetivo es ofrecer una visión realista de la salud financiera del usuario, funcionando 100% sin internet y proporcionando **feedback emocional** inmediato sobre los hábitos de gasto mediante una interfaz reactiva.
+| 🏠 Home | 📊 Estadísticas | 📜 Historial | ⚙️ Configuración |
+|:---:|:---:|:---:|:---:|
+| Resumen de saldo, estado de ánimo y actividad reciente. | Gráficos de dona interactivos y desglose de gastos. | Lista detallada de transacciones agrupadas por fecha. | Gestión de perfil, presupuesto y preferencias. |
 
-## ✨ Características Clave (MVP)
+---
 
-### 1. 💵 Gestión Dual (Cash vs. Digital)
-Sistema de cuentas híbrido que permite al usuario diferenciar claramente:
-* **Saldo Digital:** Cuentas bancarias, tarjetas, billeteras digitales.
-* **Saldo Físico:** El dinero real en la billetera.
+## ✨ Características Principales
+
+### 1. 💵 Gestión Híbrida (Efectivo y Digital)
+No pierdas de vista el dinero que llevas en la billetera.
+*   **Saldo Unificado:** Vista combinada de tus cuentas bancarias y efectivo físico.
+*   **Entrada Rápida:** Agrega transacciones en segundos con un teclado numérico gigante y categorización intuitiva.
 
 ### 2. 😐 Feedback Emocional (Smart HUD)
-La interfaz cambia su "estado de ánimo" basándose en tu salud financiera del mes:
-* 🟢 **Feliz:** Gastos <= 80% del presupuesto.
-* 🟡 **Neutral/Preocupado:** Gastos entre 80% y 100%.
-* 🔴 **Triste/Alerta:** Gastos > 100% (Presupuesto excedido).
+La interfaz reacciona a tus hábitos de gasto.
+*   🟢 **Feliz:** Si estás gastando responsablemente (dentro del 80% de tu presupuesto).
+*   🟡 **Neutral:** Cuando te acercas al límite (80% - 100%).
+*   🔴 **Alerta:** Si has excedido tu presupuesto mensual.
 
-### 3. 🛡️ Privacidad y Seguridad (Offline First)
-* **Cero Nube:** Todos los datos viven en el dispositivo del usuario usando una base de datos local robusta.
-* **Bloqueo por PIN:** Capa de seguridad para acceder a la aplicación.
+### 3. 📊 Estadísticas Visuales
+Entiende dónde se va tu dinero con un vistazo.
+*   **Gráfico Circular (Donut Chart):** Visualización clara de porcentajes de gasto.
+*   **Top Spending:** Lista de categorías donde más gastas, con alertas visuales si superas el promedio.
 
-### 4. 📊 Análisis
-* Gráficos de pastel por categorías.
-* Diferenciación de gastos fijos (alquiler, servicios) vs. gastos variables.
+### 4. ⚙️ Control Total y Privacidad
+*   **Configuración de Presupuesto:** Define tu límite mensual fácilmente.
+*   **Gestión de Suscripciones:** Recordatorios visuales de tus pagos recurrentes (Netflix, Spotify, etc.).
+*   **Offline First:** Todos los datos se guardan localmente en tu dispositivo usando **SQLite**. Cero rastreadores, cero nube.
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-Este proyecto está construido con tecnologías modernas y escalables:
+Este proyecto utiliza las mejores prácticas de desarrollo en Flutter:
 
-* **Framework:** [Flutter](https://flutter.dev/) (Dart)
-* **Base de Datos:** SQLite (via `sqflite`)
-* **Arquitectura:** Clean Architecture (Separación estricta de responsabilidades).
-* **Gestión de Estado:** (Provider / Riverpod - *A definir en implementación*)
-* **Entorno de Desarrollo:** Google Antigravity (VS Code Fork) con Asistencia de Agentes AI.
+*   **Frontend:** [Flutter](https://flutter.dev/) (Diseño responsivo y animaciones fluidas).
+*   **Arquitectura:** **Clean Architecture** (Capas separadas: Domain, Data, Presentation).
+*   **Gestión de Estado:** `Provider` para una gestión reactiva y eficiente.
+*   **Inyección de Dependencias:** `GetIt` para desacoplar componentes y facilitar testing.
+*   **Persistencia de Datos:** `sqflite` (SQLite) + `shared_preferences`.
+*   **Gráficos:** `fl_chart` para visualizaciones de datos potentes.
+*   **Internacionalización:** Soporte base para localización (actualmente en Español 🇪🇸).
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## 🏗️ Estructura del Proyecto
 
-El código sigue los principios de **Clean Architecture** para asegurar escalabilidad y testabilidad:
+El código está organizado siguiendo estrictamente Clean Architecture para garantizar escalabilidad:
 
 ```text
 lib/
-├── core/           # Utilidades, constantes y manejo de errores globales.
-├── data/           # Implementación de Repositorios y Fuentes de Datos (SQLite).
-├── domain/         # Lógica de Negocio Pura (Entities & UseCases).
-└── presentation/   # UI (Widgets, Pages) y Gestión de Estado.
+├── core/                   # Bloques construcción base (Failures, Usecases, Utils)
+├── data/                   # Capa de Datos
+│   ├── datasources/        # Fuentes locales (SQLite, SharedPreferences)
+│   ├── models/             # Modelos de datos (parseo JSON/Map)
+│   └── repositories/       # Implementación concreta de repositorios
+├── domain/                 # Capa de Dominio (Pura Dart)
+│   ├── entities/           # Reglas de negocio y objetos fundamentales
+│   ├── repositories/       # Contratos (Interfaces abstractas)
+│   └── usecases/           # Casos de uso específicos (AddTransaction, GetBalance...)
+├── presentation/           # Capa de UI
+│   ├── pages/              # Pantallas (Home, Stats, Settings, AddTransaction)
+│   ├── providers/          # ViewModels / State Management
+│   └── widgets/            # Componentes reutilizables
+└── main.dart               # Punto de entrada e inicialización (Dependency Injection)
+```
+
+---
+
+## 🚀 Instalación y Ejecución
+
+Sigue estos pasos para correr el proyecto en tu entorno local:
+
+1.  **Requisitos Previos:**
+    *   Flutter SDK instalado (versión 3.0 o superior).
+    *   VS Code o Android Studio configurado.
+
+2.  **Clonar el Repositorio:**
+    ```bash
+    git clone https://github.com/tu-usuario/gestor-gastos.git
+    cd gestor-gastos
+    ```
+
+3.  **Instalar Dependencias:**
+    ```bash
+    flutter pub get
+    ```
+
+4.  **Generar Código (si es necesario por builds):**
+    ```bash
+    # Opcional, solo si se usan generadores
+    flutter pub run build_runner build
+    ```
+
+5.  **Ejecutar:**
+    ```bash
+    flutter run
+    ```
+
+---
+
+## 📅 Próximos Pasos (Roadmap)
+
+*   [ ] **Billetera:** Gestión detallada de múltiples cuentas y transferencias entre ellas.
+*   [ ] **Exportación:** Exportar reportes en PDF o Excel.
+*   [ ] **Sincronización Opcional:** Backup en Google Drive (cifrado).
+*   [ ] **Metas de Ahorro:** Crear alcancías virtuales para objetivos específicos.
+
+---
+
+## 🤝 Contribución
+
+¡Las contribuciones son bienvenidas! Si tienes ideas para mejorar la gestión financiera offline, no dudes en abrir un **Issue** o enviar un **Pull Request**.
+
+---
+
+Hecho con ❤️ en Dart & Flutter.
