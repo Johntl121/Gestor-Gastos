@@ -113,7 +113,7 @@ class StatsPage extends StatelessWidget {
                                   letterSpacing: 1.2)),
                           const SizedBox(height: 5),
                           Text(
-                              "S/ ${totalSpent > 0 ? totalSpent.toStringAsFixed(2) : '0.00'}",
+                              "${provider.currencySymbol} ${totalSpent > 0 ? totalSpent.toStringAsFixed(2) : '0.00'}",
                               style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 32,
@@ -176,7 +176,7 @@ class StatsPage extends StatelessWidget {
                       _buildSpendingItem(
                         entry.key, // Title (Category Name)
                         "${(percentage * 100).toStringAsFixed(1)}% del total", // Subtitle
-                        "S/ ${amount.toStringAsFixed(2)}", // Amount
+                        "${provider.currencySymbol} ${amount.toStringAsFixed(2)}", // Amount
                         "Variable", // Status (Mock)
                         Icons.label, // Icon (Generic)
                         color, // IconBgColor

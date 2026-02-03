@@ -84,12 +84,12 @@ class HomePage extends StatelessWidget {
                             const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text("Bienvenido,",
+                              children: [
+                                const Text("Bienvenido,",
                                     style: TextStyle(
                                         color: Colors.teal, fontSize: 12)),
-                                Text("Alex",
-                                    style: TextStyle(
+                                Text(provider.userName,
+                                    style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16)),
                               ],
@@ -127,7 +127,7 @@ class HomePage extends StatelessWidget {
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 5),
                   Text(
-                    "S/ ${balance.toStringAsFixed(2)}",
+                    "${provider.currencySymbol} ${balance.toStringAsFixed(2)}",
                     style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
@@ -143,7 +143,8 @@ class HomePage extends StatelessWidget {
                   const SizedBox(height: 30),
 
                   // Tarjeta de Presupuesto
-                  _buildBudgetCard(provider.budgetLimit, monthSpent),
+                  _buildBudgetCard(provider.budgetLimit, monthSpent,
+                      provider.currencySymbol),
 
                   const SizedBox(height: 20),
 
@@ -155,7 +156,8 @@ class HomePage extends StatelessWidget {
                               icon: Icons.arrow_upward,
                               iconColor: Colors.green,
                               backgroundColor: const Color(0xFFE0F2F1),
-                              amount: "+S/ ${todayIncome.toStringAsFixed(2)}",
+                              amount:
+                                  "+${provider.currencySymbol} ${todayIncome.toStringAsFixed(2)}",
                               label: "Ingresos Hoy")),
                       const SizedBox(width: 15),
                       Expanded(
@@ -163,7 +165,8 @@ class HomePage extends StatelessWidget {
                               icon: Icons.arrow_downward,
                               iconColor: Colors.redAccent,
                               backgroundColor: const Color(0xFFFFEBEE),
-                              amount: "-S/ ${todayExpense.toStringAsFixed(2)}",
+                              amount:
+                                  "-${provider.currencySymbol} ${todayExpense.toStringAsFixed(2)}",
                               label: "Gastos Hoy")),
                     ],
                   ),
@@ -200,7 +203,8 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final transaction = provider.transactions[index];
-                            return _buildTransactionItem(transaction);
+                            return _buildTransactionItem(
+                                transaction, provider.currencySymbol);
                           },
                         ),
 
@@ -270,7 +274,7 @@ class HomePage extends StatelessWidget {
   }
 
   /// Construye la tarjeta de progreso del presupuesto mensual
-  Widget _buildBudgetCard(double limit, double spent) {
+  Widget _buildBudgetCard(double limit, double spent, String currency) {
     // Calculamos el progreso (0.0 a 1.0)
     final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
 
@@ -303,13 +307,13 @@ class HomePage extends StatelessWidget {
               RichText(
                 text: TextSpan(children: [
                   TextSpan(
-                      text: "S/ ${spent.toStringAsFixed(2)}",
+                      text: "$currency ${spent.toStringAsFixed(2)}",
                       style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 16)),
                   TextSpan(
-                      text: " / S/ ${limit.toStringAsFixed(2)}",
+                      text: " / $currency ${limit.toStringAsFixed(2)}",
                       style: const TextStyle(color: Colors.grey, fontSize: 14)),
                 ]),
               ),
@@ -381,7 +385,7 @@ class HomePage extends StatelessWidget {
   }
 
   /// Construye un item individual de la lista de transacciones
-  Widget _buildTransactionItem(TransactionEntity transaction) {
+  Widget _buildTransactionItem(TransactionEntity transaction, String currency) {
     final isExpense = transaction.amount < 0;
     final amountColor = isExpense ? Colors.black87 : Colors.teal;
     final icon = isExpense ? Icons.shopping_cart : Icons.account_balance_wallet;
@@ -409,7 +413,7 @@ class HomePage extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         subtitle: Text(DateFormat('MMM d, h:mm a').format(transaction.date),
             style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        trailing: Text("S/ ${transaction.amount.toStringAsFixed(2)}",
+        trailing: Text("$currency ${transaction.amount.toStringAsFixed(2)}",
             style: TextStyle(
                 fontWeight: FontWeight.bold, fontSize: 16, color: amountColor)),
       ),

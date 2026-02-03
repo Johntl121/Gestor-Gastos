@@ -127,4 +127,10 @@ class LocalDatabase {
       INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')
     '''); // Grey
   }
+
+  Future<void> clearAllTables() async {
+    final db = await database;
+    await db.delete('transactions');
+    await db.rawUpdate('UPDATE accounts SET balance = 0.0');
+  }
 }

@@ -18,6 +18,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   bool _isExpense = true;
   int _selectedSourceId = 1; // 1: Cash, 2: Bank, 3: Savings
   int _selectedCategoryId = 3; // Default Shopping
+  String _note = '';
 
   // Data definitions
   final Map<int, String> _sourceNames = {
@@ -57,6 +58,74 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     super.dispose();
   }
 
+  void _showNoteDialog() {
+    final noteController = TextEditingController(text: _note);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E2730),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Añadir Nota",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              TextField(
+                controller: noteController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: "Escribe detalles de la transacción...",
+                  hintStyle: TextStyle(color: Colors.white38),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF00E5FF)),
+                  ),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _note = noteController.text.trim();
+                    });
+                    Navigator.pop(ctx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E5FF),
+                    foregroundColor: Colors.black,
+                  ),
+                  child: const Text("Guardar Nota"),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _saveTransaction() {
     final amountText = _amountController.text;
     if (amountText.isEmpty) return;
@@ -81,6 +150,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       amount: amount,
       date: DateTime.now(),
       description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
+      note: _note.isNotEmpty ? _note : null,
     );
 
     // Call provider
@@ -109,25 +179,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         title: const Text('Entrada Rápida',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: darkSurface,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.camera_alt, color: cyanColor, size: 20),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text(
-                          "Voice & Scan features coming soon in v2.0! 🚀")),
-                );
-              },
-            ),
-          )
-        ],
+        actions: [],
       ),
       body: Column(
         children: [
@@ -140,7 +192,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   const SizedBox(height: 20),
 
                   // 1. AMOUNT HERO & VOICE
-                  _buildHeroInput(cyanColor, darkSurface),
+                  _buildHeroInput(
+                      cyanColor,
+                      darkSurface,
+                      Provider.of<DashboardProvider>(context, listen: false)
+                          .currencySymbol),
 
                   const SizedBox(height: 30),
 
@@ -224,7 +280,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildHeroInput(Color cyanColor, Color darkSurface) {
+  Widget _buildHeroInput(Color cyanColor, Color darkSurface, String currency) {
     return Column(
       children: [
         Row(
@@ -232,7 +288,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'S/ ',
+              '$currency ',
               style: TextStyle(
                 fontSize: 60,
                 fontWeight: FontWeight.bold,
@@ -251,6 +307,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   color: cyanColor,
                   height: 1,
                 ),
+                cursorColor: cyanColor,
                 decoration: InputDecoration(
                   hintText: '0.00',
                   hintStyle: TextStyle(color: cyanColor.withOpacity(0.5)),
@@ -262,46 +319,46 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                 autofocus: true,
               ),
             ),
-            // Cursor line animation mock
-            Container(
-              width: 2,
-              height: 60,
-              color: cyanColor.withOpacity(0.5),
-            )
           ],
         ),
         const SizedBox(height: 20),
-        Column(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Voice Button
             GestureDetector(
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text(
-                          "Voice & Scan features coming soon in v2.0! 🚀")),
+                      content: Text("Voice feature coming soon! 🎙️")),
                 );
               },
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: cyanColor,
+                    color: cyanColor.withOpacity(0.1),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                          color: cyanColor.withOpacity(0.3),
-                          blurRadius: 10,
-                          spreadRadius: 2)
-                    ]),
-                child: const Icon(Icons.mic, color: Colors.black, size: 28),
+                    border: Border.all(color: cyanColor.withOpacity(0.5))),
+                child: Icon(Icons.mic, color: cyanColor, size: 24),
               ),
             ),
-            const SizedBox(height: 8),
-            Text("VOZ",
-                style: TextStyle(
-                    color: cyanColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0))
+            const SizedBox(width: 20),
+            // Camera Button
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Scan feature coming soon! 📸")),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: cyanColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: cyanColor.withOpacity(0.5))),
+                child: Icon(Icons.camera_alt, color: cyanColor, size: 24),
+              ),
+            ),
           ],
         )
       ],
@@ -477,10 +534,17 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           ),
           const SizedBox(height: 16),
           TextButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.edit_note, color: Colors.grey, size: 20),
-              label: const Text("Añadir nota o archivo",
-                  style: TextStyle(color: Colors.grey)))
+              onPressed: _showNoteDialog,
+              icon: Icon(
+                  _note.isEmpty ? Icons.note_add_outlined : Icons.edit_note,
+                  color: _note.isEmpty ? Colors.grey : Colors.cyan,
+                  size: 20),
+              label: Text(
+                  _note.isEmpty
+                      ? "Añadir nota o archivo"
+                      : "Nota: ${_note.split(' ').take(3).join(' ')}...",
+                  style: TextStyle(
+                      color: _note.isEmpty ? Colors.grey : Colors.cyan)))
         ],
       ),
     );

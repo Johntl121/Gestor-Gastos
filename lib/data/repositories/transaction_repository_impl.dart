@@ -31,35 +31,13 @@ class TransactionRepositoryImpl implements TransactionRepository {
       // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
       final db = await localDatabase.database;
 
-      // Obtener categoría para verificar tipo
-      // Nota: Si migramos todo a SharedPrefs, esto también debería cambiar.
-      // Por ahora asumimos que Categories y Accounts siguen en SQLite.
-      final List<Map<String, dynamic>> categoryResult = await db.query(
-        'categories',
-        columns: ['type'],
-        where: 'id = ?',
-        whereArgs: [transaction.categoryId],
-      );
-
-      if (categoryResult.isNotEmpty) {
-        final type = categoryResult.first['type'] as String;
-        double amountToApply = transaction.amount;
-
-        // Si es Gasto, restamos
-        if (type == 'EXPENSE') {
-          amountToApply = -transaction.amount.abs();
-        } else {
-          // Ingreso suma
-          amountToApply = transaction.amount.abs();
-        }
-
-        // Actualizar Cuenta
-        await db.rawUpdate('''
-            UPDATE accounts 
-            SET balance = balance + ? 
-            WHERE id = ?
-          ''', [amountToApply, transaction.accountId]);
-      }
+      // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
+      // Confiamos en el signo de 'transaction.amount' que viene de la UI/Lógica
+      await db.rawUpdate('''
+          UPDATE accounts 
+          SET balance = balance + ? 
+          WHERE id = ?
+        ''', [transaction.amount, transaction.accountId]);
 
       return const Right(null);
     } catch (e) {
@@ -111,22 +89,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
       // Filtrar por mes actual y sumar
       double totalExpenses = 0.0;
 
-      // Nota: Para filtrar correctamente por tipo 'EXPENSE', necesitaríamos
-      // saber el tipo de la categoría de cada transacción.
-      // Leemos categorías de la base de datos local.
-
-      final db = await localDatabase.database;
-      final categoriesMap = await db.query('categories');
-
-      // Crear mapa de categoryId -> type
-      final Map<int, String> categoryTypes = {
-        for (var c in categoriesMap) c['id'] as int: c['type'] as String
-      };
-
       for (var t in transactions) {
+        // Filtramos por fecha y por signo negativo (Gasto real)
         if (t.date.year == now.year && t.date.month == now.month) {
-          final type = categoryTypes[t.categoryId];
-          if (type == 'EXPENSE') {
+          if (t.amount < 0) {
             totalExpenses += t.amount;
           }
         }

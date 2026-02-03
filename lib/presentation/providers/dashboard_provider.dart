@@ -10,6 +10,9 @@ import '../../domain/usecases/get_budget_mood_usecase.dart';
 
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/get_monthly_budget_usecase.dart';
+import '../../data/models/subscription.dart';
+import '../../data/datasources/transaction_local_data_source.dart';
+import '../../injection_container.dart';
 
 /// DashboardProvider: Gestiona el estado principal de la aplicación.
 /// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
@@ -35,6 +38,9 @@ class DashboardProvider extends ChangeNotifier {
   bool _isLoading = false;
   Failure? _failure;
   List<TransactionEntity> _transactions = [];
+  List<Subscription> _subscriptions = [];
+  String _currencySymbol = 'S/';
+  String _userName = 'Usuario';
 
   double _budgetLimit = 2400.00;
 
@@ -44,6 +50,9 @@ class DashboardProvider extends ChangeNotifier {
   Failure? get failure => _failure;
   double get budgetLimit => _budgetLimit;
   List<TransactionEntity> get transactions => _transactions;
+  List<Subscription> get subscriptions => _subscriptions;
+  String get currencySymbol => _currencySymbol;
+  String get userName => _userName;
 
   /// Carga todos los datos necesarios para el Dashboard:
   /// 1. Balance total
@@ -83,6 +92,16 @@ class DashboardProvider extends ChangeNotifier {
           .compareTo(a.date)); // Ordenar descendente (más recientes primero)
     });
 
+    try {
+      _subscriptions =
+          await sl<TransactionLocalDataSource>().getSubscriptions();
+    } catch (e) {
+      debugPrint("Sub load error: $e");
+    }
+
+    _currencySymbol = sl<TransactionLocalDataSource>().getCurrency();
+    _userName = sl<TransactionLocalDataSource>().getUserName() ?? 'Usuario';
+
     _isLoading = false;
     notifyListeners();
   }
@@ -104,8 +123,8 @@ class DashboardProvider extends ChangeNotifier {
 
     final Map<String, double> result = {};
     for (var t in expenses) {
-      final category =
-          t.description; // La descripción guarda el nombre de la categoría
+      // Note: description holds the Category Name.
+      final category = t.description;
       if (result.containsKey(category)) {
         result[category] = result[category]! + t.amount.abs();
       } else {
@@ -138,5 +157,33 @@ class DashboardProvider extends ChangeNotifier {
         loadData();
       },
     );
+  }
+
+  Future<void> addSubscription(Subscription subscription) async {
+    _subscriptions.add(subscription);
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+  }
+
+  Future<void> removeSubscription(String id) async {
+    _subscriptions.removeWhere((s) => s.id == id);
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+  }
+
+  Future<void> setCurrency(String symbol) async {
+    _currencySymbol = symbol;
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().saveCurrency(symbol);
+  }
+
+  void resetState() {
+    _transactions = [];
+    _subscriptions = [];
+    _balanceBreakdown = null;
+    _budgetLimit = 2400.00;
+    _budgetMood = BudgetMood.neutral;
+    _currencySymbol = 'S/';
+    notifyListeners();
   }
 }

@@ -144,10 +144,12 @@ class _HistoryPageState extends State<HistoryPage> {
                               _buildSectionHeader(key),
                               ...transactions.map((t) => _buildTransactionItem(
                                     title: t.description,
-                                    subtitle:
-                                        "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
+                                    subtitle: t.note != null &&
+                                            t.note!.isNotEmpty
+                                        ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
+                                        : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
                                     amount:
-                                        "${t.amount > 0 ? '+' : ''}S/ ${t.amount.toStringAsFixed(2)}",
+                                        "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
                                     paymentMethod: "CASH", // Mocked for now
                                     icon: t.amount > 0
                                         ? Icons.account_balance_wallet

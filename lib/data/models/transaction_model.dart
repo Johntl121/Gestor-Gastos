@@ -8,6 +8,7 @@ class TransactionModel extends TransactionEntity {
     required super.amount,
     required super.date,
     required super.description,
+    super.note,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -18,6 +19,7 @@ class TransactionModel extends TransactionEntity {
       amount: (json['amount'] as num).toDouble(),
       date: DateTime.parse(json['date']),
       description: json['description'],
+      note: json['note'],
     );
   }
 
@@ -29,6 +31,7 @@ class TransactionModel extends TransactionEntity {
       'amount': amount,
       'date': date.toIso8601String(),
       'description': description,
+      'note': note,
     };
   }
 
@@ -40,6 +43,7 @@ class TransactionModel extends TransactionEntity {
       amount: entity.amount,
       date: entity.date,
       description: entity.description,
+      note: entity.note,
     );
   }
 }

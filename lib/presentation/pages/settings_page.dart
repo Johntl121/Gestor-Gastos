@@ -4,9 +4,91 @@ import '../../data/datasources/transaction_local_data_source.dart';
 import '../../injection_container.dart' as sl;
 import '../providers/dashboard_provider.dart';
 import 'onboarding_page.dart';
+import '../../data/models/subscription.dart';
+import '../../data/datasources/local_database.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  void _showAddSubscriptionDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final amountController = TextEditingController();
+    final dayController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E2730),
+          title: const Text("Nueva Suscripción",
+              style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                    labelText: "Nombre (ej. Netflix)",
+                    labelStyle: TextStyle(color: Colors.grey),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey))),
+              ),
+              TextField(
+                controller: amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                    labelText:
+                        "Monto (${Provider.of<DashboardProvider>(context, listen: false).currencySymbol})",
+                    labelStyle: TextStyle(color: Colors.grey),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey))),
+              ),
+              TextField(
+                controller: dayController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                    labelText: "Día de Pago (1-31)",
+                    labelStyle: TextStyle(color: Colors.grey),
+                    enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey))),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Cancelar",
+                    style: TextStyle(color: Colors.grey))),
+            TextButton(
+              onPressed: () {
+                final name = nameController.text;
+                final amount = double.tryParse(amountController.text) ?? 0.0;
+                final day = int.tryParse(dayController.text) ?? 1;
+
+                if (name.isNotEmpty && amount > 0) {
+                  final sub = Subscription(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    name: name,
+                    amount: amount,
+                    renewalDay: day,
+                  );
+                  Provider.of<DashboardProvider>(context, listen: false)
+                      .addSubscription(sub);
+                  Navigator.pop(ctx);
+                }
+              },
+              child:
+                  const Text("Agregar", style: TextStyle(color: Colors.cyan)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showEditBudgetDialog(BuildContext context) {
     final provider = Provider.of<DashboardProvider>(context, listen: false);
@@ -25,8 +107,8 @@ class SettingsPage extends StatelessWidget {
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              prefixText: 'S/ ',
+            decoration: InputDecoration(
+              prefixText: '${provider.currencySymbol} ',
               prefixStyle: TextStyle(color: Colors.cyan),
               enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey)),
@@ -91,11 +173,13 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text("Alex Johnson",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold)),
+            Consumer<DashboardProvider>(builder: (context, provider, child) {
+              return Text(provider.userName,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold));
+            }),
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -156,7 +240,7 @@ class SettingsPage extends StatelessWidget {
                   Consumer<DashboardProvider>(
                     builder: (context, provider, child) {
                       return Text(
-                        "S/ ${provider.budgetLimit.toStringAsFixed(2)}",
+                        "${provider.currencySymbol} ${provider.budgetLimit.toStringAsFixed(2)}",
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 28,
@@ -176,39 +260,56 @@ class SettingsPage extends StatelessWidget {
             const SizedBox(height: 30),
 
             // 4. SUBSCRIPTION MANAGER
-            Align(
-                alignment: Alignment.centerLeft,
-                child: Text("Suscripciones",
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Suscripciones",
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight: FontWeight.bold))),
+                        fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.add_circle, color: Colors.cyan),
+                  onPressed: () => _showAddSubscriptionDialog(context),
+                )
+              ],
+            ),
             const SizedBox(height: 12),
-            _buildSubscriptionItem(
-              name: "Netflix Premium",
-              renewal: "Renueva Sep 12",
-              price: "S/ 45.00",
-              icon: Icons.movie,
-              iconColor: Colors.redAccent,
-              cardColor: cardColor,
-            ),
-            const SizedBox(height: 10),
-            _buildSubscriptionItem(
-              name: "Spotify Familiar",
-              renewal: "Renueva Sep 18",
-              price: "S/ 26.00",
-              icon: Icons.music_note,
-              iconColor: Colors.greenAccent,
-              cardColor: cardColor,
-            ),
-            const SizedBox(height: 10),
-            _buildSubscriptionItem(
-              name: "iCloud+ 2TB",
-              renewal: "Renueva Sep 01",
-              price: "S/ 39.00",
-              icon: Icons.cloud,
-              iconColor: Colors.blueAccent,
-              cardColor: cardColor,
+            Consumer<DashboardProvider>(
+              builder: (context, provider, child) {
+                if (provider.subscriptions.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(16)),
+                    child: const Text(
+                      "No tienes suscripciones activas.\n¡Agrega una para controlar tus gastos fijos!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  );
+                }
+                return Column(
+                  children: provider.subscriptions.map((sub) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _buildSubscriptionItem(
+                        id: sub.id,
+                        name: sub.name,
+                        renewal: "Día ${sub.renewalDay}",
+                        price:
+                            "${provider.currencySymbol} ${sub.amount.toStringAsFixed(2)}",
+                        icon: Icons.subscriptions,
+                        iconColor: Colors.purpleAccent,
+                        cardColor: cardColor,
+                        onDelete: () => provider.removeSubscription(sub.id),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
             ),
 
             const SizedBox(height: 30),
@@ -237,11 +338,16 @@ class SettingsPage extends StatelessWidget {
               height: 50,
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  // Reset "First Time" flag
+                  // Full Reset (Fixes corruption)
                   final dataSource = sl.sl<TransactionLocalDataSource>();
-                  await dataSource.setFirstTime(true);
+                  await dataSource.clearAllData();
+                  await LocalDatabase().clearAllTables();
 
                   if (context.mounted) {
+                    // Reset Provider to clean in-memory state
+                    Provider.of<DashboardProvider>(context, listen: false)
+                        .resetState();
+
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                           builder: (context) => const OnboardingPage()),
@@ -269,12 +375,14 @@ class SettingsPage extends StatelessWidget {
   }
 
   Widget _buildSubscriptionItem({
+    required String id,
     required String name,
     required String renewal,
     required String price,
     required IconData icon,
     required Color iconColor,
     required Color cardColor,
+    required VoidCallback onDelete,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -313,6 +421,14 @@ class SettingsPage extends StatelessWidget {
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 14)),
+          const SizedBox(width: 10),
+          IconButton(
+            icon: Icon(Icons.delete_outline,
+                color: Colors.redAccent.withOpacity(0.7), size: 20),
+            onPressed: onDelete,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          )
         ],
       ),
     );

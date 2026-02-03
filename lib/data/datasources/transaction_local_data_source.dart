@@ -1,15 +1,21 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
+import '../models/subscription.dart';
 
 const String CACHED_TRANSACTIONS_KEY = 'CACHED_TRANSACTIONS';
+const String CACHED_SUBSCRIPTIONS_KEY = 'CACHED_SUBSCRIPTIONS';
 const String KEY_FIRST_TIME = 'FIRST_TIME';
 const String KEY_USER_NAME = 'USER_NAME';
+const String KEY_CURRENCY = 'CURRENCY';
 const String KEY_BUDGET_LIMIT = 'BUDGET_LIMIT';
 
 abstract class TransactionLocalDataSource {
   Future<List<TransactionModel>> getTransactions();
   Future<void> cacheTransactions(List<TransactionModel> transactions);
+
+  Future<List<Subscription>> getSubscriptions();
+  Future<void> cacheSubscriptions(List<Subscription> subscriptions);
 
   bool isFirstTime();
   Future<void> setFirstTime(bool value);
@@ -17,6 +23,9 @@ abstract class TransactionLocalDataSource {
   String? getUserName();
   Future<void> saveBudgetLimit(double amount);
   double getBudgetLimit();
+  Future<void> saveCurrency(String symbol);
+  String getCurrency();
+  Future<void> clearAllData();
 }
 
 class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
@@ -47,6 +56,25 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   }
 
   @override
+  Future<List<Subscription>> getSubscriptions() {
+    final jsonString = sharedPreferences.getString(CACHED_SUBSCRIPTIONS_KEY);
+    if (jsonString != null) {
+      List<dynamic> jsonList = json.decode(jsonString);
+      return Future.value(
+          jsonList.map((j) => Subscription.fromJson(j)).toList());
+    }
+    return Future.value([]);
+  }
+
+  @override
+  Future<void> cacheSubscriptions(List<Subscription> subscriptions) {
+    List<Map<String, dynamic>> jsonList =
+        subscriptions.map((s) => s.toJson()).toList();
+    return sharedPreferences.setString(
+        CACHED_SUBSCRIPTIONS_KEY, json.encode(jsonList));
+  }
+
+  @override
   bool isFirstTime() {
     return sharedPreferences.getBool(KEY_FIRST_TIME) ?? true;
   }
@@ -74,5 +102,20 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   @override
   double getBudgetLimit() {
     return sharedPreferences.getDouble(KEY_BUDGET_LIMIT) ?? 2400.00; // Default
+  }
+
+  @override
+  Future<void> saveCurrency(String symbol) {
+    return sharedPreferences.setString(KEY_CURRENCY, symbol);
+  }
+
+  @override
+  String getCurrency() {
+    return sharedPreferences.getString(KEY_CURRENCY) ?? 'S/';
+  }
+
+  @override
+  Future<void> clearAllData() async {
+    await sharedPreferences.clear();
   }
 }
