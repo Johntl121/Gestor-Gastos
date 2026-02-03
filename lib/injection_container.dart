@@ -1,7 +1,9 @@
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Fuentes de Datos
 import 'data/datasources/local_database.dart';
+import 'data/datasources/transaction_local_data_source.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -17,16 +19,23 @@ final sl = GetIt.instance;
 
 Future<void> init() async {
   //! Externo
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
+
   // Singleton de Base de Datos Local (Ya implementado como singleton, pero bueno tener acceso vía sl)
   sl.registerLazySingleton<LocalDatabase>(() => LocalDatabase());
 
   //! Fuentes de Datos
-  // Accedemos a la db vía la clase LocalDatabase directamente en el repositorio por ahora basado en la implementación
-  // pero si tuviéramos una interfaz DataSource separada, la registraríamos aquí.
+  sl.registerLazySingleton<TransactionLocalDataSource>(
+    () => TransactionLocalDataSourceImpl(sharedPreferences: sl()),
+  );
 
   //! Repositorio
   sl.registerLazySingleton<TransactionRepository>(
-    () => TransactionRepositoryImpl(sl()),
+    () => TransactionRepositoryImpl(
+      localDatabase: sl(),
+      transactionLocalDataSource: sl(),
+    ),
   );
 
   //! Casos de Uso

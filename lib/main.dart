@@ -2,7 +2,7 @@ import 'injection_container.dart' as di;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'presentation/pages/home_page.dart';
+import 'presentation/pages/main_page.dart';
 import 'presentation/providers/dashboard_provider.dart';
 
 void main() async {
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
           ),
           useMaterial3: true,
         ),
-        home: const HomePage(),
+        home: const MainPage(),
       ),
     );
   }

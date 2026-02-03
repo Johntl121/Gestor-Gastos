@@ -17,7 +17,9 @@ class DashboardProvider extends ChangeNotifier {
     required this.getAccountBalance,
     required this.getBudgetMood,
     required this.addTransactionUseCase,
-  });
+  }) {
+    loadData();
+  }
 
   BalanceBreakdown? _balanceBreakdown;
   BudgetMood _budgetMood = BudgetMood.neutral; // Estado por defecto

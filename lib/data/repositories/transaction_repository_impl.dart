@@ -1,66 +1,65 @@
 import 'package:dartz/dartz.dart';
-import 'package:sqflite/sqflite.dart';
 import '../../core/errors/failure.dart';
 import '../../domain/entities/account_entity.dart';
 import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../datasources/local_database.dart';
+import '../datasources/transaction_local_data_source.dart';
 import '../models/transaction_model.dart';
 import '../models/account_model.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final LocalDatabase localDatabase;
+  final TransactionLocalDataSource transactionLocalDataSource;
 
-  TransactionRepositoryImpl(this.localDatabase);
+  TransactionRepositoryImpl({
+    required this.localDatabase,
+    required this.transactionLocalDataSource,
+  });
 
   @override
   Future<Either<Failure, void>> addTransaction(
       TransactionEntity transaction) async {
     try {
-      final db = await localDatabase.database;
+      // 1. Persistir en Shared Preferences (Lista de Transacciones)
+      final transactions = await transactionLocalDataSource.getTransactions();
       final transactionModel = TransactionModel.fromEntity(transaction);
+      transactions.add(transactionModel);
+      await transactionLocalDataSource.cacheTransactions(transactions);
 
-      await db.transaction((txn) async {
-        // 1. Insertar Transacción
-        await txn.insert(
-          'transactions',
-          transactionModel.toJson(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+      // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
+      final db = await localDatabase.database;
 
-        // 2. Actualizar Saldo de Cuenta
-        // Verificar categoría para determinar tipo.
-        // Si es gasto, restamos (hacemos negativo si es positivo)
+      // Obtener categoría para verificar tipo
+      // Nota: Si migramos todo a SP, esto también debería cambiar.
+      // Por ahora asumimos que Categories y Accounts siguen en SQLite.
+      final List<Map<String, dynamic>> categoryResult = await db.query(
+        'categories',
+        columns: ['type'],
+        where: 'id = ?',
+        whereArgs: [transaction.categoryId],
+      );
 
-        // Obtener categoría para verificar tipo
-        final List<Map<String, dynamic>> categoryResult = await txn.query(
-          'categories',
-          columns: ['type'],
-          where: 'id = ?',
-          whereArgs: [transaction.categoryId],
-        );
+      if (categoryResult.isNotEmpty) {
+        final type = categoryResult.first['type'] as String;
+        double amountToApply = transaction.amount;
 
-        if (categoryResult.isNotEmpty) {
-          final type = categoryResult.first['type'] as String;
-          double amountToApply = transaction.amount;
-
-          // Si es Gasto, restamos
-          if (type == 'EXPENSE') {
-            amountToApply = -transaction.amount.abs();
-          } else {
-            // Ingreso suma
-            amountToApply = transaction.amount.abs();
-          }
-
-          // Actualizar Cuenta
-          await txn.rawUpdate('''
-             UPDATE accounts 
-             SET balance = balance + ? 
-             WHERE id = ?
-           ''', [amountToApply, transaction.accountId]);
+        // Si es Gasto, restamos
+        if (type == 'EXPENSE') {
+          amountToApply = -transaction.amount.abs();
+        } else {
+          // Ingreso suma
+          amountToApply = transaction.amount.abs();
         }
-      });
+
+        // Actualizar Cuenta
+        await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance + ? 
+            WHERE id = ?
+          ''', [amountToApply, transaction.accountId]);
+      }
 
       return const Right(null);
     } catch (e) {
@@ -104,23 +103,35 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Either<Failure, double>> getCurrentMonthExpenses() async {
     try {
-      final db = await localDatabase.database;
+      // Obtener transacciones desde SP
+      final transactions = await transactionLocalDataSource.getTransactions();
+
       final now = DateTime.now();
-      final startOfMonth = DateTime(now.year, now.month, 1).toIso8601String();
-      final endOfMonth = DateTime(now.year, now.month + 1, 0).toIso8601String();
 
-      // Consultar suma de transacciones donde el tipo de categoría es GASTO
-      final result = await db.rawQuery('''
-        SELECT SUM(t.amount) as total
-        FROM transactions t
-        JOIN categories c ON t.categoryId = c.id
-        WHERE c.type = 'EXPENSE' 
-        AND t.date BETWEEN ? AND ?
-      ''', [startOfMonth, endOfMonth]);
-
+      // Filtrar por mes actual y sumar
       double totalExpenses = 0.0;
-      if (result.first['total'] != null) {
-        totalExpenses = (result.first['total'] as num).toDouble();
+
+      // Nota: Para filtrar correctamente por tipo 'EXPENSE', necesitaríamos
+      // saber el tipo de la categoría de cada transacción.
+      // Como TransactionModel suele tener categoryId, tendríamos que consultar las categorías.
+      // SIN EMBARGO, para simplificar y cumplir con "cargar datos guardados",
+      // asumiremos que podemos cruzar datos o que el usuario acepta esta limitación por ahora.
+      // O leemos categorías de DB.
+
+      final db = await localDatabase.database;
+      final categoriesMap = await db.query('categories');
+      // Crear mapa de categoryId -> type
+      final Map<int, String> categoryTypes = {
+        for (var c in categoriesMap) c['id'] as int: c['type'] as String
+      };
+
+      for (var t in transactions) {
+        if (t.date.year == now.year && t.date.month == now.month) {
+          final type = categoryTypes[t.categoryId];
+          if (type == 'EXPENSE') {
+            totalExpenses += t.amount;
+          }
+        }
       }
 
       return Right(totalExpenses);
