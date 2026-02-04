@@ -1,6 +1,8 @@
 import 'injection_container.dart' as di;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'data/datasources/transaction_local_data_source.dart';
 import 'presentation/pages/main_page.dart';
@@ -9,6 +11,7 @@ import 'presentation/providers/dashboard_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es', null);
   await di.init();
 
   // Check First Time
@@ -30,6 +33,14 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Gestor de Gastos',
         debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('es', 'ES'),
+        ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.teal,

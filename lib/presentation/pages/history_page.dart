@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../providers/dashboard_provider.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../delegates/transaction_search_delegate.dart';
+import '../../presentation/pages/add_transaction_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -13,6 +16,15 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   String _selectedCategory = 'Todos';
+  bool _isCalendarView = false;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDay = _focusedDay;
+  }
 
   // Mapping simple chips for MVP
   final List<String> _filterOptions = [
@@ -48,6 +60,15 @@ class _HistoryPageState extends State<HistoryPage> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: Icon(_isCalendarView ? Icons.list : Icons.calendar_month,
+                color: Colors.white),
+            onPressed: () {
+              setState(() {
+                _isCalendarView = !_isCalendarView;
+              });
+            },
+          ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 10),
             padding: const EdgeInsets.all(8),
@@ -55,12 +76,27 @@ class _HistoryPageState extends State<HistoryPage> {
               color: Colors.white.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.search, color: Colors.white, size: 24),
+            child: IconButton(
+              icon: const Icon(Icons.search, color: Colors.white, size: 24),
+              onPressed: () {
+                showSearch(
+                  context: context,
+                  delegate: TransactionSearchDelegate(
+                      Provider.of<DashboardProvider>(context, listen: false)
+                          .transactions),
+                );
+              },
+            ),
           )
         ],
       ),
       body: Consumer<DashboardProvider>(
         builder: (context, provider, child) {
+          if (_isCalendarView) {
+            return _buildCalendarView(provider);
+          }
+
+          // ... (Existing List View Logic) ...
           final grouped = <String, List<TransactionEntity>>{};
           final now = DateTime.now();
 
@@ -86,7 +122,7 @@ class _HistoryPageState extends State<HistoryPage> {
             } else if (isYesterday) {
               key = 'AYER';
             } else {
-              key = DateFormat('MMM d').format(t.date).toUpperCase();
+              key = DateFormat('MMM d', 'es').format(t.date).toUpperCase();
             }
 
             if (!grouped.containsKey(key)) {
@@ -142,22 +178,50 @@ class _HistoryPageState extends State<HistoryPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildSectionHeader(key),
-                              ...transactions.map((t) => _buildTransactionItem(
-                                    title: t.description,
-                                    subtitle: t.note != null &&
-                                            t.note!.isNotEmpty
-                                        ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
-                                        : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
-                                    amount:
-                                        "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
-                                    paymentMethod: "CASH", // Mocked for now
-                                    icon: t.amount > 0
-                                        ? Icons.account_balance_wallet
-                                        : Icons.shopping_bag,
-                                    color: t.amount > 0
-                                        ? Colors.teal.shade300
-                                        : Colors.orange.shade300,
-                                    isIncome: t.amount > 0,
+                              ...transactions.map((t) => Dismissible(
+                                    key: Key(t.id.toString()),
+                                    direction: DismissDirection.endToStart,
+                                    background: Container(
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 20),
+                                      color: Colors.redAccent,
+                                      child: const Icon(Icons.delete,
+                                          color: Colors.white),
+                                    ),
+                                    onDismissed: (direction) {
+                                      if (t.id != null) {
+                                        provider.deleteTransaction(t.id!);
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(const SnackBar(
+                                          content:
+                                              Text('Transacción eliminada'),
+                                        ));
+                                      }
+                                    },
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        _showTransactionDetails(
+                                            context, t, provider);
+                                      },
+                                      child: _buildTransactionItem(
+                                        title: t.description,
+                                        subtitle: t.note != null &&
+                                                t.note!.isNotEmpty
+                                            ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
+                                            : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
+                                        amount:
+                                            "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
+                                        paymentMethod: "CASH", // Mocked for now
+                                        icon: t.amount > 0
+                                            ? Icons.account_balance_wallet
+                                            : Icons.shopping_bag,
+                                        color: t.amount > 0
+                                            ? Colors.teal.shade300
+                                            : Colors.orange.shade300,
+                                        isIncome: t.amount > 0,
+                                      ),
+                                    ),
                                   ))
                             ],
                           );
@@ -290,6 +354,279 @@ class _HistoryPageState extends State<HistoryPage> {
                     fontSize: 10,
                     fontWeight: FontWeight.w600),
               ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarView(DashboardProvider provider) {
+    return Column(
+      children: [
+        TableCalendar(
+          firstDay: DateTime.utc(2020, 1, 1),
+          lastDay: DateTime.utc(2030, 12, 31),
+          focusedDay: _focusedDay,
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          onDaySelected: (selectedDay, focusedDay) {
+            setState(() {
+              _selectedDay = selectedDay;
+              _focusedDay = focusedDay;
+            });
+          },
+          eventLoader: (day) {
+            return provider.getTransactionsForDay(day);
+          },
+          calendarStyle: CalendarStyle(
+            defaultTextStyle: const TextStyle(color: Colors.white),
+            weekendTextStyle: const TextStyle(color: Colors.white70),
+            outsideTextStyle: const TextStyle(color: Colors.white24),
+            todayDecoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            selectedDecoration: const BoxDecoration(
+              color: Color(0xFF00E5FF),
+              shape: BoxShape.circle,
+            ),
+            markerDecoration: const BoxDecoration(
+              color: Colors.redAccent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          headerStyle: HeaderStyle(
+            titleCentered: true,
+            formatButtonVisible: false,
+            titleTextStyle: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            leftChevronIcon:
+                const Icon(Icons.chevron_left, color: Colors.white),
+            rightChevronIcon:
+                const Icon(Icons.chevron_right, color: Colors.white),
+          ),
+          calendarBuilders: CalendarBuilders(
+            markerBuilder: (context, date, events) {
+              if (events.isEmpty) return null;
+              final hasExpense = (events as List<TransactionEntity>)
+                  .any((t) => t.amount < 0 && t.amount.abs() > 50);
+              // Simple Dot
+              return Positioned(
+                bottom: 1,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: hasExpense ? Colors.redAccent : Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(color: Colors.white24),
+        // Day Details
+        Expanded(
+          child: _selectedDay == null
+              ? const Center(
+                  child: Text("Selecciona un día",
+                      style: TextStyle(color: Colors.grey)))
+              : Builder(builder: (context) {
+                  final dayTransactions =
+                      provider.getTransactionsForDay(_selectedDay!);
+                  if (dayTransactions.isEmpty) {
+                    return Center(
+                        child: Text(
+                            "Sin movimientos el ${DateFormat('d MMM', 'es').format(_selectedDay!)}",
+                            style: const TextStyle(color: Colors.grey)));
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: dayTransactions.map((t) {
+                      return Dismissible(
+                        key: Key(t.id.toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          color: Colors.redAccent,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (direction) {
+                          if (t.id != null) {
+                            provider.deleteTransaction(t.id!);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Transacción eliminada')));
+                          }
+                        },
+                        child: GestureDetector(
+                          onTap: () {
+                            _showTransactionDetails(context, t, provider);
+                          },
+                          child: _buildTransactionItem(
+                            title: t.description,
+                            subtitle: t.note != null && t.note!.isNotEmpty
+                                ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
+                                : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
+                            amount:
+                                "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
+                            paymentMethod: "CASH",
+                            icon: t.amount > 0
+                                ? Icons.account_balance_wallet
+                                : Icons.shopping_bag,
+                            color: t.amount > 0
+                                ? Colors.teal.shade300
+                                : Colors.orange.shade300,
+                            isIncome: t.amount > 0,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }),
+        )
+      ],
+    );
+  }
+
+  void _showTransactionDetails(
+      BuildContext context, TransactionEntity t, DashboardProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E2730),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: t.amount > 0
+                      ? Colors.teal.withOpacity(0.1)
+                      : Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  t.amount > 0
+                      ? Icons.account_balance_wallet
+                      : Icons.shopping_bag,
+                  color: t.amount > 0 ? Colors.teal : Colors.orange,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
+                style: TextStyle(
+                  color: t.amount > 0
+                      ? const Color(0xFF00E5FF)
+                      : const Color(0xFFFF5252),
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Details List
+              _buildDetailRow(Icons.category, "Categoría", t.description),
+              _buildDetailRow(Icons.calendar_today, "Fecha",
+                  DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date)),
+              if (t.note != null && t.note!.isNotEmpty)
+                _buildDetailRow(Icons.note, "Nota", t.note!),
+
+              const SizedBox(height: 32),
+
+              // Actions
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        // Delete Action
+                        if (t.id != null) {
+                          provider.deleteTransaction(t.id!);
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Transacción eliminada')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.redAccent),
+                      label: const Text("Eliminar",
+                          style: TextStyle(color: Colors.redAccent)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: Colors.redAccent),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        // Edit Action
+                        Navigator.pop(ctx); // Close Sheet
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  AddTransactionPage(transactionToEdit: t)),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, color: Colors.black),
+                      label: const Text("Editar",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E5FF),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.grey, size: 20),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 4),
+              Text(value,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500)),
             ],
           )
         ],

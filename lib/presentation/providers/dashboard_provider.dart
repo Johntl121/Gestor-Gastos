@@ -10,9 +10,13 @@ import '../../domain/usecases/get_budget_mood_usecase.dart';
 
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/get_monthly_budget_usecase.dart';
+import '../../domain/usecases/update_transaction_usecase.dart';
+import '../../domain/usecases/delete_transaction_usecase.dart';
 import '../../data/models/subscription.dart';
 import '../../data/datasources/transaction_local_data_source.dart';
 import '../../injection_container.dart';
+
+enum PeriodType { week, month, year }
 
 /// DashboardProvider: Gestiona el estado principal de la aplicación.
 /// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
@@ -22,6 +26,8 @@ class DashboardProvider extends ChangeNotifier {
   final AddTransactionUseCase addTransactionUseCase;
   final GetTransactionsUseCase getTransactionsUseCase;
   final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
+  final UpdateTransactionUseCase updateTransactionUseCase;
+  final DeleteTransactionUseCase deleteTransactionUseCase;
 
   DashboardProvider({
     required this.getAccountBalance,
@@ -29,6 +35,8 @@ class DashboardProvider extends ChangeNotifier {
     required this.addTransactionUseCase,
     required this.getTransactionsUseCase,
     required this.getMonthlyBudgetUseCase,
+    required this.updateTransactionUseCase,
+    required this.deleteTransactionUseCase,
   }) {
     loadData();
   }
@@ -41,6 +49,8 @@ class DashboardProvider extends ChangeNotifier {
   List<Subscription> _subscriptions = [];
   String _currencySymbol = 'S/';
   String _userName = 'Usuario';
+  DateTime _currentStatsDate = DateTime.now();
+  PeriodType _currentStatsPeriod = PeriodType.month;
 
   double _budgetLimit = 2400.00;
 
@@ -53,6 +63,8 @@ class DashboardProvider extends ChangeNotifier {
   List<Subscription> get subscriptions => _subscriptions;
   String get currencySymbol => _currencySymbol;
   String get userName => _userName;
+  DateTime get currentStatsDate => _currentStatsDate;
+  PeriodType get currentStatsPeriod => _currentStatsPeriod;
 
   /// Carga todos los datos necesarios para el Dashboard:
   /// 1. Balance total
@@ -114,12 +126,46 @@ class DashboardProvider extends ChangeNotifier {
     // TODO: En una app real, deberíamos persistir este valor aquí (SharedPrefs)
   }
 
+  void setStatsMonth(DateTime date) {
+    _currentStatsDate = date;
+    notifyListeners();
+  }
+
+  void setStatsPeriod(PeriodType type) {
+    _currentStatsPeriod = type;
+    notifyListeners();
+  }
+
   /// Obtiene el gasto total por categoría para el mes actual.
   /// Retorna un mapa: {'Comida': 150.0, 'Transporte': 50.0}
   Map<String, double> get spendingByCategory {
-    final now = DateTime.now();
-    final expenses = _transactions.where((t) =>
-        t.amount < 0 && t.date.month == now.month && t.date.year == now.year);
+    final now = _currentStatsDate;
+    final period = _currentStatsPeriod;
+
+    final expenses = _transactions.where((t) {
+      if (t.amount >= 0) return false; // Solo gastos
+
+      if (period == PeriodType.week) {
+        // Week Logic: Monday to Sunday
+        final startOfWeek =
+            now.subtract(Duration(days: now.weekday - 1)); // Monday
+        final endOfWeek = startOfWeek
+            .add(const Duration(days: 6, hours: 23, minutes: 59)); // Sunday
+
+        // Normalize transaction date to same timezone/logic if needed,
+        // but typically simple comparison works if safe.
+        // Let's use Year/Month/Day comparison to avoid time issues.
+        final tDate = t.date;
+        return tDate
+                .isAfter(startOfWeek.subtract(const Duration(seconds: 1))) &&
+            tDate.isBefore(endOfWeek.add(const Duration(seconds: 1)));
+      } else if (period == PeriodType.year) {
+        return t.date.year == now.year;
+      } else {
+        // Month (Default)
+        return t.date.month == now.month && t.date.year == now.year;
+      }
+    });
 
     final Map<String, double> result = {};
     for (var t in expenses) {
@@ -139,6 +185,16 @@ class DashboardProvider extends ChangeNotifier {
     return spendingByCategory.values.fold(0.0, (sum, item) => sum + item);
   }
 
+  /// Get transactions for a specific day (used in HistoryPage Calendar View)
+  List<TransactionEntity> getTransactionsForDay(DateTime day) {
+    return _transactions
+        .where((t) =>
+            t.date.year == day.year &&
+            t.date.month == day.month &&
+            t.date.day == day.day)
+        .toList();
+  }
+
   Future<void> addTransaction(TransactionEntity transaction) async {
     _isLoading = true;
     notifyListeners();
@@ -153,7 +209,45 @@ class DashboardProvider extends ChangeNotifier {
         notifyListeners();
       },
       (_) {
-        // Éxito -> Recargar Datos para actualizar UI
+        loadData();
+      },
+    );
+  }
+
+  Future<void> updateTransaction(TransactionEntity transaction) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final result = await updateTransactionUseCase(
+        UpdateTransactionParams(transaction: transaction));
+
+    result.fold(
+      (fail) {
+        _failure = fail;
+        _isLoading = false;
+        notifyListeners();
+      },
+      (_) {
+        loadData();
+      },
+    );
+  }
+
+  Future<void> deleteTransaction(int id) async {
+    // Optimistic Update
+    _transactions.removeWhere((t) => t.id == id);
+    notifyListeners();
+
+    final result =
+        await deleteTransactionUseCase(DeleteTransactionParams(id: id));
+
+    result.fold(
+      (fail) {
+        _failure = fail;
+        _isLoading = false;
+        notifyListeners();
+      },
+      (_) {
         loadData();
       },
     );

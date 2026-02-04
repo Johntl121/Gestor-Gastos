@@ -10,7 +10,9 @@ import 'settings_page.dart';
 /// Muestra el balance general, el estado de ánimo financiero, el progreso del presupuesto
 /// y las transacciones recientes.
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  final VoidCallback? onSeeAllPressed;
+
+  const HomePage({super.key, this.onSeeAllPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -176,13 +178,17 @@ class HomePage extends StatelessWidget {
                   // Cabecera de Actividad Reciente
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text("Actividad Reciente",
+                    children: [
+                      const Text("Actividad Reciente",
                           style: TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 18)),
-                      Text("Ver todo",
-                          style: TextStyle(
-                              color: Colors.teal, fontWeight: FontWeight.w600)),
+                      GestureDetector(
+                        onTap: onSeeAllPressed,
+                        child: const Text("Ver todo",
+                            style: TextStyle(
+                                color: Colors.teal,
+                                fontWeight: FontWeight.w600)),
+                      ),
                     ],
                   ),
 

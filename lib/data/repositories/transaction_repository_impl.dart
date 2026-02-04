@@ -24,8 +24,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       // 1. Persistir en Shared Preferences (Lista de Transacciones)
       final transactions = await transactionLocalDataSource.getTransactions();
-      final transactionModel = TransactionModel.fromEntity(transaction);
-      transactions.add(transactionModel);
+
+      // Generate ID
+      final newId = DateTime.now().millisecondsSinceEpoch;
+      final transactionWithId = TransactionModel(
+          id: newId,
+          accountId: transaction.accountId,
+          categoryId: transaction.categoryId,
+          amount: transaction.amount,
+          date: transaction.date,
+          description: transaction.description,
+          note: transaction.note);
+
+      transactions.add(transactionWithId);
       await transactionLocalDataSource.cacheTransactions(transactions);
 
       // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
@@ -119,9 +130,92 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       final transactionModels =
           await transactionLocalDataSource.getTransactions();
+
+      // Auto-fixing corrupt data (null IDs)
+      bool needsFix = false;
+      for (int i = 0; i < transactionModels.length; i++) {
+        if (transactionModels[i].id == null) {
+          needsFix = true;
+          // Generate unique ID based on index to avoid collision
+          final fixedId = DateTime.now().millisecondsSinceEpoch + i;
+          transactionModels[i] = TransactionModel(
+              id: fixedId,
+              accountId: transactionModels[i].accountId,
+              categoryId: transactionModels[i].categoryId,
+              amount: transactionModels[i].amount,
+              date: transactionModels[i].date,
+              description: transactionModels[i].description,
+              note: transactionModels[i].note);
+        }
+      }
+
+      if (needsFix) {
+        await transactionLocalDataSource.cacheTransactions(transactionModels);
+      }
+
       // Los modelos (TransactionModel) extienden de la entidad (TransactionEntity),
       // por lo que podemos retornarlos directamente como una lista de entidades.
       return Right(transactionModels);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateTransaction(
+      TransactionEntity transaction) async {
+    try {
+      final transactions = await transactionLocalDataSource.getTransactions();
+      final index = transactions.indexWhere((t) => t.id == transaction.id);
+
+      if (index != -1) {
+        final oldTransaction = transactions[index];
+        final double diff = transaction.amount - oldTransaction.amount;
+
+        // Update list
+        transactions[index] = TransactionModel.fromEntity(transaction);
+        await transactionLocalDataSource.cacheTransactions(transactions);
+
+        // Update Account Balance if amount changed
+        if (diff != 0) {
+          final db = await localDatabase.database;
+          await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance + ? 
+            WHERE id = ?
+          ''', [diff, transaction.accountId]);
+        }
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteTransaction(int id) async {
+    try {
+      final transactions = await transactionLocalDataSource.getTransactions();
+      final index = transactions.indexWhere((t) => t.id == id);
+
+      if (index != -1) {
+        final transactionToDelete = transactions[index];
+
+        // Remove from list
+        transactions.removeAt(index);
+        await transactionLocalDataSource.cacheTransactions(transactions);
+
+        // Restore Account Balance (Subtract the transaction amount)
+        // If it was -50 (expense), we subtract -50 => +50 (refund).
+        // If it was +100 (income), we subtract +100 => -100 (remove income).
+        final db = await localDatabase.database;
+        await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance - ? 
+            WHERE id = ?
+          ''', [transactionToDelete.amount, transactionToDelete.accountId]);
+      }
+      return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
     }

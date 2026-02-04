@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../providers/dashboard_provider.dart';
 
 /// StatsPage: Pantalla de Estadísticas.
@@ -62,7 +63,7 @@ class StatsPage extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.calendar_today, color: Colors.black),
-              onPressed: () {},
+              onPressed: () => _pickMonth(context, provider),
             ),
           ],
         ),
@@ -79,9 +80,18 @@ class StatsPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    _buildPeriodTab("Semana", false),
-                    _buildPeriodTab("Mes", true),
-                    _buildPeriodTab("Año", false),
+                    _buildPeriodTab(
+                        "Semana",
+                        provider.currentStatsPeriod == PeriodType.week,
+                        () => provider.setStatsPeriod(PeriodType.week)),
+                    _buildPeriodTab(
+                        "Mes",
+                        provider.currentStatsPeriod == PeriodType.month,
+                        () => provider.setStatsPeriod(PeriodType.month)),
+                    _buildPeriodTab(
+                        "Año",
+                        provider.currentStatsPeriod == PeriodType.year,
+                        () => provider.setStatsPeriod(PeriodType.year)),
                   ],
                 ),
               ),
@@ -122,11 +132,19 @@ class StatsPage extends StatelessWidget {
                           const SizedBox(height: 5),
                           Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(Icons.arrow_downward,
                                   color: Colors.redAccent, size: 14),
-                              Text("Este Mes",
-                                  style: TextStyle(
+                              Text(
+                                  provider.currentStatsPeriod == PeriodType.week
+                                      ? "ESTA SEMANA"
+                                      : provider.currentStatsPeriod ==
+                                              PeriodType.year
+                                          ? "ESTE AÑO"
+                                          : DateFormat('MMMM yyyy')
+                                              .format(provider.currentStatsDate)
+                                              .toUpperCase(),
+                                  style: const TextStyle(
                                       color: Colors.redAccent,
                                       fontWeight: FontWeight.bold)),
                             ],
@@ -195,28 +213,32 @@ class StatsPage extends StatelessWidget {
   }
 
   /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
-  Widget _buildPeriodTab(String text, bool isSelected) {
+  /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
+  Widget _buildPeriodTab(String text, bool isSelected, VoidCallback onTap) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: isSelected
-            ? BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        spreadRadius: 1)
-                  ])
-            : null,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.black : Colors.grey,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: isSelected
+              ? BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          spreadRadius: 1)
+                    ])
+              : null,
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? Colors.black : Colors.grey,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
@@ -314,5 +336,31 @@ class StatsPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _pickMonth(
+      BuildContext context, DashboardProvider provider) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: provider.currentStatsDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.cyan,
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      provider.setStatsMonth(picked);
+    }
   }
 }

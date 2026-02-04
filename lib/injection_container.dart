@@ -15,6 +15,8 @@ import 'domain/usecases/get_account_balance_usecase.dart';
 import 'domain/usecases/get_budget_mood_usecase.dart';
 import 'domain/usecases/get_transactions_usecase.dart';
 import 'domain/usecases/get_monthly_budget_usecase.dart';
+import 'domain/usecases/update_transaction_usecase.dart';
+import 'domain/usecases/delete_transaction_usecase.dart';
 import 'presentation/providers/dashboard_provider.dart';
 
 final sl = GetIt.instance;
@@ -46,6 +48,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl()));
   sl.registerLazySingleton(() => GetTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => GetMonthlyBudgetUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateTransactionUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteTransactionUseCase(sl()));
 
   //! Proveedores
   sl.registerFactory(
@@ -55,6 +59,8 @@ Future<void> init() async {
       addTransactionUseCase: sl(),
       getTransactionsUseCase: sl(),
       getMonthlyBudgetUseCase: sl(),
+      updateTransactionUseCase: sl(),
+      deleteTransactionUseCase: sl(),
     ),
   );
 }

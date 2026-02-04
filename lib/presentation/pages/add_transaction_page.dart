@@ -5,7 +5,9 @@ import '../../domain/entities/transaction_entity.dart';
 import '../providers/dashboard_provider.dart';
 
 class AddTransactionPage extends StatefulWidget {
-  const AddTransactionPage({super.key});
+  final TransactionEntity? transactionToEdit;
+
+  const AddTransactionPage({super.key, this.transactionToEdit});
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -19,6 +21,19 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   int _selectedSourceId = 1; // 1: Cash, 2: Bank, 3: Savings
   int _selectedCategoryId = 3; // Default Shopping
   String _note = '';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.transactionToEdit != null) {
+      final t = widget.transactionToEdit!;
+      _isExpense = t.amount < 0;
+      _amountController.text = t.amount.abs().toString();
+      _selectedCategoryId = t.categoryId;
+      _selectedSourceId = t.accountId;
+      _note = t.note ?? '';
+    }
+  }
 
   // Data definitions
   final Map<int, String> _sourceNames = {
@@ -143,19 +158,32 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       amount = amount * -1;
     }
 
-    final transaction = TransactionEntity(
-      accountId:
-          _selectedSourceId, // Mapping source to accountId simply for MVP
-      categoryId: _selectedCategoryId,
-      amount: amount,
-      date: DateTime.now(),
-      description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
-      note: _note.isNotEmpty ? _note : null,
-    );
+    final provider = Provider.of<DashboardProvider>(context, listen: false);
 
-    // Call provider
-    Provider.of<DashboardProvider>(context, listen: false)
-        .addTransaction(transaction);
+    if (widget.transactionToEdit != null) {
+      // Update Mode
+      final updatedTransaction = TransactionEntity(
+        id: widget.transactionToEdit!.id, // Keep original ID
+        accountId: _selectedSourceId,
+        categoryId: _selectedCategoryId,
+        amount: amount,
+        date: widget.transactionToEdit!.date, // Keep original date
+        description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
+        note: _note.isNotEmpty ? _note : null,
+      );
+      provider.updateTransaction(updatedTransaction);
+    } else {
+      // Add Mode
+      final transaction = TransactionEntity(
+        accountId: _selectedSourceId,
+        categoryId: _selectedCategoryId,
+        amount: amount,
+        date: DateTime.now(),
+        description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
+        note: _note.isNotEmpty ? _note : null,
+      );
+      provider.addTransaction(transaction);
+    }
 
     Navigator.pop(context);
   }
@@ -176,8 +204,12 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           icon: const Icon(Icons.close, color: Colors.white, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Entrada Rápida',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+            widget.transactionToEdit != null
+                ? 'Editar Transacción'
+                : 'Entrada Rápida',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [],
       ),
@@ -521,10 +553,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Text(
-                    'Guardar',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    widget.transactionToEdit != null ? 'Actualizar' : 'Guardar',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   SizedBox(width: 10),
                   Icon(Icons.arrow_forward, size: 24)
