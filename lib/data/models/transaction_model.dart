@@ -9,18 +9,38 @@ class TransactionModel extends TransactionEntity {
     required super.date,
     required super.description,
     super.note,
+    super.type,
+    super.destinationAccountId,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
+    String description = json['description'] ?? '';
+    TransactionType type = _parseType(json['type']);
+
+    // Legacy Fix: Force Transfer type if description contains "Transferencia", regardless of current type
+    // This allows fixing past transactions that were saved as Expense OR Income.
+    if (type != TransactionType.transfer &&
+        description.toLowerCase().contains('transferencia')) {
+      type = TransactionType.transfer;
+    }
+
     return TransactionModel(
       id: json['id'],
       accountId: json['accountId'],
       categoryId: json['categoryId'],
       amount: (json['amount'] as num).toDouble(),
       date: DateTime.parse(json['date']),
-      description: json['description'],
+      description: description,
       note: json['note'],
+      type: type,
+      destinationAccountId: json['destinationAccountId'],
     );
+  }
+
+  static TransactionType _parseType(String? typeStr) {
+    if (typeStr == 'TRANSFER') return TransactionType.transfer;
+    if (typeStr == 'INCOME') return TransactionType.income;
+    return TransactionType.expense;
   }
 
   Map<String, dynamic> toJson() {
@@ -32,6 +52,8 @@ class TransactionModel extends TransactionEntity {
       'date': date.toIso8601String(),
       'description': description,
       'note': note,
+      'type': type.name.toUpperCase(),
+      'destinationAccountId': destinationAccountId,
     };
   }
 
@@ -44,6 +66,8 @@ class TransactionModel extends TransactionEntity {
       date: entity.date,
       description: entity.description,
       note: entity.note,
+      type: entity.type,
+      destinationAccountId: entity.destinationAccountId,
     );
   }
 }

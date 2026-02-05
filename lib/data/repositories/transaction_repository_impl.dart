@@ -34,7 +34,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
           amount: transaction.amount,
           date: transaction.date,
           description: transaction.description,
-          note: transaction.note);
+          note: transaction.note,
+          type: transaction.type,
+          destinationAccountId: transaction.destinationAccountId);
 
       transactions.add(transactionWithId);
       await transactionLocalDataSource.cacheTransactions(transactions);
@@ -43,12 +45,32 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final db = await localDatabase.database;
 
       // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
-      // Confiamos en el signo de 'transaction.amount' que viene de la UI/Lógica
-      await db.rawUpdate('''
-          UPDATE accounts 
-          SET balance = balance + ? 
-          WHERE id = ?
-        ''', [transaction.amount, transaction.accountId]);
+      if (transaction.type == TransactionType.transfer &&
+          transaction.destinationAccountId != null) {
+        // Transfer Logic: Subtract from Source, Add to Destination
+        // Assumption: 'transaction.amount' is Positive in Transfer UI Logic (User enters 500)
+        // Source (accountId): -500
+        // Dest (destinationAccountId): +500
+
+        await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance - ? 
+            WHERE id = ?
+          ''', [transaction.amount.abs(), transaction.accountId]);
+
+        await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance + ? 
+            WHERE id = ?
+          ''', [transaction.amount.abs(), transaction.destinationAccountId]);
+      } else {
+        // Standard Expense/Income Logic
+        await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance + ? 
+            WHERE id = ?
+          ''', [transaction.amount, transaction.accountId]);
+      }
 
       return const Right(null);
     } catch (e) {
@@ -69,6 +91,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       double total = 0;
       double cash = 0;
       double digital = 0;
+      double savings = 0;
 
       for (var account in accounts) {
         total += account.currentBalance;
@@ -76,6 +99,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
           cash += account.currentBalance;
         } else {
           digital += account.currentBalance;
+          // Check specifically for Savings
+          if (account.name == 'Ahorros' || account.id == 3) {
+            savings = account.currentBalance;
+          }
         }
       }
 
@@ -83,6 +110,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         total: total,
         cash: cash,
         digital: digital,
+        savings: savings,
       ));
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
@@ -131,21 +159,41 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final transactionModels =
           await transactionLocalDataSource.getTransactions();
 
-      // Auto-fixing corrupt data (null IDs)
+      // Auto-fixing corrupt data (null IDs) & Legacy Transfers
       bool needsFix = false;
       for (int i = 0; i < transactionModels.length; i++) {
-        if (transactionModels[i].id == null) {
+        final t = transactionModels[i];
+        bool changed = false;
+
+        int? newId = t.id;
+        TransactionType newType = t.type;
+
+        // Fix ID
+        if (newId == null) {
+          newId = DateTime.now().millisecondsSinceEpoch + i;
+          changed = true;
+        }
+
+        // Fix Type
+        if (newType != TransactionType.transfer &&
+            t.description.toLowerCase().contains('transferencia')) {
+          newType = TransactionType.transfer;
+          changed = true;
+        }
+
+        if (changed) {
           needsFix = true;
-          // Generate unique ID based on index to avoid collision
-          final fixedId = DateTime.now().millisecondsSinceEpoch + i;
           transactionModels[i] = TransactionModel(
-              id: fixedId,
-              accountId: transactionModels[i].accountId,
-              categoryId: transactionModels[i].categoryId,
-              amount: transactionModels[i].amount,
-              date: transactionModels[i].date,
-              description: transactionModels[i].description,
-              note: transactionModels[i].note);
+            id: newId,
+            accountId: t.accountId,
+            categoryId: t.categoryId,
+            amount: t.amount,
+            date: t.date,
+            description: t.description,
+            note: t.note,
+            type: newType,
+            destinationAccountId: t.destinationAccountId,
+          );
         }
       }
 

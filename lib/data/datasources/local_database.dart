@@ -21,7 +21,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 6, // Increment version
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -54,6 +54,48 @@ class LocalDatabase {
             "INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
         await db.rawInsert(
             "INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
+      }
+    }
+
+    if (oldVersion < 3) {
+      // Migración V2 -> V3: Agregar columa 'type' a transactions
+      // We check if column exists first to be safe, or just run ADD COLUMN which is safe in SQLite if done right,
+      // but simplistic approach works.
+      try {
+        await db.execute(
+            "ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'EXPENSE'");
+      } catch (e) {
+        // Column might already exist
+      }
+    }
+
+    if (oldVersion < 4) {
+      // Migración V3 -> V4: Agregar cuenta Ahorros
+      final savings =
+          await db.query('accounts', where: "name = ?", whereArgs: ['Ahorros']);
+      if (savings.isEmpty) {
+        await db.rawInsert(
+            "INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)");
+      }
+    }
+
+    if (oldVersion < 5) {
+      // Migración V4 -> V5: Agregar columna 'destinationAccountId' a transactions
+      try {
+        await db.execute(
+            "ALTER TABLE transactions ADD COLUMN destinationAccountId INTEGER");
+      } catch (e) {
+        // Column might already exist
+      }
+    }
+
+    if (oldVersion < 6) {
+      // Migración V5 -> V6: Asegurar cuenta Ahorros (Fix para nuevos usuarios en V5)
+      final savings =
+          await db.query('accounts', where: "name = ?", whereArgs: ['Ahorros']);
+      if (savings.isEmpty) {
+        await db.rawInsert(
+            "INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)");
       }
     }
   }
@@ -95,6 +137,8 @@ class LocalDatabase {
         amount REAL NOT NULL,
         date TEXT NOT NULL,
         description TEXT,
+        type TEXT DEFAULT 'EXPENSE',
+        destinationAccountId INTEGER,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE CASCADE,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )
@@ -112,6 +156,9 @@ class LocalDatabase {
     await db.rawInsert('''
       INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)
     '''); // Color Azul
+    await db.rawInsert('''
+      INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)
+    '''); // Color Morado
 
     // Categorías Iniciales (Gastos)
     await db.rawInsert('''

@@ -32,6 +32,9 @@ class HomePage extends StatelessWidget {
         double monthSpent = 0;
 
         for (var t in provider.transactions) {
+          // Ignorar transferencias en cálculos de resumen
+          if (t.type == TransactionType.transfer) continue;
+
           // Verificar si la fecha es hoy
           final isToday = t.date.year == now.year &&
               t.date.month == now.month &&
@@ -209,8 +212,7 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final transaction = provider.transactions[index];
-                            return _buildTransactionItem(
-                                transaction, provider.currencySymbol);
+                            return _buildTransactionItem(transaction, provider);
                           },
                         ),
 
@@ -250,7 +252,7 @@ class HomePage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.cyan.withOpacity(0.1),
+            color: Colors.cyan.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 60, color: color),
@@ -286,13 +288,12 @@ class HomePage extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      // ... Resto del código visual
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, 4),
             blurRadius: 10,
           )
@@ -339,8 +340,8 @@ class HomePage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 15),
-          Row(
-            children: const [
+          const Row(
+            children: [
               Icon(Icons.access_time_filled, size: 14, color: Colors.teal),
               SizedBox(width: 5),
               Text("Calculado al día de hoy", // Simplificado
@@ -390,38 +391,109 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  /// Construye un item individual de la lista de transacciones
-  Widget _buildTransactionItem(TransactionEntity transaction, String currency) {
-    final isExpense = transaction.amount < 0;
-    final amountColor = isExpense ? Colors.black87 : Colors.teal;
-    final icon = isExpense ? Icons.shopping_cart : Icons.account_balance_wallet;
-    final color = isExpense ? Colors.orange.shade100 : Colors.green.shade100;
-    final iconColor = isExpense ? Colors.orange : Colors.green;
+  /// Construye un item individual de la lista de transacciones con el Nuevo Estilo
+  Widget _buildTransactionItem(
+      TransactionEntity t, DashboardProvider provider) {
+    // 1. Logic for Transfer & Legacy Fix
+    bool isTransfer = t.type == TransactionType.transfer ||
+        t.description.toLowerCase().contains('transferencia');
 
-    // TODO: Mapear categoryId a iconos y colores reales
+    // 2. Data Preparation
+    String title = t.description;
+    String subtitle = DateFormat('h:mm a').format(t.date);
+    String symbol = provider.currencySymbol;
+    String absAmount = t.amount.abs().toStringAsFixed(2);
 
+    String amountFormatted;
+    Color color;
+    IconData icon;
+    bool isIncome = t.amount > 0;
+
+    if (isTransfer) {
+      final source = provider.getAccountName(t.accountId);
+      final dest = t.destinationAccountId != null
+          ? provider.getAccountName(t.destinationAccountId!)
+          : 'Destino';
+
+      title = t.description.isNotEmpty ? t.description : "Transferencia";
+      subtitle = "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+      amountFormatted = "⇄ $symbol $absAmount";
+      color = const Color(0xFF64B5F6); // Soft Blue
+      icon = Icons.swap_horiz;
+    } else {
+      amountFormatted = "${isIncome ? '+' : '-'} $symbol $absAmount";
+      color = isIncome
+          ? Colors.green // Darker green for readability on white
+          : Colors.redAccent;
+      icon = isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
+
+      if (t.note != null && t.note!.isNotEmpty) {
+        subtitle += " • ${t.note!}";
+      } else {
+        subtitle += " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+      }
+    }
+
+    // 3. Render
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          )
+        ],
       ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
+      child: Row(
+        children: [
+          // Icon Box
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isIncome && !isTransfer)
+                  ? Colors.greenAccent.withValues(alpha: 0.15)
+                  : color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon,
+                color: (isIncome && !isTransfer) ? Colors.greenAccent : color,
+                size: 24),
           ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(transaction.description,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(DateFormat('MMM d, h:mm a').format(transaction.date),
-            style: const TextStyle(color: Colors.grey, fontSize: 12)),
-        trailing: Text("$currency ${transaction.amount.toStringAsFixed(2)}",
+          const SizedBox(width: 16),
+          // Title & Subtitle
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black87),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          // Amount
+          Text(
+            amountFormatted,
             style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: amountColor)),
+                fontWeight: FontWeight.bold, fontSize: 16, color: color),
+          ),
+        ],
       ),
     );
   }

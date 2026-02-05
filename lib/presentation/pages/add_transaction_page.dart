@@ -15,30 +15,43 @@ class AddTransactionPage extends StatefulWidget {
 
 class _AddTransactionPageState extends State<AddTransactionPage> {
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
   // State variables
-  bool _isExpense = true;
+  TransactionType _transactionType = TransactionType.expense;
   int _selectedSourceId = 1; // 1: Cash, 2: Bank, 3: Savings
+  int _selectedDestId = 2; // Default Dest: Bank
   int _selectedCategoryId = 3; // Default Shopping
-  String _note = '';
 
   @override
   void initState() {
     super.initState();
     if (widget.transactionToEdit != null) {
       final t = widget.transactionToEdit!;
-      _isExpense = t.amount < 0;
+      _transactionType = t.amount < 0
+          ? TransactionType.expense
+          : (t.type == TransactionType.transfer
+              ? TransactionType.transfer
+              : TransactionType.income);
+
+      // Override if explicitly transfer in logic
+      if (t.type == TransactionType.transfer ||
+          t.description.toLowerCase().contains('transferencia')) {
+        _transactionType = TransactionType.transfer;
+      }
+
       _amountController.text = t.amount.abs().toString();
       _selectedCategoryId = t.categoryId;
       _selectedSourceId = t.accountId;
-      _note = t.note ?? '';
+      _selectedDestId = t.destinationAccountId ?? 2;
+      _noteController.text = t.note ?? '';
     }
   }
 
   // Data definitions
   final Map<int, String> _sourceNames = {
     1: 'Efectivo',
-    2: 'Banco',
+    2: 'Bancaria',
     3: 'Ahorros',
   };
 
@@ -55,90 +68,33 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       'icon': Icons.directions_car,
       'color': Colors.blue
     },
-    3: {
-      'name': 'Compras',
-      'icon': Icons.shopping_bag,
-      'color': Colors.tealAccent
-    }, // Cyan for Shopping in design
-    4: {'name': 'Ocio', 'icon': Icons.movie, 'color': Colors.purpleAccent},
-    5: {'name': 'Salud', 'icon': Icons.medical_services, 'color': Colors.green},
-    6: {'name': 'Servicios', 'icon': Icons.home, 'color': Colors.amber},
-    7: {'name': 'Regalos', 'icon': Icons.card_giftcard, 'color': Colors.pink},
-    8: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.indigo},
+    3: {'name': 'Compras', 'icon': Icons.shopping_bag, 'color': Colors.cyan},
+    4: {'name': 'Ocio', 'icon': Icons.movie, 'color': Colors.purple},
+    5: {'name': 'Salud', 'icon': Icons.favorite, 'color': Colors.pink},
+    6: {'name': 'Hogar', 'icon': Icons.home, 'color': Colors.brown},
+    7: {'name': 'Educación', 'icon': Icons.school, 'color': Colors.indigo},
+    8: {'name': 'Regalos', 'icon': Icons.card_giftcard, 'color': Colors.red},
+    9: {'name': 'Mascotas', 'icon': Icons.pets, 'color': Colors.amber},
+    10: {'name': 'Servicios', 'icon': Icons.bolt, 'color': Colors.yellow},
+    11: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.grey},
   };
+
+  Color get _activeColor {
+    switch (_transactionType) {
+      case TransactionType.expense:
+        return Colors.redAccent;
+      case TransactionType.transfer:
+        return const Color(0xFF64B5F6); // Soft Blue
+      case TransactionType.income:
+        return Colors.green; // Emerald Green
+    }
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _noteController.dispose();
     super.dispose();
-  }
-
-  void _showNoteDialog() {
-    final noteController = TextEditingController(text: _note);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E2730),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Añadir Nota",
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
-              TextField(
-                controller: noteController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: "Escribe detalles de la transacción...",
-                  hintStyle: TextStyle(color: Colors.white38),
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00E5FF)),
-                  ),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _note = noteController.text.trim();
-                    });
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00E5FF),
-                    foregroundColor: Colors.black,
-                  ),
-                  child: const Text("Guardar Nota"),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   void _saveTransaction() {
@@ -153,36 +109,62 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       return;
     }
 
-    // Apply sign based on type
-    if (_isExpense) {
-      amount = amount * -1;
+    // Validation for Transfer
+    if (_transactionType == TransactionType.transfer &&
+        _selectedSourceId == _selectedDestId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Cuenta de origen y destino no pueden ser iguales')),
+      );
+      return;
     }
 
     final provider = Provider.of<DashboardProvider>(context, listen: false);
+    final note = _noteController.text.trim();
 
-    if (widget.transactionToEdit != null) {
-      // Update Mode
-      final updatedTransaction = TransactionEntity(
-        id: widget.transactionToEdit!.id, // Keep original ID
-        accountId: _selectedSourceId,
-        categoryId: _selectedCategoryId,
+    if (_transactionType == TransactionType.transfer) {
+      // Handle Transfer Logic
+      provider.addTransfer(
         amount: amount,
-        date: widget.transactionToEdit!.date, // Keep original date
-        description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
-        note: _note.isNotEmpty ? _note : null,
+        sourceAccountId: _selectedSourceId,
+        destinationAccountId: _selectedDestId,
+        note: note.isNotEmpty ? note : null,
       );
-      provider.updateTransaction(updatedTransaction);
     } else {
-      // Add Mode
-      final transaction = TransactionEntity(
-        accountId: _selectedSourceId,
-        categoryId: _selectedCategoryId,
-        amount: amount,
-        date: DateTime.now(),
-        description: _categories[_selectedCategoryId]?['name'] ?? 'Transacción',
-        note: _note.isNotEmpty ? _note : null,
-      );
-      provider.addTransaction(transaction);
+      // Handle Expense/Income logic
+      if (_transactionType == TransactionType.expense) {
+        amount = amount * -1;
+      }
+
+      final catName =
+          _categories[_selectedCategoryId]?['name'] ?? 'Transacción';
+
+      if (widget.transactionToEdit != null) {
+        // Update Mode
+        final updatedTransaction = TransactionEntity(
+          id: widget.transactionToEdit!.id,
+          accountId: _selectedSourceId,
+          categoryId: _selectedCategoryId,
+          amount: amount,
+          date: widget.transactionToEdit!.date,
+          description: catName,
+          note: note.isNotEmpty ? note : null,
+          type: _transactionType, // Explicit type update
+        );
+        provider.updateTransaction(updatedTransaction);
+      } else {
+        // Add Mode
+        final transaction = TransactionEntity(
+          accountId: _selectedSourceId,
+          categoryId: _selectedCategoryId,
+          amount: amount,
+          date: DateTime.now(),
+          description: catName,
+          note: note.isNotEmpty ? note : null,
+          type: _transactionType, // Explicit type
+        );
+        provider.addTransaction(transaction);
+      }
     }
 
     Navigator.pop(context);
@@ -190,10 +172,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Colors
     const backgroundColor = Color(0xFF121C22);
-    const cyanColor = Color(0xFF00E5FF); // Vibrant Cyan
-    const darkSurface = Color(0xFF1E2A32); // Slightly lighter for elements
+    const darkSurface = Color(0xFF1E2A32);
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -205,13 +185,10 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-            widget.transactionToEdit != null
-                ? 'Editar Transacción'
-                : 'Entrada Rápida',
+            widget.transactionToEdit != null ? 'Editar' : 'Nueva Transacción',
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        actions: [],
       ),
       body: Column(
         children: [
@@ -221,112 +198,195 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
 
-                  // 1. AMOUNT HERO & VOICE
-                  _buildHeroInput(
-                      cyanColor,
-                      darkSurface,
-                      Provider.of<DashboardProvider>(context, listen: false)
-                          .currencySymbol),
-
-                  const SizedBox(height: 30),
-
-                  // 2. TOGGLE TYPE
+                  // 1. TOGGLE TYPE (Top)
                   Container(
+                    height: 50,
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: darkSurface,
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(25),
                     ),
                     child: Row(
                       children: [
-                        _buildTypeToggle("GASTO", true, cyanColor),
-                        _buildTypeToggle("INGRESO", false, cyanColor),
+                        _buildTypeTab("Gasto", TransactionType.expense),
+                        _buildTypeTab(
+                            "Transferencia", TransactionType.transfer),
+                        _buildTypeTab("Ingreso", TransactionType.income),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 30),
 
-                  // 3. SOURCE CHIPS
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text("CUENTA",
-                        style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      _buildSourceChip(1, cyanColor, darkSurface),
-                      const SizedBox(width: 10),
-                      _buildSourceChip(2, cyanColor, darkSurface),
-                      const SizedBox(width: 10),
-                      _buildSourceChip(3, cyanColor, darkSurface),
-                    ],
-                  ),
+                  // 2. AMOUNT HERO
+                  _buildHeroInput(
+                      Provider.of<DashboardProvider>(context, listen: false)
+                          .currencySymbol),
 
                   const SizedBox(height: 30),
 
-                  // 4. CATEGORY GRID
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text("CATEGORÍA",
-                        style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 16),
-
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 0.8,
+                  // 3. SOURCE / DEST (If Transfer)
+                  if (_transactionType == TransactionType.transfer) ...[
+                    // Origin
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("DESDE (ORIGEN)",
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
                     ),
-                    itemCount: _categories.length,
-                    itemBuilder: (context, index) {
-                      final catId = index + 1;
-                      return _buildCategoryItem(catId, cyanColor, darkSurface);
-                    },
-                  ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildAccountChip(1, isSource: true),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(2, isSource: true),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(3, isSource: true),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 100), // Space for footer
+                    // Destination
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("HACIA (DESTINO)",
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildAccountChip(1, isSource: false),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(2, isSource: false),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(3, isSource: false),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // STANDARD EXPENSE/INCOME
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("CUENTA",
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildAccountChip(1, isSource: true),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(2, isSource: true),
+                          const SizedBox(width: 10),
+                          _buildAccountChip(3, isSource: true),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // 4. CATEGORY GRID
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("CATEGORÍA",
+                          style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1)),
+                    ),
+                    const SizedBox(height: 16),
+
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5, // Cleaner Grid
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.70,
+                      ),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final catId = index + 1;
+                        return _buildCategoryItem(catId, darkSurface);
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
 
-          // FOOTER: SAVE BUTTON
-          _buildFooter(cyanColor),
+          // FOOTER: Note & Save
+          _buildFooter(),
         ],
       ),
     );
   }
 
-  Widget _buildHeroInput(Color cyanColor, Color darkSurface, String currency) {
+  Widget _buildTypeTab(String text, TransactionType type) {
+    final isSelected = _transactionType == type;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _transactionType = type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? _activeColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroInput(String currency) {
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
-              '$currency ',
+              currency,
               style: TextStyle(
-                fontSize: 60,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
-                color: cyanColor,
+                color: _activeColor,
               ),
             ),
+            const SizedBox(width: 8),
             IntrinsicWidth(
               child: TextField(
                 controller: _amountController,
@@ -334,16 +394,16 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 60,
+                  fontSize: 48,
                   fontWeight: FontWeight.bold,
-                  color: cyanColor,
-                  height: 1,
+                  color: _activeColor,
                 ),
-                cursorColor: cyanColor,
+                cursorColor: _activeColor,
                 decoration: InputDecoration(
                   hintText: '0.00',
-                  hintStyle: TextStyle(color: cyanColor.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: _activeColor.withOpacity(0.3)),
                   border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                 ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
@@ -353,231 +413,133 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Voice Button
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("Voice feature coming soon! 🎙️")),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: cyanColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: cyanColor.withOpacity(0.5))),
-                child: Icon(Icons.mic, color: cyanColor, size: 24),
-              ),
-            ),
-            const SizedBox(width: 20),
-            // Camera Button
-            GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Scan feature coming soon! 📸")),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: cyanColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: cyanColor.withOpacity(0.5))),
-                child: Icon(Icons.camera_alt, color: cyanColor, size: 24),
-              ),
-            ),
-          ],
-        )
       ],
     );
   }
 
-  Widget _buildTypeToggle(
-      String text, bool isOptionExpense, Color activeColor) {
-    final isSelected = _isExpense == isOptionExpense;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
+  Widget _buildAccountChip(int id, {required bool isSource}) {
+    final selectedId = isSource ? _selectedSourceId : _selectedDestId;
+    final isSelected = selectedId == id;
+    final color = _activeColor;
+
+    return ChoiceChip(
+      label: Text(_sourceNames[id]!),
+      selected: isSelected,
+      onSelected: (bool selected) {
+        if (selected) {
           setState(() {
-            _isExpense = isOptionExpense;
+            if (isSource) {
+              _selectedSourceId = id;
+            } else {
+              _selectedDestId = id;
+            }
           });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.transparent
-                : Colors
-                    .transparent, // Background handled by parent or custom if needed
-            // For the design, the selected part usually has a background.
-            // Let's approximate the 'SegmentedControl' look
-          ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-                color: isSelected
-                    ? activeColor.withOpacity(0.15)
-                    : Colors.transparent, // Highlight logic
-                borderRadius: BorderRadius.circular(24),
-                border: isSelected
-                    ? Border.all(color: activeColor.withOpacity(0.3))
-                    : null // Optional border
-                ),
-            // Actually, the request said: "Selected State: Dark Cyan Background and Bright White Text"
-            // Let's adhere to that more strictly
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF004D40)
-                    : Colors.transparent, // Dark teal/cyan bg for selected
-                borderRadius: BorderRadius.circular(24),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(
-                text,
-                style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14),
-              ),
-            ),
-          ),
-        ),
+        }
+      },
+      avatar: Icon(_sourceIcons[id],
+          size: 18, color: isSelected ? color : Colors.grey),
+      selectedColor: color.withOpacity(0.2),
+      backgroundColor: Colors.transparent,
+      side: BorderSide(
+        color: isSelected ? color : Colors.grey.withOpacity(0.3),
+        width: 1.5,
       ),
+      labelStyle: TextStyle(
+          color: isSelected ? color : Colors.grey,
+          fontWeight: FontWeight.bold,
+          fontSize: 13),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      showCheckmark: false,
     );
   }
 
-  Widget _buildSourceChip(int id, Color activeColor, Color darkSurface) {
-    final isSelected = _selectedSourceId == id;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedSourceId = id),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor : darkSurface,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Icon(_sourceIcons[id],
-                color: isSelected ? Colors.black : Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              _sourceNames[id]!,
-              style: TextStyle(
-                color: isSelected ? Colors.black : Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryItem(int id, Color activeColor, Color darkSurface) {
+  Widget _buildCategoryItem(int id, Color darkSurface) {
     final isSelected = _selectedCategoryId == id;
     final catData = _categories[id]!;
+    final color = _activeColor;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedCategoryId = id),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: darkSurface,
-                shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(color: activeColor, width: 2)
-                    : null,
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                            color: activeColor.withOpacity(0.4), blurRadius: 8)
-                      ]
-                    : null),
+              color: isSelected ? color.withOpacity(0.2) : darkSurface,
+              shape: BoxShape.circle,
+              border: isSelected ? Border.all(color: color, width: 2) : null,
+            ),
             child: Icon(
               catData['icon'] as IconData,
-              color: catData['color'] as Color,
+              color: isSelected ? color : Colors.grey[400],
               size: 24,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             catData['name'] as String,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-            ),
+            style: TextStyle(
+                color: isSelected ? color : Colors.grey,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           )
         ],
       ),
     );
   }
 
-  Widget _buildFooter(Color mainColor) {
+  Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
-      decoration: BoxDecoration(
-          gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-            const Color(0xFF121C22).withOpacity(0.0),
-            const Color(0xFF121C22),
-          ])),
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E2A32),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Note Field
+          TextField(
+            controller: _noteController,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+                hintText: "Añadir nota...",
+                hintStyle: TextStyle(color: Colors.grey[600]),
+                prefixIcon: const Icon(Icons.edit_note, color: Colors.grey),
+                filled: true,
+                fillColor: const Color(0xFF121C22),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+          ),
+          const SizedBox(height: 20),
+          // Save Button
           SizedBox(
             width: double.infinity,
-            height: 60,
+            height: 55,
             child: ElevatedButton(
               onPressed: _saveTransaction,
               style: ElevatedButton.styleFrom(
-                backgroundColor: mainColor,
-                foregroundColor: Colors.black,
+                backgroundColor: _activeColor,
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                elevation: 0,
+                elevation: 4,
+                shadowColor: _activeColor.withOpacity(0.4),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.transactionToEdit != null ? 'Actualizar' : 'Guardar',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(width: 10),
-                  Icon(Icons.arrow_forward, size: 24)
-                ],
+              child: const Text(
+                'Guardar Transacción',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-              onPressed: _showNoteDialog,
-              icon: Icon(
-                  _note.isEmpty ? Icons.note_add_outlined : Icons.edit_note,
-                  color: _note.isEmpty ? Colors.grey : Colors.cyan,
-                  size: 20),
-              label: Text(
-                  _note.isEmpty
-                      ? "Añadir nota o archivo"
-                      : "Nota: ${_note.split(' ').take(3).join(' ')}...",
-                  style: TextStyle(
-                      color: _note.isEmpty ? Colors.grey : Colors.cyan)))
         ],
       ),
     );

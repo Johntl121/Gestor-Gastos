@@ -55,6 +55,10 @@ class DashboardProvider extends ChangeNotifier {
   double _budgetLimit = 2400.00;
 
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
+  double get cashBalance => _balanceBreakdown?.cash ?? 0.0;
+  double get bankBalance => _balanceBreakdown?.digital ?? 0.0;
+  double get savingsBalance => _balanceBreakdown?.savings ?? 0.0;
+
   BudgetMood get budgetMood => _budgetMood;
   bool get isLoading => _isLoading;
   Failure? get failure => _failure;
@@ -144,6 +148,8 @@ class DashboardProvider extends ChangeNotifier {
 
     final expenses = _transactions.where((t) {
       if (t.amount >= 0) return false; // Solo gastos
+      if (t.type == TransactionType.transfer)
+        return false; // Ignorar transferencias
 
       if (period == PeriodType.week) {
         // Week Logic: Monday to Sunday
@@ -183,6 +189,23 @@ class DashboardProvider extends ChangeNotifier {
   /// Obtiene el total de gastos del mes actual.
   double get totalMonthlyExpenses {
     return spendingByCategory.values.fold(0.0, (sum, item) => sum + item);
+  }
+
+  double get totalSpent {
+    return _transactions
+        .where((t) => t.amount < 0) // Solo salidas
+        .where((t) => t.type != TransactionType.transfer)
+        .where((t) => !t.description
+            .toLowerCase()
+            .contains('transferencia')) // Doble chequeo
+        .fold(0.0, (sum, item) => sum + item.amount.abs());
+  }
+
+  double get totalIncome {
+    return _transactions
+        .where((t) => t.amount > 0)
+        .where((t) => t.type != TransactionType.transfer)
+        .fold(0.0, (sum, item) => sum + item.amount);
   }
 
   /// Get transactions for a specific day (used in HistoryPage Calendar View)
@@ -231,6 +254,56 @@ class DashboardProvider extends ChangeNotifier {
         loadData();
       },
     );
+  }
+
+  Future<void> addTransfer({
+    required double amount,
+    required int sourceAccountId,
+    required int destinationAccountId,
+    String? note,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    // Create Single Transfer Transaction
+    final transaction = TransactionEntity(
+      accountId: sourceAccountId,
+      categoryId: 8, // System ID for Transfers
+      amount: amount.abs(), // Stored as positive per request
+      date: DateTime.now(),
+      description: "Transferencia",
+      note: note,
+      type: TransactionType.transfer,
+      destinationAccountId: destinationAccountId,
+    );
+
+    final result = await addTransactionUseCase(
+        AddTransactionParams(transaction: transaction));
+
+    result.fold(
+      (fail) {
+        _failure = fail;
+        _isLoading = false;
+        notifyListeners();
+      },
+      (_) {
+        loadData();
+      },
+    );
+  }
+
+  String getAccountName(int id) {
+    // Basic Map based on established IDs
+    switch (id) {
+      case 1:
+        return 'Efectivo';
+      case 2:
+        return 'Bancaria';
+      case 3:
+        return 'Ahorros';
+      default:
+        return 'Cuenta $id';
+    }
   }
 
   Future<void> deleteTransaction(int id) async {

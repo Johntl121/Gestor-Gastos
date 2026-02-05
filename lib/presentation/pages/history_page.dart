@@ -204,23 +204,78 @@ class _HistoryPageState extends State<HistoryPage> {
                                         _showTransactionDetails(
                                             context, t, provider);
                                       },
-                                      child: _buildTransactionItem(
-                                        title: t.description,
-                                        subtitle: t.note != null &&
-                                                t.note!.isNotEmpty
-                                            ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
-                                            : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
-                                        amount:
-                                            "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
-                                        paymentMethod: "CASH", // Mocked for now
-                                        icon: t.amount > 0
-                                            ? Icons.account_balance_wallet
-                                            : Icons.shopping_bag,
-                                        color: t.amount > 0
-                                            ? Colors.teal.shade300
-                                            : Colors.orange.shade300,
-                                        isIncome: t.amount > 0,
-                                      ),
+                                      child: Builder(builder: (context) {
+                                        // Forced Visual Fix for legacy data
+                                        bool isTransfer = t.type ==
+                                                TransactionType.transfer ||
+                                            t.description
+                                                .toLowerCase()
+                                                .contains('transferencia');
+
+                                        String title = t.description;
+                                        String subtitle =
+                                            DateFormat('h:mm a').format(t.date);
+
+                                        // Amount & Color Formatting
+                                        bool isIncome = t.amount > 0;
+                                        String symbol = provider.currencySymbol;
+                                        String absAmount =
+                                            t.amount.abs().toStringAsFixed(2);
+
+                                        String amount;
+                                        Color color;
+                                        IconData icon;
+
+                                        if (isTransfer) {
+                                          final source = provider
+                                              .getAccountName(t.accountId);
+                                          final dest =
+                                              t.destinationAccountId != null
+                                                  ? provider.getAccountName(
+                                                      t.destinationAccountId!)
+                                                  : 'Destino';
+
+                                          title = t.description.isNotEmpty
+                                              ? t.description
+                                              : "Transferencia";
+                                          subtitle =
+                                              "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+                                          amount = "⇄ $symbol $absAmount";
+                                          color = const Color(0xFF64B5F6);
+                                          icon = Icons.swap_horiz;
+                                        } else {
+                                          amount =
+                                              "${isIncome ? '+' : '-'} $symbol $absAmount";
+                                          color = isIncome
+                                              ? Colors.greenAccent
+                                              : Colors.redAccent;
+                                          icon = isIncome
+                                              ? Icons.account_balance_wallet
+                                              : Icons.shopping_bag;
+
+                                          if (t.note != null &&
+                                              t.note!.isNotEmpty) {
+                                            subtitle += " • ${t.note!}";
+                                          } else {
+                                            subtitle +=
+                                                " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+                                          }
+                                        }
+
+                                        return _buildTransactionItem(
+                                          title: title,
+                                          subtitle: subtitle,
+                                          amount: amount,
+                                          paymentMethod: "CASH",
+                                          icon: icon,
+                                          color: color,
+                                          isIncome: isIncome,
+                                          type: isTransfer
+                                              ? TransactionType.transfer
+                                              : t.type,
+                                        );
+                                      }),
                                     ),
                                   ))
                             ],
@@ -287,6 +342,7 @@ class _HistoryPageState extends State<HistoryPage> {
     required IconData icon,
     required Color color,
     required bool isIncome,
+    TransactionType type = TransactionType.expense,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -303,8 +359,7 @@ class _HistoryPageState extends State<HistoryPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFF1E2A32), // Dark card-like background for icon
+              color: color.withOpacity(0.15), // Dynamic background opacity
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -339,12 +394,7 @@ class _HistoryPageState extends State<HistoryPage> {
               Text(
                 amount,
                 style: TextStyle(
-                    color: isIncome
-                        ? const Color(0xFF00E5FF)
-                        : const Color(
-                            0xFFFF5252), // Cyan for income, Red for expense
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16),
+                    color: color, fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 4),
               Text(
@@ -387,7 +437,7 @@ class _HistoryPageState extends State<HistoryPage> {
               shape: BoxShape.circle,
             ),
             selectedDecoration: const BoxDecoration(
-              color: Color(0xFF00E5FF),
+              color: const Color(0xFF64B5F6),
               shape: BoxShape.circle,
             ),
             markerDecoration: const BoxDecoration(
@@ -465,22 +515,74 @@ class _HistoryPageState extends State<HistoryPage> {
                           onTap: () {
                             _showTransactionDetails(context, t, provider);
                           },
-                          child: _buildTransactionItem(
-                            title: t.description,
-                            subtitle: t.note != null && t.note!.isNotEmpty
-                                ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
-                                : "${DateFormat('h:mm a').format(t.date)} • ${t.amount < 0 ? 'Gasto' : 'Ingreso'}",
-                            amount:
-                                "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
-                            paymentMethod: "CASH",
-                            icon: t.amount > 0
-                                ? Icons.account_balance_wallet
-                                : Icons.shopping_bag,
-                            color: t.amount > 0
-                                ? Colors.teal.shade300
-                                : Colors.orange.shade300,
-                            isIncome: t.amount > 0,
-                          ),
+                          child: Builder(builder: (context) {
+                            bool isTransfer =
+                                t.type == TransactionType.transfer ||
+                                    t.description
+                                        .toLowerCase()
+                                        .contains('transferencia');
+
+                            // Amount & Color Formatting
+                            bool isIncome = t.amount > 0;
+                            String title = t.description;
+                            String subtitle =
+                                DateFormat('h:mm a').format(t.date);
+                            String symbol = provider.currencySymbol;
+                            String absAmount =
+                                t.amount.abs().toStringAsFixed(2);
+
+                            String amount;
+                            Color color;
+                            IconData icon;
+
+                            if (isTransfer) {
+                              final source =
+                                  provider.getAccountName(t.accountId);
+                              final dest = t.destinationAccountId != null
+                                  ? provider
+                                      .getAccountName(t.destinationAccountId!)
+                                  : 'Destino';
+
+                              title = t.description.isNotEmpty
+                                  ? t.description
+                                  : "Transferencia";
+                              subtitle =
+                                  "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+                              amount = "⇄ $symbol $absAmount";
+                              color = const Color(0xFF64B5F6);
+                              icon = Icons.swap_horiz;
+                            } else {
+                              amount =
+                                  "${isIncome ? '+' : '-'} $symbol $absAmount";
+                              color = isIncome
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent;
+                              icon = isIncome
+                                  ? Icons.account_balance_wallet
+                                  : Icons.shopping_bag;
+
+                              if (t.note != null && t.note!.isNotEmpty) {
+                                subtitle += " • ${t.note!}";
+                              } else {
+                                subtitle +=
+                                    " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+                              }
+                            }
+
+                            return _buildTransactionItem(
+                              title: title,
+                              subtitle: subtitle,
+                              amount: amount,
+                              paymentMethod: "CASH",
+                              icon: icon,
+                              color: color,
+                              isIncome: isIncome,
+                              type: isTransfer
+                                  ? TransactionType.transfer
+                                  : t.type,
+                            );
+                          }),
                         ),
                       );
                     }).toList(),
@@ -500,6 +602,25 @@ class _HistoryPageState extends State<HistoryPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        bool isTransfer = t.type == TransactionType.transfer ||
+            t.description.toLowerCase().contains('transferencia');
+
+        Color finalColor;
+        String formattedAmount;
+        String symbol = provider.currencySymbol;
+        String absAmount = t.amount.abs().toStringAsFixed(2);
+
+        if (isTransfer) {
+          finalColor = const Color(0xFF64B5F6);
+          formattedAmount = "⇄ $symbol $absAmount";
+        } else if (t.amount > 0) {
+          finalColor = Colors.greenAccent;
+          formattedAmount = "+ $symbol $absAmount";
+        } else {
+          finalColor = Colors.redAccent;
+          formattedAmount = "- $symbol $absAmount";
+        }
+
         return Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -509,26 +630,24 @@ class _HistoryPageState extends State<HistoryPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: t.amount > 0
-                      ? Colors.teal.withOpacity(0.1)
-                      : Colors.orange.withOpacity(0.1),
+                  color: finalColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  t.amount > 0
-                      ? Icons.account_balance_wallet
-                      : Icons.shopping_bag,
-                  color: t.amount > 0 ? Colors.teal : Colors.orange,
+                  isTransfer
+                      ? Icons.swap_horiz
+                      : (t.amount > 0
+                          ? Icons.account_balance_wallet
+                          : Icons.shopping_bag),
+                  color: finalColor,
                   size: 32,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                "${t.amount > 0 ? '+' : ''}${provider.currencySymbol} ${t.amount.toStringAsFixed(2)}",
+                formattedAmount,
                 style: TextStyle(
-                  color: t.amount > 0
-                      ? const Color(0xFF00E5FF)
-                      : const Color(0xFFFF5252),
+                  color: finalColor,
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
@@ -536,7 +655,11 @@ class _HistoryPageState extends State<HistoryPage> {
               const SizedBox(height: 24),
 
               // Details List
-              _buildDetailRow(Icons.category, "Categoría", t.description),
+              if (isTransfer)
+                _buildDetailRow(Icons.swap_horiz, "Flujo",
+                    "De ${provider.getAccountName(t.accountId)} hacia ${t.destinationAccountId != null ? provider.getAccountName(t.destinationAccountId!) : 'Destino'}")
+              else
+                _buildDetailRow(Icons.category, "Categoría", t.description),
               _buildDetailRow(Icons.calendar_today, "Fecha",
                   DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date)),
               if (t.note != null && t.note!.isNotEmpty)
@@ -591,7 +714,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               color: Colors.black,
                               fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00E5FF),
+                        backgroundColor: const Color(0xFF64B5F6),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),

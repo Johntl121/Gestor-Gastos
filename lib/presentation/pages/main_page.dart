@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'add_transaction_page.dart';
-import 'settings_page.dart';
 import 'stats_page.dart';
 import 'history_page.dart';
+import 'wallet_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -19,7 +19,7 @@ class _MainPageState extends State<MainPage> {
         HomePage(onSeeAllPressed: () => _onItemTapped(2)),
         const StatsPage(),
         const HistoryPage(),
-        const SettingsPage(),
+        const WalletPage(),
       ];
 
   void _onItemTapped(int index) {
@@ -57,8 +57,8 @@ class _MainPageState extends State<MainPage> {
             _buildNavItem(Icons.home_filled, 0),
             _buildNavItem(Icons.bar_chart, 1),
             const SizedBox(width: 48), // Space for FAB
-            _buildNavItem(Icons.account_balance_wallet, 2),
-            _buildNavItem(Icons.person, 3),
+            _buildNavItem(Icons.history, 2),
+            _buildNavItem(Icons.account_balance_wallet_rounded, 3),
           ],
         ),
       ),
