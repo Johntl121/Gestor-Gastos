@@ -15,7 +15,162 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  String _selectedCategory = 'Todos';
+  // Config: Filter Item Structure
+  final List<Map<String, dynamic>> _filters = [
+    {'label': 'Todos', 'type': 'all', 'value': null, 'color': Colors.blueGrey},
+    {
+      'label': 'Gastos',
+      'type': 'type',
+      'value': TransactionType.expense,
+      'color': Colors.redAccent
+    },
+    {
+      'label': 'Ingresos',
+      'type': 'type',
+      'value': TransactionType.income,
+      'color': Colors.greenAccent
+    },
+    {'label': 'Efectivo', 'type': 'account', 'value': 1, 'color': Colors.amber},
+    {
+      'label': 'Banco',
+      'type': 'account',
+      'value': 2,
+      'color': Colors.blueAccent
+    },
+    {
+      'label': '|',
+      'type': 'separator',
+      'value': null,
+      'color': Colors.grey
+    }, // Visual Separator
+    // Expanded Categories
+    {
+      'label': 'Comida',
+      'type': 'category',
+      'value': 'Comida',
+      'color': Colors.orange
+    },
+    {
+      'label': 'Mercado',
+      'type': 'category',
+      'value': 'Mercado',
+      'color': Colors.lightGreen
+    },
+    {
+      'label': 'Vivienda',
+      'type': 'category',
+      'value': 'Vivienda',
+      'color': Colors.blueGrey
+    },
+    {
+      'label': 'Servicios',
+      'type': 'category',
+      'value': 'Servicios',
+      'color': Colors.amber.shade700
+    },
+    {
+      'label': 'Transporte',
+      'type': 'category',
+      'value': 'Transporte',
+      'color': Colors.blue
+    },
+    {
+      'label': 'Vehículo',
+      'type': 'category',
+      'value': 'Vehículo',
+      'color': Colors.redAccent
+    },
+    {
+      'label': 'Compras',
+      'type': 'category',
+      'value': 'Compras',
+      'color': Colors.pink
+    },
+    {
+      'label': 'Cuidado',
+      'type': 'category',
+      'value': 'Cuidado',
+      'color': Colors.purple
+    },
+    {
+      'label': 'Suscripciones',
+      'type': 'category',
+      'value': 'Suscripciones',
+      'color': Colors.red
+    },
+    {
+      'label': 'Salud',
+      'type': 'category',
+      'value': 'Salud',
+      'color': Colors.teal
+    },
+    {
+      'label': 'Deportes',
+      'type': 'category',
+      'value': 'Deportes',
+      'color': Colors.green
+    },
+    {
+      'label': 'Entretenimiento',
+      'type': 'category',
+      'value': 'Entretenimiento',
+      'color': Colors.indigo
+    },
+    {
+      'label': 'Viajes',
+      'type': 'category',
+      'value': 'Viajes',
+      'color': Colors.cyan
+    },
+    {
+      'label': 'Educación',
+      'type': 'category',
+      'value': 'Educación',
+      'color': Colors.brown
+    },
+    {
+      'label': 'Tecnología',
+      'type': 'category',
+      'value': 'Tecnología',
+      'color': Colors.grey
+    },
+    {
+      'label': 'Deudas',
+      'type': 'category',
+      'value': 'Deudas',
+      'color': Colors.deepOrange
+    },
+    {
+      'label': 'Ahorro',
+      'type': 'category',
+      'value': 'Ahorro',
+      'color': Colors.lime
+    },
+    {
+      'label': 'Sueldo',
+      'type': 'category',
+      'value': 'Sueldo',
+      'color': Colors.green.shade800
+    },
+    {
+      'label': 'Negocio',
+      'type': 'category',
+      'value': 'Negocio',
+      'color': Colors.blue.shade900
+    },
+    {
+      'label': 'Otros',
+      'type': 'category',
+      'value': 'Otros',
+      'color': Colors.blueGrey
+    },
+  ];
+
+  Map<String, dynamic> _selectedFilter = {
+    'label': 'Todos',
+    'type': 'all'
+  }; // Default
+
   bool _isCalendarView = false;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -26,285 +181,342 @@ class _HistoryPageState extends State<HistoryPage> {
     _selectedDay = _focusedDay;
   }
 
-  // Mapping simple chips for MVP
-  final List<String> _filterOptions = [
-    'Todos',
-    'Comida',
-    'Transporte',
-    'Compras',
-    'Ocio'
-  ];
-
   @override
   Widget build(BuildContext context) {
-    // Definición de colores oscuros
-    const backgroundColor = Color(0xFF121C22);
-    const primaryBlue = Color(0xFF007BFF);
+    return Consumer<DashboardProvider>(
+      builder: (context, provider, child) {
+        final isDarkMode = provider.isDarkMode;
+        final backgroundColor =
+            isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
+        final textColor = isDarkMode ? Colors.white : Colors.black;
+        final iconColor = isDarkMode ? Colors.white : Colors.black54;
 
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        leading: Container(
-          margin: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.person, color: Colors.white, size: 20),
-        ),
-        title: const Text(
-          "Historial",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(_isCalendarView ? Icons.list : Icons.calendar_month,
-                color: Colors.white),
-            onPressed: () {
-              setState(() {
-                _isCalendarView = !_isCalendarView;
-              });
-            },
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              shape: BoxShape.circle,
+        return Scaffold(
+          backgroundColor: backgroundColor,
+          appBar: AppBar(
+            backgroundColor: backgroundColor,
+            elevation: 0,
+            centerTitle: true,
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person, color: iconColor, size: 20),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.search, color: Colors.white, size: 24),
-              onPressed: () {
-                showSearch(
-                  context: context,
-                  delegate: TransactionSearchDelegate(
-                      Provider.of<DashboardProvider>(context, listen: false)
-                          .transactions),
-                );
-              },
+            title: Text(
+              "Historial",
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
-          )
-        ],
-      ),
-      body: Consumer<DashboardProvider>(
-        builder: (context, provider, child) {
-          if (_isCalendarView) {
-            return _buildCalendarView(provider);
-          }
-
-          // ... (Existing List View Logic) ...
-          final grouped = <String, List<TransactionEntity>>{};
-          final now = DateTime.now();
-
-          // Apply Filter
-          var displayedTransactions = provider.transactions;
-          if (_selectedCategory != 'Todos') {
-            displayedTransactions = displayedTransactions
-                .where((t) => t.description == _selectedCategory)
-                .toList();
-          }
-
-          for (var t in displayedTransactions) {
-            String key;
-            final isToday = t.date.year == now.year &&
-                t.date.month == now.month &&
-                t.date.day == now.day;
-            final isYesterday = t.date.year == now.year &&
-                t.date.month == now.month &&
-                t.date.day == now.day - 1;
-
-            if (isToday) {
-              key = 'HOY';
-            } else if (isYesterday) {
-              key = 'AYER';
-            } else {
-              key = DateFormat('MMM d', 'es').format(t.date).toUpperCase();
-            }
-
-            if (!grouped.containsKey(key)) {
-              grouped[key] = [];
-            }
-            grouped[key]!.add(t);
-          }
-
-          return Column(
-            children: [
-              // 1. Filtros Horizontales
-              SizedBox(
-                height: 60,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  itemCount: _filterOptions.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final label = _filterOptions[index];
-                    final isSelected = label == _selectedCategory;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedCategory = label;
-                        });
-                      },
-                      child: _buildFilterChip(
-                        label,
-                        isSelected,
-                        primaryBlue,
-                      ),
+            actions: [
+              IconButton(
+                icon: Icon(_isCalendarView ? Icons.list : Icons.calendar_month,
+                    color: iconColor),
+                onPressed: () {
+                  setState(() {
+                    _isCalendarView = !_isCalendarView;
+                  });
+                },
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.search, color: iconColor, size: 24),
+                  onPressed: () {
+                    showSearch(
+                      context: context,
+                      delegate: TransactionSearchDelegate(
+                          Provider.of<DashboardProvider>(context, listen: false)
+                              .transactions),
                     );
                   },
                 ),
-              ),
-
-              // 2. Lista Agrupada Real
-              Expanded(
-                child: grouped.isEmpty
-                    ? Center(
-                        child: Text("No hay transacciones",
-                            style: TextStyle(color: Colors.grey[600])))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: grouped.keys.length,
-                        itemBuilder: (context, index) {
-                          final key = grouped.keys.elementAt(index);
-                          final transactions = grouped[key]!;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSectionHeader(key),
-                              ...transactions.map((t) => Dismissible(
-                                    key: Key(t.id.toString()),
-                                    direction: DismissDirection.endToStart,
-                                    background: Container(
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20),
-                                      color: Colors.redAccent,
-                                      child: const Icon(Icons.delete,
-                                          color: Colors.white),
-                                    ),
-                                    onDismissed: (direction) {
-                                      if (t.id != null) {
-                                        provider.deleteTransaction(t.id!);
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(const SnackBar(
-                                          content:
-                                              Text('Transacción eliminada'),
-                                        ));
-                                      }
-                                    },
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        _showTransactionDetails(
-                                            context, t, provider);
-                                      },
-                                      child: Builder(builder: (context) {
-                                        // Forced Visual Fix for legacy data
-                                        bool isTransfer = t.type ==
-                                                TransactionType.transfer ||
-                                            t.description
-                                                .toLowerCase()
-                                                .contains('transferencia');
-
-                                        String title = t.description;
-                                        String subtitle =
-                                            DateFormat('h:mm a').format(t.date);
-
-                                        // Amount & Color Formatting
-                                        bool isIncome = t.amount > 0;
-                                        String symbol = provider.currencySymbol;
-                                        String absAmount =
-                                            t.amount.abs().toStringAsFixed(2);
-
-                                        String amount;
-                                        Color color;
-                                        IconData icon;
-
-                                        if (isTransfer) {
-                                          final source = provider
-                                              .getAccountName(t.accountId);
-                                          final dest =
-                                              t.destinationAccountId != null
-                                                  ? provider.getAccountName(
-                                                      t.destinationAccountId!)
-                                                  : 'Destino';
-
-                                          title = t.description.isNotEmpty
-                                              ? t.description
-                                              : "Transferencia";
-                                          subtitle =
-                                              "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
-
-                                          amount = "⇄ $symbol $absAmount";
-                                          color = const Color(0xFF64B5F6);
-                                          icon = Icons.swap_horiz;
-                                        } else {
-                                          amount =
-                                              "${isIncome ? '+' : '-'} $symbol $absAmount";
-                                          color = isIncome
-                                              ? Colors.greenAccent
-                                              : Colors.redAccent;
-                                          icon = isIncome
-                                              ? Icons.account_balance_wallet
-                                              : Icons.shopping_bag;
-
-                                          if (t.note != null &&
-                                              t.note!.isNotEmpty) {
-                                            subtitle += " • ${t.note!}";
-                                          } else {
-                                            subtitle +=
-                                                " • ${isIncome ? 'Ingreso' : 'Gasto'}";
-                                          }
-                                        }
-
-                                        return _buildTransactionItem(
-                                          title: title,
-                                          subtitle: subtitle,
-                                          amount: amount,
-                                          paymentMethod: "CASH",
-                                          icon: icon,
-                                          color: color,
-                                          isIncome: isIncome,
-                                          type: isTransfer
-                                              ? TransactionType.transfer
-                                              : t.type,
-                                        );
-                                      }),
-                                    ),
-                                  ))
-                            ],
-                          );
-                        },
-                      ),
               )
             ],
-          );
-        },
-      ),
+          ),
+          body: Builder(
+            builder: (context) {
+              if (_isCalendarView) {
+                return _buildCalendarView(provider, isDarkMode);
+              }
+
+              final grouped = <String, List<TransactionEntity>>{};
+              final now = DateTime.now();
+
+              // Apply Filter
+              var displayedTransactions = provider.transactions;
+              final type = _selectedFilter['type'];
+              final value = _selectedFilter['value'];
+
+              if (type == 'type') {
+                displayedTransactions = displayedTransactions
+                    .where((t) => t.type == value)
+                    .toList();
+              } else if (type == 'account') {
+                displayedTransactions = displayedTransactions
+                    .where((t) => t.accountId == value)
+                    .toList();
+              } else if (type == 'category') {
+                displayedTransactions = displayedTransactions
+                    .where((t) => t.description == value)
+                    .toList();
+              }
+
+              for (var t in displayedTransactions) {
+                String key;
+                final isToday = t.date.year == now.year &&
+                    t.date.month == now.month &&
+                    t.date.day == now.day;
+                final isYesterday = t.date.year == now.year &&
+                    t.date.month == now.month &&
+                    t.date.day == now.day - 1;
+
+                if (isToday) {
+                  key = 'HOY';
+                } else if (isYesterday) {
+                  key = 'AYER';
+                } else {
+                  key = DateFormat('MMM d', 'es').format(t.date).toUpperCase();
+                }
+
+                if (!grouped.containsKey(key)) {
+                  grouped[key] = [];
+                }
+                grouped[key]!.add(t);
+              }
+
+              return Column(
+                children: [
+                  // 1. Filtros Horizontales Potenciados
+                  SizedBox(
+                    height: 60,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      itemCount: _filters.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final filter = _filters[index];
+
+                        // Separator Logic
+                        if (filter['type'] == 'separator') {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 1,
+                            height: 20,
+                            color: isDarkMode ? Colors.white24 : Colors.black12,
+                          );
+                        }
+
+                        final isSelected =
+                            filter['label'] == _selectedFilter['label'];
+                        final color = filter['color'] as Color;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedFilter = filter;
+                            });
+                          },
+                          child: _buildFilterChip(
+                              filter['label'], isSelected, color, isDarkMode),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // 2. Lista Agrupada Real
+                  Expanded(
+                    child: grouped.isEmpty
+                        ? Center(
+                            child: Text("No hay transacciones",
+                                style: TextStyle(color: Colors.grey[600])))
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: grouped.keys.length,
+                            itemBuilder: (context, index) {
+                              final key = grouped.keys.elementAt(index);
+                              final transactions = grouped[key]!;
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSectionHeader(key),
+                                  ...transactions.map((t) => Dismissible(
+                                        key: Key(t.id.toString()),
+                                        direction: DismissDirection.endToStart,
+                                        background: Container(
+                                          alignment: Alignment.centerRight,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20),
+                                          color: Colors.redAccent,
+                                          child: const Icon(Icons.delete,
+                                              color: Colors.white),
+                                        ),
+                                        onDismissed: (direction) {
+                                          if (t.id != null) {
+                                            provider.deleteTransaction(t.id!);
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(const SnackBar(
+                                              content:
+                                                  Text('Transacción eliminada'),
+                                            ));
+                                          }
+                                        },
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            _showTransactionDetails(context, t,
+                                                provider, isDarkMode);
+                                          },
+                                          child: Builder(builder: (context) {
+                                            // Forced Visual Fix for legacy data
+                                            bool isTransfer = t.type ==
+                                                    TransactionType.transfer ||
+                                                t.description
+                                                    .toLowerCase()
+                                                    .contains('transferencia');
+
+                                            String title = t.description;
+                                            String subtitle =
+                                                DateFormat('h:mm a')
+                                                    .format(t.date);
+
+                                            // Amount & Color Formatting
+                                            bool isIncome = t.amount > 0;
+                                            String symbol =
+                                                provider.currencySymbol;
+                                            String absAmount = t.amount
+                                                .abs()
+                                                .toStringAsFixed(2);
+
+                                            String amount;
+                                            Color color;
+                                            IconData icon;
+
+                                            if (isTransfer) {
+                                              final source = provider
+                                                  .getAccountName(t.accountId);
+                                              final dest =
+                                                  t.destinationAccountId != null
+                                                      ? provider.getAccountName(
+                                                          t.destinationAccountId!)
+                                                      : 'Destino';
+
+                                              title = t.description.isNotEmpty
+                                                  ? t.description
+                                                  : "Transferencia";
+                                              subtitle =
+                                                  "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+                                              amount = "⇄ $symbol $absAmount";
+                                              color = isDarkMode
+                                                  ? Colors.white70
+                                                  : const Color(0xFF64B5F6);
+                                              icon = Icons.swap_horiz;
+                                            } else {
+                                              amount =
+                                                  "${isIncome ? '+' : '-'} $symbol $absAmount";
+                                              color = isIncome
+                                                  ? (isDarkMode
+                                                      ? Colors.greenAccent
+                                                      : Colors.green)
+                                                  : Colors.redAccent;
+                                              icon = isIncome
+                                                  ? Icons.account_balance_wallet
+                                                  : Icons.shopping_bag;
+
+                                              if (t.note != null &&
+                                                  t.note!.isNotEmpty) {
+                                                subtitle += " • ${t.note!}";
+                                              } else {
+                                                subtitle +=
+                                                    " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+                                              }
+                                            }
+
+                                            Color accountColor = Colors.grey;
+                                            if (t.accountId == 1)
+                                              accountColor =
+                                                  Colors.amber; // Cash
+                                            else if (t.accountId == 2)
+                                              accountColor =
+                                                  Colors.blueAccent; // Bank
+                                            else if (t.accountId == 3)
+                                              accountColor = Colors
+                                                  .purpleAccent; // Savings
+
+                                            String accountName = provider
+                                                .getAccountName(t.accountId);
+
+                                            return _buildTransactionItem(
+                                                title: title,
+                                                subtitle: subtitle,
+                                                amount: amount,
+                                                accountName: accountName,
+                                                accountColor: accountColor,
+                                                icon: icon,
+                                                color: color,
+                                                isIncome: isIncome,
+                                                type: isTransfer
+                                                    ? TransactionType.transfer
+                                                    : t.type,
+                                                isDarkMode: isDarkMode);
+                                          }),
+                                        ),
+                                      ))
+                                ],
+                              );
+                            },
+                          ),
+                  )
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, Color activeColor,
+  Widget _buildFilterChip(
+      String label, bool isSelected, Color activeColor, bool isDarkMode,
       {IconData? icon}) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isSelected ? activeColor : Colors.white.withOpacity(0.08),
+        color: isSelected
+            ? activeColor
+            : (isDarkMode
+                ? Colors.white.withOpacity(0.05)
+                : Colors.black.withOpacity(0.05)),
         borderRadius: BorderRadius.circular(20),
-        border: isSelected ? null : Border.all(color: Colors.white24),
+        border: isSelected
+            ? Border.all(color: Colors.transparent)
+            : Border.all(
+                color:
+                    isDarkMode ? activeColor.withOpacity(0.5) : Colors.black12),
       ),
       child: Row(
         children: [
+          // Filter Label
           Text(
             label,
             style: TextStyle(
-                color: Colors.white,
+                color: isSelected
+                    ? Colors.white
+                    : (isDarkMode ? Colors.white70 : Colors.black54),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 fontSize: 13),
           ),
@@ -313,7 +525,8 @@ class _HistoryPageState extends State<HistoryPage> {
             const Icon(Icons.check, color: Colors.white, size: 16)
           ] else if (icon != null) ...[
             const SizedBox(width: 4),
-            Icon(icon, color: Colors.white70, size: 16)
+            Icon(icon,
+                color: isDarkMode ? Colors.white70 : Colors.black54, size: 16)
           ]
         ],
       ),
@@ -338,20 +551,32 @@ class _HistoryPageState extends State<HistoryPage> {
     required String title,
     required String subtitle,
     required String amount,
-    required String paymentMethod,
+    required String accountName,
+    required Color accountColor,
     required IconData icon,
     required Color color,
     required bool isIncome,
+    required bool isDarkMode,
     TransactionType type = TransactionType.expense,
   }) {
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.transparent, // Minimalist transparent look
-        border: Border(
-            bottom: BorderSide(
-                color: Colors.white.withOpacity(0.05))), // Subtle separator
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isDarkMode
+            ? []
+            : [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2))
+              ],
       ),
       child: Row(
         children: [
@@ -359,7 +584,7 @@ class _HistoryPageState extends State<HistoryPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15), // Dynamic background opacity
+              color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -373,15 +598,15 @@ class _HistoryPageState extends State<HistoryPage> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                      color: Colors.white,
+                  style: TextStyle(
+                      color: textColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 16),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  style: TextStyle(color: subTextColor, fontSize: 12),
                 ),
               ],
             ),
@@ -396,13 +621,36 @@ class _HistoryPageState extends State<HistoryPage> {
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              const SizedBox(height: 4),
-              Text(
-                paymentMethod,
-                style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600),
+              const SizedBox(height: 6),
+              // Account Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: accountColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: accountColor.withOpacity(0.3))),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      accountName == "Bancaria"
+                          ? Icons.credit_card
+                          : (accountName == "Ahorros"
+                              ? Icons.savings
+                              : Icons.payments),
+                      size: 10,
+                      color: accountColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      accountName,
+                      style: TextStyle(
+                          color: accountColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ],
           )
@@ -411,7 +659,9 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildCalendarView(DashboardProvider provider) {
+  Widget _buildCalendarView(DashboardProvider provider, bool isDarkMode) {
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    // Calendar Text Styles need adaption
     return Column(
       children: [
         TableCalendar(
@@ -429,15 +679,19 @@ class _HistoryPageState extends State<HistoryPage> {
             return provider.getTransactionsForDay(day);
           },
           calendarStyle: CalendarStyle(
-            defaultTextStyle: const TextStyle(color: Colors.white),
-            weekendTextStyle: const TextStyle(color: Colors.white70),
-            outsideTextStyle: const TextStyle(color: Colors.white24),
+            defaultTextStyle: TextStyle(color: textColor),
+            weekendTextStyle:
+                TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
+            outsideTextStyle:
+                TextStyle(color: isDarkMode ? Colors.white24 : Colors.black26),
             todayDecoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: isDarkMode
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.black.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
             selectedDecoration: const BoxDecoration(
-              color: const Color(0xFF64B5F6),
+              color: Color(0xFF64B5F6),
               shape: BoxShape.circle,
             ),
             markerDecoration: const BoxDecoration(
@@ -448,12 +702,10 @@ class _HistoryPageState extends State<HistoryPage> {
           headerStyle: HeaderStyle(
             titleCentered: true,
             formatButtonVisible: false,
-            titleTextStyle: const TextStyle(
-                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            leftChevronIcon:
-                const Icon(Icons.chevron_left, color: Colors.white),
-            rightChevronIcon:
-                const Icon(Icons.chevron_right, color: Colors.white),
+            titleTextStyle: TextStyle(
+                color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+            leftChevronIcon: Icon(Icons.chevron_left, color: textColor),
+            rightChevronIcon: Icon(Icons.chevron_right, color: textColor),
           ),
           calendarBuilders: CalendarBuilders(
             markerBuilder: (context, date, events) {
@@ -475,7 +727,7 @@ class _HistoryPageState extends State<HistoryPage> {
             },
           ),
         ),
-        const Divider(color: Colors.white24),
+        Divider(color: isDarkMode ? Colors.white24 : Colors.black12),
         // Day Details
         Expanded(
           child: _selectedDay == null
@@ -513,7 +765,8 @@ class _HistoryPageState extends State<HistoryPage> {
                         },
                         child: GestureDetector(
                           onTap: () {
-                            _showTransactionDetails(context, t, provider);
+                            _showTransactionDetails(
+                                context, t, provider, isDarkMode);
                           },
                           child: Builder(builder: (context) {
                             bool isTransfer =
@@ -550,13 +803,17 @@ class _HistoryPageState extends State<HistoryPage> {
                                   "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
 
                               amount = "⇄ $symbol $absAmount";
-                              color = const Color(0xFF64B5F6);
+                              color = isDarkMode
+                                  ? Colors.white70
+                                  : const Color(0xFF64B5F6);
                               icon = Icons.swap_horiz;
                             } else {
                               amount =
                                   "${isIncome ? '+' : '-'} $symbol $absAmount";
                               color = isIncome
-                                  ? Colors.greenAccent
+                                  ? (isDarkMode
+                                      ? Colors.greenAccent
+                                      : Colors.green)
                                   : Colors.redAccent;
                               icon = isIncome
                                   ? Icons.account_balance_wallet
@@ -570,18 +827,30 @@ class _HistoryPageState extends State<HistoryPage> {
                               }
                             }
 
+                            Color accountColor = Colors.grey;
+                            if (t.accountId == 1)
+                              accountColor = Colors.amber;
+                            else if (t.accountId == 2)
+                              accountColor = Colors.blue;
+                            else if (t.accountId == 3)
+                              accountColor = Colors.purpleAccent;
+
+                            String accountName =
+                                provider.getAccountName(t.accountId);
+
                             return _buildTransactionItem(
-                              title: title,
-                              subtitle: subtitle,
-                              amount: amount,
-                              paymentMethod: "CASH",
-                              icon: icon,
-                              color: color,
-                              isIncome: isIncome,
-                              type: isTransfer
-                                  ? TransactionType.transfer
-                                  : t.type,
-                            );
+                                title: title,
+                                subtitle: subtitle,
+                                amount: amount,
+                                accountName: accountName,
+                                accountColor: accountColor,
+                                icon: icon,
+                                color: color,
+                                isIncome: isIncome,
+                                type: isTransfer
+                                    ? TransactionType.transfer
+                                    : t.type,
+                                isDarkMode: isDarkMode);
                           }),
                         ),
                       );
@@ -593,11 +862,13 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  void _showTransactionDetails(
-      BuildContext context, TransactionEntity t, DashboardProvider provider) {
+  void _showTransactionDetails(BuildContext context, TransactionEntity t,
+      DashboardProvider provider, bool isDarkMode) {
+    final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E2730),
+      backgroundColor: backgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -614,7 +885,7 @@ class _HistoryPageState extends State<HistoryPage> {
           finalColor = const Color(0xFF64B5F6);
           formattedAmount = "⇄ $symbol $absAmount";
         } else if (t.amount > 0) {
-          finalColor = Colors.greenAccent;
+          finalColor = isDarkMode ? Colors.greenAccent : Colors.green;
           formattedAmount = "+ $symbol $absAmount";
         } else {
           finalColor = Colors.redAccent;
@@ -656,14 +927,21 @@ class _HistoryPageState extends State<HistoryPage> {
 
               // Details List
               if (isTransfer)
-                _buildDetailRow(Icons.swap_horiz, "Flujo",
-                    "De ${provider.getAccountName(t.accountId)} hacia ${t.destinationAccountId != null ? provider.getAccountName(t.destinationAccountId!) : 'Destino'}")
+                _buildDetailRow(
+                    Icons.swap_horiz,
+                    "Flujo",
+                    "De ${provider.getAccountName(t.accountId)} hacia ${t.destinationAccountId != null ? provider.getAccountName(t.destinationAccountId!) : 'Destino'}",
+                    isDarkMode)
               else
-                _buildDetailRow(Icons.category, "Categoría", t.description),
-              _buildDetailRow(Icons.calendar_today, "Fecha",
-                  DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date)),
+                _buildDetailRow(
+                    Icons.category, "Categoría", t.description, isDarkMode),
+              _buildDetailRow(
+                  Icons.calendar_today,
+                  "Fecha",
+                  DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date),
+                  isDarkMode),
               if (t.note != null && t.note!.isNotEmpty)
-                _buildDetailRow(Icons.note, "Nota", t.note!),
+                _buildDetailRow(Icons.note, "Nota", t.note!, isDarkMode),
 
               const SizedBox(height: 32),
 
@@ -731,7 +1009,8 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
+  Widget _buildDetailRow(
+      IconData icon, String label, String value, bool isDarkMode) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -739,18 +1018,20 @@ class _HistoryPageState extends State<HistoryPage> {
         children: [
           Icon(icon, color: Colors.grey, size: 20),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 4),
+                Text(value,
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
           )
         ],
       ),

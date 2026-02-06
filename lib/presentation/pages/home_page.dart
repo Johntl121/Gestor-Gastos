@@ -57,8 +57,15 @@ class HomePage extends StatelessWidget {
           }
         }
 
+        // Theme Logic
+        final isDarkMode = provider.isDarkMode;
+        final backgroundColor =
+            isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
+        final textColor = isDarkMode ? Colors.white : const Color(0xFF2D3748);
+        final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: backgroundColor,
           body: SafeArea(
             bottom: false,
             child: SingleChildScrollView(
@@ -94,9 +101,10 @@ class HomePage extends StatelessWidget {
                                     style: TextStyle(
                                         color: Colors.teal, fontSize: 12)),
                                 Text(provider.userName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 16)),
+                                        fontSize: 16,
+                                        color: textColor)),
                               ],
                             )
                           ],
@@ -104,52 +112,52 @@ class HomePage extends StatelessWidget {
                       ),
                       Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.notifications_none,
-                            color: Colors.black54),
+                        child: Icon(Icons.notifications_none,
+                            color: isDarkMode ? Colors.white : Colors.black54),
                       )
                     ],
                   ),
 
                   const SizedBox(height: 30),
 
-                  const SizedBox(height: 30),
-
                   // Widget de Estado de Ánimo Financiero
-                  _buildMoodIndicator(mood),
+                  _buildMoodIndicator(mood, isDarkMode),
 
                   const SizedBox(height: 10),
 
                   // Saldo Actual
-                  const Text("SALDO DISPONIBLE",
+                  Text("SALDO DISPONIBLE",
                       style: TextStyle(
-                          color: Colors.grey,
+                          color: subTextColor,
                           fontSize: 12,
                           letterSpacing: 1.2,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 5),
                   Text(
                     "${provider.currencySymbol} ${balance.toStringAsFixed(2)}",
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E293B)),
+                        color: textColor),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     _getMoodQuote(mood),
                     style: const TextStyle(
-                        color: Colors.teal, fontStyle: FontStyle.italic),
+                        color: Colors.cyanAccent, fontStyle: FontStyle.italic),
                   ),
 
                   const SizedBox(height: 30),
 
                   // Tarjeta de Presupuesto
                   _buildBudgetCard(provider.budgetLimit, monthSpent,
-                      provider.currencySymbol),
+                      provider.currencySymbol, isDarkMode),
 
                   const SizedBox(height: 20),
 
@@ -159,20 +167,28 @@ class HomePage extends StatelessWidget {
                       Expanded(
                           child: _buildSummaryCard(
                               icon: Icons.arrow_upward,
-                              iconColor: Colors.green,
-                              backgroundColor: const Color(0xFFE0F2F1),
+                              iconColor: isDarkMode
+                                  ? Colors.greenAccent
+                                  : Colors.green,
+                              backgroundColor: isDarkMode
+                                  ? Colors.greenAccent.withOpacity(0.1)
+                                  : const Color(0xFFE0F2F1),
                               amount:
                                   "+${provider.currencySymbol} ${todayIncome.toStringAsFixed(2)}",
-                              label: "Ingresos Hoy")),
+                              label: "Ingresos Hoy",
+                              isDarkMode: isDarkMode)),
                       const SizedBox(width: 15),
                       Expanded(
                           child: _buildSummaryCard(
                               icon: Icons.arrow_downward,
                               iconColor: Colors.redAccent,
-                              backgroundColor: const Color(0xFFFFEBEE),
+                              backgroundColor: isDarkMode
+                                  ? Colors.redAccent.withOpacity(0.1)
+                                  : const Color(0xFFFFEBEE),
                               amount:
                                   "-${provider.currencySymbol} ${todayExpense.toStringAsFixed(2)}",
-                              label: "Gastos Hoy")),
+                              label: "Gastos Hoy",
+                              isDarkMode: isDarkMode)),
                     ],
                   ),
 
@@ -182,14 +198,16 @@ class HomePage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Actividad Reciente",
+                      Text("Actividad Reciente",
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18)),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: textColor)),
                       GestureDetector(
                         onTap: onSeeAllPressed,
                         child: const Text("Ver todo",
                             style: TextStyle(
-                                color: Colors.teal,
+                                color: Colors.tealAccent,
                                 fontWeight: FontWeight.w600)),
                       ),
                     ],
@@ -199,10 +217,10 @@ class HomePage extends StatelessWidget {
 
                   // Lista de Actividad Reciente (Datos Reales)
                   provider.transactions.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(20),
+                      ? Padding(
+                          padding: const EdgeInsets.all(20),
                           child: Text("No hay transacciones recientes",
-                              style: TextStyle(color: Colors.grey)),
+                              style: TextStyle(color: subTextColor)),
                         )
                       : ListView.separated(
                           physics: const NeverScrollableScrollPhysics(),
@@ -212,7 +230,8 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final transaction = provider.transactions[index];
-                            return _buildTransactionItem(transaction, provider);
+                            return _buildTransactionItem(
+                                transaction, provider, isDarkMode);
                           },
                         ),
 
@@ -227,7 +246,7 @@ class HomePage extends StatelessWidget {
   }
 
   /// Construye el widget del indicador de estado de ánimo (la carita)
-  Widget _buildMoodIndicator(BudgetMood mood) {
+  Widget _buildMoodIndicator(BudgetMood mood, bool isDarkMode) {
     IconData icon;
     Color color;
 
@@ -252,18 +271,24 @@ class HomePage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.cyan.withValues(alpha: 0.1),
+            color: isDarkMode
+                ? Colors.cyan.withOpacity(0.1)
+                : Colors.cyan.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 60, color: color),
         ),
         Container(
           padding: const EdgeInsets.all(4),
-          decoration: const BoxDecoration(
-              color: Colors.white,
+          decoration: BoxDecoration(
+              color: isDarkMode ? const Color(0xFF1F2937) : Colors.white,
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
-          child: const Icon(Icons.edit, size: 14, color: Colors.teal),
+              boxShadow: [
+                BoxShadow(
+                    color: isDarkMode ? Colors.black12 : Colors.black12,
+                    blurRadius: 4)
+              ]),
+          child: const Icon(Icons.edit, size: 14, color: Colors.tealAccent),
         )
       ],
     );
@@ -282,18 +307,22 @@ class HomePage extends StatelessWidget {
   }
 
   /// Construye la tarjeta de progreso del presupuesto mensual
-  Widget _buildBudgetCard(double limit, double spent, String currency) {
+  Widget _buildBudgetCard(
+      double limit, double spent, String currency, bool isDarkMode) {
     // Calculamos el progreso (0.0 a 1.0)
     final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: isDarkMode ? Colors.black45 : Colors.black.withOpacity(0.05),
             offset: const Offset(0, 4),
             blurRadius: 10,
           )
@@ -302,9 +331,9 @@ class HomePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("PRESUPUESTO MENSUAL",
+          Text("PRESUPUESTO MENSUAL",
               style: TextStyle(
-                  color: Colors.grey,
+                  color: subTextColor,
                   fontSize: 10,
                   fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
@@ -315,18 +344,18 @@ class HomePage extends StatelessWidget {
                 text: TextSpan(children: [
                   TextSpan(
                       text: "$currency ${spent.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                          color: Colors.black,
+                      style: TextStyle(
+                          color: textColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16)),
                   TextSpan(
                       text: " / $currency ${limit.toStringAsFixed(2)}",
-                      style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                      style: TextStyle(color: subTextColor, fontSize: 14)),
                 ]),
               ),
               Text("${((1 - progress) * 100).toInt()}% restante",
                   style: const TextStyle(
-                      color: Colors.teal, fontWeight: FontWeight.bold)),
+                      color: Colors.tealAccent, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 15),
@@ -334,7 +363,8 @@ class HomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor:
+                  isDarkMode ? Colors.white10 : Colors.grey.shade200,
               color: progress > 0.9 ? Colors.redAccent : Colors.cyan,
               minHeight: 8,
             ),
@@ -342,10 +372,11 @@ class HomePage extends StatelessWidget {
           const SizedBox(height: 15),
           const Row(
             children: [
-              Icon(Icons.access_time_filled, size: 14, color: Colors.teal),
+              Icon(Icons.access_time_filled,
+                  size: 14, color: Colors.tealAccent),
               SizedBox(width: 5),
               Text("Calculado al día de hoy", // Simplificado
-                  style: TextStyle(color: Colors.teal, fontSize: 12))
+                  style: TextStyle(color: Colors.tealAccent, fontSize: 12))
             ],
           )
         ],
@@ -359,16 +390,25 @@ class HomePage extends StatelessWidget {
       required Color iconColor,
       required Color backgroundColor,
       required String amount,
-      required String label}) {
+      required String label,
+      required bool isDarkMode}) {
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade100),
-          boxShadow: const [
+          border: isDarkMode
+              ? Border.all(color: Colors.white10)
+              : Border.all(color: Colors.grey.shade100),
+          boxShadow: [
             BoxShadow(
-                color: Colors.black12, blurRadius: 5, offset: Offset(0, 2))
+                color: isDarkMode ? Colors.black45 : Colors.black12,
+                blurRadius: 5,
+                offset: const Offset(0, 2))
           ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,10 +422,10 @@ class HomePage extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(amount,
-              style:
-                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(label, style: TextStyle(color: subTextColor, fontSize: 12)),
         ],
       ),
     );
@@ -393,7 +433,7 @@ class HomePage extends StatelessWidget {
 
   /// Construye un item individual de la lista de transacciones con el Nuevo Estilo
   Widget _buildTransactionItem(
-      TransactionEntity t, DashboardProvider provider) {
+      TransactionEntity t, DashboardProvider provider, bool isDarkMode) {
     // 1. Logic for Transfer & Legacy Fix
     bool isTransfer = t.type == TransactionType.transfer ||
         t.description.toLowerCase().contains('transferencia');
@@ -409,6 +449,10 @@ class HomePage extends StatelessWidget {
     IconData icon;
     bool isIncome = t.amount > 0;
 
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+
     if (isTransfer) {
       final source = provider.getAccountName(t.accountId);
       final dest = t.destinationAccountId != null
@@ -419,12 +463,16 @@ class HomePage extends StatelessWidget {
       subtitle = "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
 
       amountFormatted = "⇄ $symbol $absAmount";
-      color = const Color(0xFF64B5F6); // Soft Blue
+      color = isDarkMode
+          ? Colors.white70
+          : const Color(0xFF64B5F6); // Soft Blue or white
       icon = Icons.swap_horiz;
     } else {
       amountFormatted = "${isIncome ? '+' : '-'} $symbol $absAmount";
       color = isIncome
-          ? Colors.green // Darker green for readability on white
+          ? (isDarkMode
+              ? Colors.greenAccent
+              : Colors.green) // Darker green for readability on white
           : Colors.redAccent;
       icon = isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
 
@@ -439,16 +487,17 @@ class HomePage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            offset: const Offset(0, 4),
-            blurRadius: 10,
-          )
-        ],
-      ),
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isDarkMode
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    offset: const Offset(0, 4),
+                    blurRadius: 10,
+                  )
+                ]),
       child: Row(
         children: [
           // Icon Box
@@ -456,12 +505,16 @@ class HomePage extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: (isIncome && !isTransfer)
-                  ? Colors.greenAccent.withValues(alpha: 0.15)
-                  : color.withValues(alpha: 0.15),
+                  ? (isDarkMode
+                      ? Colors.greenAccent.withOpacity(0.15)
+                      : Colors.greenAccent.withOpacity(0.15))
+                  : color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon,
-                color: (isIncome && !isTransfer) ? Colors.greenAccent : color,
+                color: (isIncome && !isTransfer)
+                    ? (isDarkMode ? Colors.greenAccent : Colors.green)
+                    : color,
                 size: 24),
           ),
           const SizedBox(width: 16),
@@ -472,15 +525,15 @@ class HomePage extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.black87),
+                      color: textColor),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: subTextColor, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

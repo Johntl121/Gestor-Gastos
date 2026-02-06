@@ -103,17 +103,54 @@ class TransactionSearchDelegate extends SearchDelegate {
   }
 
   Widget _buildTransactionItem(TransactionEntity t) {
-    final isIncome = t.amount > 0;
-    final color = isIncome ? Colors.teal.shade300 : Colors.orange.shade300;
-    final icon = isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
-    final amount =
-        "${isIncome ? '+' : ''}S/ ${t.amount.toStringAsFixed(2)}"; // Hardcoded currency for search delegate simpler for now or pass it.
-    // Ideally we pass currency symbol too, but "S/" is fine if app is single currency.
-    // Or we could pass 'currencySymbol' in constructor.
+    // 1. Logic Setup
+    bool isTransfer = t.type == TransactionType.transfer ||
+        t.description.toLowerCase().contains('transferencia');
+    bool isIncome = t.amount > 0;
 
-    final subtitle = t.note != null && t.note!.isNotEmpty
-        ? "${DateFormat('h:mm a').format(t.date)} • ${t.note!}"
-        : "${DateFormat('h:mm a').format(t.date)} • ${isIncome ? 'Ingreso' : 'Gasto'}";
+    // 2. Colors & Icons
+    Color color;
+    IconData icon;
+    String amountPrefix = "";
+
+    if (isTransfer) {
+      color = Colors.white70;
+      icon = Icons.swap_horiz;
+      amountPrefix = "⇄ ";
+    } else if (isIncome) {
+      color = Colors.greenAccent;
+      icon = Icons.account_balance_wallet;
+      amountPrefix = "+ ";
+    } else {
+      color = Colors.redAccent;
+      icon = Icons.shopping_bag;
+    }
+
+    // 3. Account Logic
+    String accountName = "Efectivo";
+    Color accountColor = Colors.amber;
+    IconData accountIcon = Icons.payments;
+
+    if (t.accountId == 2) {
+      accountName = "Bancaria";
+      accountColor = Colors.blueAccent;
+      accountIcon = Icons.credit_card;
+    } else if (t.accountId == 3) {
+      accountName = "Ahorros";
+      accountColor = Colors.purpleAccent;
+      accountIcon = Icons.savings;
+    }
+
+    // 4. Strings
+    String title = t.description;
+    String subtitle = DateFormat('h:mm a').format(t.date);
+    if (t.note != null && t.note!.isNotEmpty) {
+      subtitle += " • ${t.note!}";
+    } else {
+      subtitle += " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+    }
+
+    String amountStr = "$amountPrefix S/ ${t.amount.abs().toStringAsFixed(2)}";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -142,7 +179,7 @@ class TransactionSearchDelegate extends SearchDelegate {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  t.description,
+                  title,
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -157,26 +194,41 @@ class TransactionSearchDelegate extends SearchDelegate {
             ),
           ),
 
-          // Amount & Payment Method
+          // Amount & Account Badge
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                amount,
+                amountStr,
                 style: TextStyle(
-                    color: isIncome
-                        ? const Color(0xFF00E5FF)
-                        : const Color(0xFFFF5252),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16),
+                    color: color, fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              const SizedBox(height: 4),
-              const Text(
-                "CASH",
-                style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600),
+              const SizedBox(height: 6),
+              // Account Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                    color: accountColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: accountColor.withOpacity(0.3))),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      accountIcon,
+                      size: 10,
+                      color: accountColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      accountName,
+                      style: TextStyle(
+                          color: accountColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
               ),
             ],
           )

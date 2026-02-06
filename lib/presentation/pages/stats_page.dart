@@ -14,6 +14,12 @@ class StatsPage extends StatelessWidget {
     return Consumer<DashboardProvider>(builder: (context, provider, child) {
       final spendingMap = provider.spendingByCategory;
       final totalSpent = provider.totalMonthlyExpenses;
+      final isDarkMode = provider.isDarkMode;
+
+      final backgroundColor =
+          isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF8FAFC);
+      final textColor = isDarkMode ? Colors.white : Colors.black;
+      final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
 
       // Prepare Chart Data
       List<PieChartSectionData> chartSections = [];
@@ -28,7 +34,7 @@ class StatsPage extends StatelessWidget {
 
       if (spendingMap.isEmpty) {
         chartSections.add(PieChartSectionData(
-            color: Colors.grey.shade300,
+            color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
             value: 1,
             radius: 25,
             showTitle: false));
@@ -51,18 +57,19 @@ class StatsPage extends StatelessWidget {
         ..sort((a, b) => b.value.compareTo(a.value));
 
       return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC), // Fondo claro suave
+        backgroundColor: backgroundColor,
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             "Gastos",
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
+          iconTheme: IconThemeData(color: textColor),
           actions: [
             IconButton(
-              icon: const Icon(Icons.calendar_today, color: Colors.black),
+              icon: Icon(Icons.calendar_today, color: textColor),
               onPressed: () => _pickMonth(context, provider),
             ),
           ],
@@ -75,7 +82,9 @@ class StatsPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.grey[200],
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -83,15 +92,18 @@ class StatsPage extends StatelessWidget {
                     _buildPeriodTab(
                         "Semana",
                         provider.currentStatsPeriod == PeriodType.week,
-                        () => provider.setStatsPeriod(PeriodType.week)),
+                        () => provider.setStatsPeriod(PeriodType.week),
+                        isDarkMode),
                     _buildPeriodTab(
                         "Mes",
                         provider.currentStatsPeriod == PeriodType.month,
-                        () => provider.setStatsPeriod(PeriodType.month)),
+                        () => provider.setStatsPeriod(PeriodType.month),
+                        isDarkMode),
                     _buildPeriodTab(
                         "Año",
                         provider.currentStatsPeriod == PeriodType.year,
-                        () => provider.setStatsPeriod(PeriodType.year)),
+                        () => provider.setStatsPeriod(PeriodType.year),
+                        isDarkMode),
                   ],
                 ),
               ),
@@ -115,17 +127,17 @@ class StatsPage extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text("GASTADO",
+                          Text("GASTADO",
                               style: TextStyle(
-                                  color: Colors.grey,
+                                  color: subTextColor,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 1.2)),
                           const SizedBox(height: 5),
                           Text(
                               "${provider.currencySymbol} ${totalSpent > 0 ? totalSpent.toStringAsFixed(2) : '0.00'}",
-                              style: const TextStyle(
-                                  color: Colors.black,
+                              style: TextStyle(
+                                  color: textColor,
                                   fontSize: 32,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: -1)),
@@ -133,7 +145,7 @@ class StatsPage extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.arrow_downward,
+                              const Icon(Icons.arrow_downward,
                                   color: Colors.redAccent, size: 14),
                               Text(
                                   provider.currentStatsPeriod == PeriodType.week
@@ -161,11 +173,13 @@ class StatsPage extends StatelessWidget {
               // 3. Cabecera de Mayores Gastos
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
+                children: [
                   Text("Mayores Gastos",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text("Ver todos",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: textColor)),
+                  const Text("Ver todos",
                       style: TextStyle(
                           color: Colors.cyan,
                           fontWeight: FontWeight.bold,
@@ -177,10 +191,11 @@ class StatsPage extends StatelessWidget {
 
               // 4. Lista de Gastos
               if (sortedEntries.isEmpty)
-                const Center(
+                Center(
                     child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Text("No hay gastos registrados este mes."),
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text("No hay gastos registrados este mes.",
+                      style: TextStyle(color: subTextColor)),
                 ))
               else
                 ...List.generate(sortedEntries.length, (index) {
@@ -192,15 +207,15 @@ class StatsPage extends StatelessWidget {
                   return Column(
                     children: [
                       _buildSpendingItem(
-                        entry.key, // Title (Category Name)
-                        "${(percentage * 100).toStringAsFixed(1)}% del total", // Subtitle
-                        "${provider.currencySymbol} ${amount.toStringAsFixed(2)}", // Amount
-                        "Variable", // Status (Mock)
-                        Icons.label, // Icon (Generic)
-                        color, // IconBgColor
-                        true, // isGoodStatus (Mock)
-                        percentage, // Percentage
-                      ),
+                          entry.key, // Title (Category Name)
+                          "${(percentage * 100).toStringAsFixed(1)}% del total", // Subtitle
+                          "${provider.currencySymbol} ${amount.toStringAsFixed(2)}", // Amount
+                          "Variable", // Status (Mock)
+                          Icons.label, // Icon (Generic)
+                          color, // IconBgColor
+                          true, // isGoodStatus (Mock)
+                          percentage, // Percentage
+                          isDarkMode),
                       const SizedBox(height: 15),
                     ],
                   );
@@ -213,8 +228,8 @@ class StatsPage extends StatelessWidget {
   }
 
   /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
-  /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
-  Widget _buildPeriodTab(String text, bool isSelected, VoidCallback onTap) {
+  Widget _buildPeriodTab(
+      String text, bool isSelected, VoidCallback onTap, bool isDarkMode) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -222,7 +237,7 @@ class StatsPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: isSelected
               ? BoxDecoration(
-                  color: Colors.white,
+                  color: isDarkMode ? const Color(0xFF1F2937) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                       BoxShadow(
@@ -235,7 +250,9 @@ class StatsPage extends StatelessWidget {
             text,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? Colors.black : Colors.grey,
+              color: isSelected
+                  ? (isDarkMode ? Colors.white : Colors.black)
+                  : Colors.grey,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -254,18 +271,25 @@ class StatsPage extends StatelessWidget {
       IconData icon,
       Color iconBgColor,
       bool isGoodStatus,
-      double percentage) {
+      double percentage,
+      bool isDarkMode) {
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[400];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5))
-          ]),
+          boxShadow: isDarkMode
+              ? []
+              : [
+                  BoxShadow(
+                      color: Colors.grey.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5))
+                ]),
       child: Row(
         children: [
           Container(
@@ -273,7 +297,8 @@ class StatsPage extends StatelessWidget {
             decoration: BoxDecoration(
                 color: iconBgColor.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(16)),
-            child: Icon(icon, color: Colors.black54, size: 24),
+            child: Icon(icon,
+                color: isDarkMode ? Colors.white70 : Colors.black54, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -285,8 +310,10 @@ class StatsPage extends StatelessWidget {
                     Flexible(
                       child: Text(
                         title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: textColor),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -301,13 +328,14 @@ class StatsPage extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: percentage,
                     color: isGoodStatus ? Colors.cyan : Colors.redAccent,
-                    backgroundColor: Colors.grey[100],
+                    backgroundColor:
+                        isDarkMode ? Colors.white10 : Colors.grey[100],
                     minHeight: 6,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(subtitle,
-                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    style: TextStyle(color: subTextColor, fontSize: 12),
                     overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -320,8 +348,10 @@ class StatsPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(amount,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: textColor)),
                 const SizedBox(height: 4),
                 Text(status,
                     textAlign: TextAlign.right,
@@ -340,6 +370,7 @@ class StatsPage extends StatelessWidget {
 
   Future<void> _pickMonth(
       BuildContext context, DashboardProvider provider) async {
+    final isDarkMode = provider.isDarkMode;
     final picked = await showDatePicker(
       context: context,
       initialDate: provider.currentStatsDate,
@@ -347,13 +378,28 @@ class StatsPage extends StatelessWidget {
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.cyan,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
+          data: isDarkMode
+              ? ThemeData.dark().copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    primary: Colors.cyan,
+                    onPrimary: Colors.white,
+                    surface: Color(0xFF1E2730),
+                    onSurface: Colors.white,
+                  ),
+                  dialogBackgroundColor: const Color(0xFF15202B),
+                  textButtonTheme: TextButtonThemeData(
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.cyan,
+                    ),
+                  ),
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Colors.cyan,
+                    onPrimary: Colors.white,
+                    onSurface: Colors.black,
+                  ),
+                ),
           child: child!,
         );
       },

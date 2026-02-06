@@ -6,8 +6,10 @@ import '../providers/dashboard_provider.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final TransactionEntity? transactionToEdit;
+  final TransactionEntity? draftTransaction;
 
-  const AddTransactionPage({super.key, this.transactionToEdit});
+  const AddTransactionPage(
+      {super.key, this.transactionToEdit, this.draftTransaction});
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -45,6 +47,15 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       _selectedSourceId = t.accountId;
       _selectedDestId = t.destinationAccountId ?? 2;
       _noteController.text = t.note ?? '';
+    } else if (widget.draftTransaction != null) {
+      final t = widget.draftTransaction!;
+      _transactionType = t.type;
+      _amountController.text = t.amount.abs().toString();
+      _selectedCategoryId = t.categoryId;
+      // Default accounts or whatever was passed
+      _selectedSourceId = t.accountId;
+      _selectedDestId = t.destinationAccountId ?? 2;
+      _noteController.text = t.note ?? '';
     }
   }
 
@@ -62,21 +73,68 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   };
 
   final Map<int, Map<String, dynamic>> _categories = {
+    // Alimentación
     1: {'name': 'Comida', 'icon': Icons.restaurant, 'color': Colors.orange},
     2: {
+      'name': 'Mercado',
+      'icon': Icons.shopping_cart,
+      'color': Colors.lightGreen
+    },
+    // Vivienda
+    3: {'name': 'Vivienda', 'icon': Icons.home, 'color': Colors.blueGrey},
+    4: {
+      'name': 'Servicios',
+      'icon': Icons.bolt,
+      'color': Colors.amber.shade700
+    },
+    // Transporte
+    5: {
       'name': 'Transporte',
-      'icon': Icons.directions_car,
+      'icon': Icons.directions_bus,
       'color': Colors.blue
     },
-    3: {'name': 'Compras', 'icon': Icons.shopping_bag, 'color': Colors.cyan},
-    4: {'name': 'Ocio', 'icon': Icons.movie, 'color': Colors.purple},
-    5: {'name': 'Salud', 'icon': Icons.favorite, 'color': Colors.pink},
-    6: {'name': 'Hogar', 'icon': Icons.home, 'color': Colors.brown},
-    7: {'name': 'Educación', 'icon': Icons.school, 'color': Colors.indigo},
-    8: {'name': 'Regalos', 'icon': Icons.card_giftcard, 'color': Colors.red},
-    9: {'name': 'Mascotas', 'icon': Icons.pets, 'color': Colors.amber},
-    10: {'name': 'Servicios', 'icon': Icons.bolt, 'color': Colors.yellow},
-    11: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.grey},
+    6: {
+      'name': 'Vehículo',
+      'icon': Icons.directions_car,
+      'color': Colors.redAccent
+    },
+    // Estilo de Vida
+    7: {'name': 'Compras', 'icon': Icons.shopping_bag, 'color': Colors.pink},
+    8: {'name': 'Cuidado', 'icon': Icons.spa, 'color': Colors.purple},
+    9: {
+      'name': 'Suscripciones',
+      'icon': Icons.play_circle_filled,
+      'color': Colors.red
+    },
+    // Salud
+    10: {'name': 'Salud', 'icon': Icons.local_hospital, 'color': Colors.teal},
+    11: {
+      'name': 'Deportes',
+      'icon': Icons.fitness_center,
+      'color': Colors.green
+    },
+    // Ocio
+    12: {
+      'name': 'Entretenimiento',
+      'icon': Icons.movie,
+      'color': Colors.indigo
+    },
+    13: {'name': 'Viajes', 'icon': Icons.flight, 'color': Colors.cyan},
+    // Crecimiento
+    14: {'name': 'Educación', 'icon': Icons.school, 'color': Colors.brown},
+    15: {'name': 'Tecnología', 'icon': Icons.computer, 'color': Colors.grey},
+    // Financiero
+    16: {'name': 'Deudas', 'icon': Icons.money_off, 'color': Colors.deepOrange},
+    17: {'name': 'Ahorro', 'icon': Icons.savings, 'color': Colors.lime},
+    // Ingresos
+    18: {
+      'name': 'Sueldo',
+      'icon': Icons.attach_money,
+      'color': Colors.green.shade800
+    },
+    19: {'name': 'Negocio', 'icon': Icons.store, 'color': Colors.blue.shade900},
+    // Otros
+    20: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.blueGrey},
   };
 
   Color get _activeColor {
@@ -172,8 +230,23 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF121C22);
-    const darkSurface = Color(0xFF1E2A32);
+    final provider = Provider.of<DashboardProvider>(context);
+    final isDarkMode = provider.isDarkMode;
+
+    // Theme Colors
+    final backgroundColor =
+        isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
+    final surfaceColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final categoryInactiveBg =
+        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100]!;
+
+    // Bottom Area
+    final bottomAreaColor = backgroundColor;
+    final inputFillColor =
+        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100]!;
+    final bottomBorderColor = isDarkMode ? Colors.white10 : Colors.grey[300]!;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -181,13 +254,12 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white, size: 28),
+          icon: Icon(Icons.close, color: textColor, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
             widget.transactionToEdit != null ? 'Editar' : 'Nueva Transacción',
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Column(
@@ -205,15 +277,20 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     height: 50,
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: darkSurface,
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(25),
+                      border: isDarkMode
+                          ? null
+                          : Border.all(color: Colors.grey[300]!),
                     ),
                     child: Row(
                       children: [
-                        _buildTypeTab("Gasto", TransactionType.expense),
                         _buildTypeTab(
-                            "Transferencia", TransactionType.transfer),
-                        _buildTypeTab("Ingreso", TransactionType.income),
+                            "Gasto", TransactionType.expense, isDarkMode),
+                        _buildTypeTab("Transferencia", TransactionType.transfer,
+                            isDarkMode),
+                        _buildTypeTab(
+                            "Ingreso", TransactionType.income, isDarkMode),
                       ],
                     ),
                   ),
@@ -221,11 +298,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   const SizedBox(height: 30),
 
                   // 2. AMOUNT HERO
-                  _buildHeroInput(
-                      Provider.of<DashboardProvider>(context, listen: false)
-                          .currencySymbol),
+                  _buildHeroInput(provider.currencySymbol, isDarkMode),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
 
                   // 3. SOURCE / DEST (If Transfer)
                   if (_transactionType == TransactionType.transfer) ...[
@@ -234,7 +309,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       alignment: Alignment.centerLeft,
                       child: Text("DESDE (ORIGEN)",
                           style: TextStyle(
-                              color: Colors.grey[400],
+                              color: subTextColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1)),
@@ -244,11 +319,14 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildAccountChip(1, isSource: true),
+                          _buildAccountChip(1,
+                              isSource: true, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(2, isSource: true),
+                          _buildAccountChip(2,
+                              isSource: true, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(3, isSource: true),
+                          _buildAccountChip(3,
+                              isSource: true, isDarkMode: isDarkMode),
                         ],
                       ),
                     ),
@@ -259,7 +337,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       alignment: Alignment.centerLeft,
                       child: Text("HACIA (DESTINO)",
                           style: TextStyle(
-                              color: Colors.grey[400],
+                              color: subTextColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1)),
@@ -269,11 +347,14 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildAccountChip(1, isSource: false),
+                          _buildAccountChip(1,
+                              isSource: false, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(2, isSource: false),
+                          _buildAccountChip(2,
+                              isSource: false, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(3, isSource: false),
+                          _buildAccountChip(3,
+                              isSource: false, isDarkMode: isDarkMode),
                         ],
                       ),
                     ),
@@ -283,7 +364,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       alignment: Alignment.centerLeft,
                       child: Text("CUENTA",
                           style: TextStyle(
-                              color: Colors.grey[400],
+                              color: subTextColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1)),
@@ -293,11 +374,14 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildAccountChip(1, isSource: true),
+                          _buildAccountChip(1,
+                              isSource: true, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(2, isSource: true),
+                          _buildAccountChip(2,
+                              isSource: true, isDarkMode: isDarkMode),
                           const SizedBox(width: 10),
-                          _buildAccountChip(3, isSource: true),
+                          _buildAccountChip(3,
+                              isSource: true, isDarkMode: isDarkMode),
                         ],
                       ),
                     ),
@@ -308,7 +392,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       alignment: Alignment.centerLeft,
                       child: Text("CATEGORÍA",
                           style: TextStyle(
-                              color: Colors.grey[400],
+                              color: subTextColor,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.1)),
@@ -328,25 +412,27 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                       itemCount: _categories.length,
                       itemBuilder: (context, index) {
                         final catId = index + 1;
-                        return _buildCategoryItem(catId, darkSurface);
+                        return _buildCategoryItem(
+                            catId, categoryInactiveBg, isDarkMode);
                       },
                     ),
                   ],
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
           ),
-
-          // FOOTER: Note & Save
-          _buildFooter(),
+          _buildStickyBottomArea(context, isDarkMode, bottomAreaColor,
+              inputFillColor, bottomBorderColor)
         ],
       ),
     );
   }
 
-  Widget _buildTypeTab(String text, TransactionType type) {
+  Widget _buildTypeTab(String text, TransactionType type, bool isDarkMode) {
     final isSelected = _transactionType == type;
+    final inactiveTextColor = isDarkMode ? Colors.grey : Colors.grey[600];
+
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _transactionType = type),
@@ -360,7 +446,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           child: Text(
             text,
             style: TextStyle(
-              color: isSelected ? Colors.white : Colors.grey,
+              color: isSelected ? Colors.white : inactiveTextColor,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
@@ -370,7 +456,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildHeroInput(String currency) {
+  Widget _buildHeroInput(String currency, bool isDarkMode) {
+    final amountColor = isDarkMode ? Colors.white : Colors.black87;
+
     return Column(
       children: [
         Row(
@@ -396,12 +484,13 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                 style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
-                  color: _activeColor,
+                  color: amountColor,
                 ),
                 cursorColor: _activeColor,
                 decoration: InputDecoration(
                   hintText: '0.00',
-                  hintStyle: TextStyle(color: _activeColor.withOpacity(0.3)),
+                  hintStyle: TextStyle(
+                      color: isDarkMode ? Colors.white24 : Colors.black12),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -417,46 +506,74 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildAccountChip(int id, {required bool isSource}) {
+  Widget _buildAccountChip(int id,
+      {required bool isSource, required bool isDarkMode}) {
     final selectedId = isSource ? _selectedSourceId : _selectedDestId;
     final isSelected = selectedId == id;
-    final color = _activeColor;
+    final inactiveTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final inactiveBorderColor =
+        isDarkMode ? Colors.transparent : Colors.grey[300]!;
+    final inactiveBgColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
 
-    return ChoiceChip(
-      label: Text(_sourceNames[id]!),
-      selected: isSelected,
-      onSelected: (bool selected) {
-        if (selected) {
-          setState(() {
-            if (isSource) {
-              _selectedSourceId = id;
-            } else {
-              _selectedDestId = id;
-            }
-          });
-        }
+    // Account Colors
+    Color chipColor;
+    Color contentColor = Colors.white;
+    switch (id) {
+      case 1:
+        chipColor = Colors.amber;
+        contentColor = Colors.black; // Better contrast for Amber
+        break;
+      case 2:
+        chipColor = Colors.blueAccent;
+        break;
+      case 3:
+        chipColor = Colors.purpleAccent;
+        break;
+      default:
+        chipColor = _activeColor;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isSource) {
+            _selectedSourceId = id;
+          } else {
+            _selectedDestId = id;
+          }
+        });
       },
-      avatar: Icon(_sourceIcons[id],
-          size: 18, color: isSelected ? color : Colors.grey),
-      selectedColor: color.withOpacity(0.2),
-      backgroundColor: Colors.transparent,
-      side: BorderSide(
-        color: isSelected ? color : Colors.grey.withOpacity(0.3),
-        width: 1.5,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? chipColor : inactiveBgColor,
+          borderRadius: BorderRadius.circular(20),
+          border: isSelected ? null : Border.all(color: inactiveBorderColor),
+        ),
+        child: Row(
+          children: [
+            Icon(_sourceIcons[id],
+                size: 18, color: isSelected ? contentColor : inactiveTextColor),
+            const SizedBox(width: 8),
+            Text(
+              _sourceNames[id]!,
+              style: TextStyle(
+                  color: isSelected ? contentColor : inactiveTextColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+            ),
+          ],
+        ),
       ),
-      labelStyle: TextStyle(
-          color: isSelected ? color : Colors.grey,
-          fontWeight: FontWeight.bold,
-          fontSize: 13),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      showCheckmark: false,
     );
   }
 
-  Widget _buildCategoryItem(int id, Color darkSurface) {
+  Widget _buildCategoryItem(int id, Color inactiveBgColor, bool isDarkMode) {
     final isSelected = _selectedCategoryId == id;
     final catData = _categories[id]!;
     final color = _activeColor;
+    final inactiveIconColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 
     return GestureDetector(
       onTap: () => setState(() => _selectedCategoryId = id),
@@ -466,13 +583,13 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? color.withOpacity(0.2) : darkSurface,
+              color: isSelected ? color.withOpacity(0.2) : inactiveBgColor,
               shape: BoxShape.circle,
               border: isSelected ? Border.all(color: color, width: 2) : null,
             ),
             child: Icon(
               catData['icon'] as IconData,
-              color: isSelected ? color : Colors.grey[400],
+              color: isSelected ? color : inactiveIconColor,
               size: 24,
             ),
           ),
@@ -492,33 +609,34 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildStickyBottomArea(BuildContext context, bool isDarkMode,
+      Color bgColor, Color inputFillColor, Color borderColor) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1E2A32),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 20, bottom: 20),
+      decoration: BoxDecoration(
+          color: bgColor, border: Border(top: BorderSide(color: borderColor))),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Note Field
-          TextField(
-            controller: _noteController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-                hintText: "Añadir nota...",
+          // Minimalist Note Field
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+                color: inputFillColor, borderRadius: BorderRadius.circular(16)),
+            child: TextField(
+              controller: _noteController,
+              style:
+                  TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
+              decoration: InputDecoration(
+                icon: const Icon(Icons.edit_note, color: Colors.grey),
+                hintText: "Nota (Opcional)",
                 hintStyle: TextStyle(color: Colors.grey[600]),
-                prefixIcon: const Icon(Icons.edit_note, color: Colors.grey),
-                filled: true,
-                fillColor: const Color(0xFF121C22),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                border: InputBorder.none,
+                isCollapsed: false,
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           // Save Button
           SizedBox(
             width: double.infinity,
@@ -529,14 +647,13 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                 backgroundColor: _activeColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                elevation: 4,
-                shadowColor: _activeColor.withOpacity(0.4),
+                elevation: 0,
               ),
               child: const Text(
                 'Guardar Transacción',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ),
           ),

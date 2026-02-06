@@ -4,6 +4,7 @@ import '../../core/usecases/usecase.dart';
 import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../domain/entities/goal_entity.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/get_account_balance_usecase.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
@@ -14,6 +15,7 @@ import '../../domain/usecases/update_transaction_usecase.dart';
 import '../../domain/usecases/delete_transaction_usecase.dart';
 import '../../data/models/subscription.dart';
 import '../../data/datasources/transaction_local_data_source.dart';
+import '../../data/datasources/local_database.dart';
 import '../../injection_container.dart';
 
 enum PeriodType { week, month, year }
@@ -53,24 +55,51 @@ class DashboardProvider extends ChangeNotifier {
   PeriodType _currentStatsPeriod = PeriodType.month;
 
   double _budgetLimit = 2400.00;
+  bool _isDarkMode = true;
+  bool _enableNotifications = true;
+  bool _enableBiometrics = false;
 
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
   double get cashBalance => _balanceBreakdown?.cash ?? 0.0;
-  double get bankBalance => _balanceBreakdown?.digital ?? 0.0;
+  double get bankBalance =>
+      (_balanceBreakdown?.digital ?? 0.0) - savingsBalance;
   double get savingsBalance => _balanceBreakdown?.savings ?? 0.0;
 
   BudgetMood get budgetMood => _budgetMood;
   bool get isLoading => _isLoading;
-  Failure? get failure => _failure;
   double get budgetLimit => _budgetLimit;
   List<TransactionEntity> get transactions => _transactions;
   List<Subscription> get subscriptions => _subscriptions;
   String get currencySymbol => _currencySymbol;
   String get userName => _userName;
   DateTime get currentStatsDate => _currentStatsDate;
-  PeriodType get currentStatsPeriod => _currentStatsPeriod;
 
-  /// Carga todos los datos necesarios para el Dashboard:
+  PeriodType get currentStatsPeriod => _currentStatsPeriod;
+  bool get isDarkMode => _isDarkMode;
+  bool get enableNotifications => _enableNotifications;
+  bool get enableBiometrics => _enableBiometrics;
+
+  // Security
+  String? _userPin;
+  bool get isPinEnabled => _userPin != null;
+
+  /// Sets a new PIN.
+  void setPin(String pin) {
+    _userPin = pin;
+    notifyListeners();
+  }
+
+  /// Removes the current PIN.
+  void removePin() {
+    _userPin = null;
+    notifyListeners();
+  }
+
+  /// Verifies if the input matches the stored PIN.
+  bool verifyPin(String input) {
+    return _userPin == input;
+  }
+
   /// 1. Balance total
   /// 2. Estado de ánimo (Mood)
   /// 3. Lista de transacciones recientes
@@ -117,6 +146,10 @@ class DashboardProvider extends ChangeNotifier {
 
     _currencySymbol = sl<TransactionLocalDataSource>().getCurrency();
     _userName = sl<TransactionLocalDataSource>().getUserName() ?? 'Usuario';
+    // _isDarkMode = sl<TransactionLocalDataSource>().getTheme() ?? true; // Future implementation
+
+    // Goals Init
+    // _goals is memory-only for now, so it starts empty.
 
     _isLoading = false;
     notifyListeners();
@@ -128,6 +161,46 @@ class DashboardProvider extends ChangeNotifier {
     _budgetLimit = newLimit;
     notifyListeners();
     // TODO: En una app real, deberíamos persistir este valor aquí (SharedPrefs)
+    // For now we simulate persistence
+    // sl<TransactionLocalDataSource>().saveMonthlyBudget(newLimit);
+  }
+
+  Future<void> setUserName(String name) async {
+    _userName = name;
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().saveUserName(name);
+  }
+
+  void toggleTheme(bool value) {
+    _isDarkMode = value;
+    notifyListeners();
+    // Persist if needed
+  }
+
+  void toggleNotifications(bool value) {
+    _enableNotifications = value;
+    notifyListeners();
+  }
+
+  void toggleBiometrics(bool value) {
+    _enableBiometrics = value;
+    notifyListeners();
+  }
+
+  Future<void> resetAllData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    // 1. Clear Preferences
+    final dataSource = sl<TransactionLocalDataSource>();
+    await dataSource.clearAllData();
+
+    // 2. Clear SQL Database (Critical Fix)
+    await LocalDatabase().clearAllTables();
+
+    // 3. Reset Memory State
+    resetState();
+    _isLoading = false;
   }
 
   void setStatsMonth(DateTime date) {
@@ -344,9 +417,93 @@ class DashboardProvider extends ChangeNotifier {
     await sl<TransactionLocalDataSource>().saveCurrency(symbol);
   }
 
+  List<GoalEntity> _goals = [];
+  List<GoalEntity> get goals => _goals;
+
+  // Goals Management
+
+  void addGoal(String name, double targetAmount, int iconCode, int colorValue) {
+    final newGoal = GoalEntity(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: name,
+        targetAmount: targetAmount,
+        currentAmount: 0,
+        iconCode: iconCode,
+        colorValue: colorValue);
+    _goals.add(newGoal);
+    notifyListeners();
+  }
+
+  void updateGoal(GoalEntity updatedGoal) {
+    final index = _goals.indexWhere((g) => g.id == updatedGoal.id);
+    if (index != -1) {
+      _goals[index] = updatedGoal;
+      notifyListeners();
+    }
+  }
+
+  void deleteGoal(String id) {
+    _goals.removeWhere((g) => g.id == id);
+    notifyListeners();
+  }
+
+  Future<void> depositToGoal(
+      String goalId, double amount, int sourceAccountId) async {
+    final index = _goals.indexWhere((g) => g.id == goalId);
+    if (index == -1) return;
+
+    // 1. Create Real Transfer (Source -> Savings)
+    // Savings Account ID is 3
+    await addTransfer(
+        amount: amount,
+        sourceAccountId: sourceAccountId,
+        destinationAccountId: 3,
+        note: "Depósito a Meta: ${_goals[index].name}");
+
+    // 2. Update Goal Local State
+    final goal = _goals[index];
+    final updatedGoal = GoalEntity(
+        id: goal.id,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount + amount,
+        iconCode: goal.iconCode,
+        colorValue: goal.colorValue,
+        isCompleted: (goal.currentAmount + amount) >= goal.targetAmount);
+
+    _goals[index] = updatedGoal;
+    notifyListeners();
+  }
+
+  Future<void> purchaseGoal(String goalId) async {
+    final index = _goals.indexWhere((g) => g.id == goalId);
+    if (index == -1) return;
+
+    final goal = _goals[index];
+
+    // 1. Create Real Expense (Savings -> Shopping/Other)
+    // Savings ID = 3
+    // Category 3 = Compras (Default) or 8 = Otros
+    final transaction = TransactionEntity(
+        accountId: 3, // Savings
+        categoryId: 3, // Shopping
+        amount: -goal.targetAmount, // Negative for Expense
+        date: DateTime.now(),
+        description: "Meta Cumplida: ${goal.name}",
+        note: "Compra realizada con éxito 🏆",
+        type: TransactionType.expense);
+
+    await addTransaction(transaction);
+
+    // 2. Remove Goal (or archive)
+    _goals.removeAt(index);
+    notifyListeners();
+  }
+
   void resetState() {
     _transactions = [];
     _subscriptions = [];
+    _goals = [];
     _balanceBreakdown = null;
     _budgetLimit = 2400.00;
     _budgetMood = BudgetMood.neutral;

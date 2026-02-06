@@ -19,76 +19,171 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   // Form Data
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _budgetController = TextEditingController();
-  final TextEditingController _balanceController = TextEditingController();
   String _selectedCurrency = 'S/';
+
+  // Balances
+  final TextEditingController _cashController = TextEditingController();
+  final TextEditingController _bankController = TextEditingController();
+  final TextEditingController _savingsController = TextEditingController();
+
+  // Budget
+  final TextEditingController _budgetController = TextEditingController();
+
+  bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+
+    _nameController.dispose();
+    _cashController.dispose();
+    _bankController.dispose();
+    _savingsController.dispose();
+    _budgetController.dispose();
+    super.dispose();
+  }
+
+  void _nextPage() {
+    // Validation
+    if (_currentPage == 0 && _nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Por favor, ingresa tu nombre.")));
+      return;
+    }
+
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _finishOnboarding() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
+    final provider = Provider.of<DashboardProvider>(context, listen: false);
+    final dataSource = sl.sl<TransactionLocalDataSource>();
+    final navigator = Navigator.of(context);
+
+    // 1. Save Currency
+    await provider.setCurrency(_selectedCurrency);
+
+    // 2. Save Name
+    await dataSource.saveUserName(_nameController.text.trim().isEmpty
+        ? "Usuario"
+        : _nameController.text.trim());
+
+    // 3. Save Budget
+    final budget = double.tryParse(_budgetController.text) ?? 2400.0;
+    provider.setBudgetLimit(budget);
+    await dataSource.saveBudgetLimit(budget);
+
+    // 4. Create Initial Balances
+    final cash = double.tryParse(_cashController.text) ?? 0;
+    final bank = double.tryParse(_bankController.text) ?? 0;
+    final savings = double.tryParse(_savingsController.text) ?? 0;
+
+    // Helper to add initial transaction
+    Future<void> addInitTx(double amount, int accountId, String desc) async {
+      if (amount > 0) {
+        final t = TransactionEntity(
+            accountId: accountId,
+            categoryId: 0, // Incomes/Initial
+            amount: amount,
+            date: DateTime.now(),
+            description: desc,
+            note: "Saldo Inicial",
+            type: TransactionType.income);
+        await provider.addTransaction(t);
+      }
+    }
+
+    // Add sequentially to ensure order (though date is same)
+    await addInitTx(cash, 1, "Saldo Inicial Efectivo");
+    await addInitTx(bank, 2, "Saldo Inicial Banco");
+    await addInitTx(savings, 3, "Saldo Inicial Ahorros");
+
+    // 5. Complete
+    await dataSource.setFirstTime(false);
+
+    if (mounted) {
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (context) => const MainPage()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF121C22);
-    const cyanColor = Color(0xFF00E5FF);
+    const backgroundColor = Color(0xFF1E293B);
+    const accentColor = Color(0xFF00E5FF);
 
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
         child: Column(
           children: [
+            // Progress Bar
+            LinearProgressIndicator(
+              value: (_currentPage + 1) / 3,
+              backgroundColor: Colors.white10,
+              color: accentColor,
+              minHeight: 4,
+            ),
+
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics:
-                    const NeverScrollableScrollPhysics(), // Control via buttons
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                },
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) => setState(() => _currentPage = index),
                 children: [
-                  _buildWelcomeStep(),
-                  _buildPersonalizationStep(),
-                  _buildFinancialStep(),
+                  _buildProfileStep(),
+                  _buildBalancesStep(),
+                  _buildBudgetStep(),
                 ],
               ),
             ),
-            // Bottom Indicator & Navigation
+
+            // Navigation Buttons
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Indicators
-                  Row(
-                    children: List.generate(3, (index) {
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.only(right: 6),
-                        height: 8,
-                        width: _currentPage == index ? 24 : 8,
-                        decoration: BoxDecoration(
-                          color:
-                              _currentPage == index ? cyanColor : Colors.grey,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      );
-                    }),
-                  ),
-                  // Button
-                  if (_currentPage < 2)
+                  if (_currentPage > 0)
                     TextButton(
                       onPressed: () {
-                        if (_currentPage == 1 && _nameController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      "Ingresa un nombre para continuar")));
-                          return;
-                        }
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
+                        _pageController.previousPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut);
                       },
-                      child: const Text("Siguiente",
-                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                      child: const Text("Atrás",
+                          style: TextStyle(color: Colors.grey)),
                     )
+                  else
+                    const SizedBox.shrink(),
+                  ElevatedButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : (_currentPage == 2 ? _finishOnboarding : _nextPage),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: accentColor,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.black))
+                        : Text(
+                            _currentPage == 2 ? "¡Comenzar!" : "Siguiente",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                  )
                 ],
               ),
             )
@@ -98,67 +193,38 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildWelcomeStep() {
-    return Padding(
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.account_balance_wallet,
-              size: 100, color: Color(0xFF00E5FF)),
-          SizedBox(height: 40),
-          Text(
-            "Bienvenido a tu\nLibertad Financiera",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 20),
-          Text(
-            "Controla tus gastos, cumple tus metas y mantén la carita feliz.",
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
-      ),
-    );
-  }
+  // --- STEPS ---
 
-  Widget _buildPersonalizationStep() {
+  Widget _buildProfileStep() {
     return Padding(
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Personalización",
+          const Icon(Icons.person_outline, size: 64, color: Color(0xFF00E5FF)),
+          const SizedBox(height: 24),
+          const Text("Configuremos tu perfil",
               style: TextStyle(
                   color: Colors.white,
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          const Text("¿Cómo te llamamos?",
-              style: TextStyle(color: Colors.grey)),
-          TextField(
-            controller: _nameController,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-            decoration: const InputDecoration(
-                hintText: "Tu nombre o apodo",
-                hintStyle: TextStyle(color: Colors.white24),
-                enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey)),
-                focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00E5FF)))),
-          ),
+          const SizedBox(height: 12),
+          const Text(
+              "Para darte una mejor experiencia, necesitamos conocerte un poco.",
+              style: TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 40),
-          const Text("Elige tu moneda", style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 15),
+          _buildTextField("Nombre", _nameController, icon: Icons.badge),
+          const SizedBox(height: 30),
+          const Text("Moneda Principal",
+              style: TextStyle(color: Colors.white70)),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildCurrencyOption("S/"),
-              _buildCurrencyOption("\$"),
-              _buildCurrencyOption("€"),
+              _currencyChip("S/"),
+              _currencyChip("\$"),
+              _currencyChip("€"),
             ],
           )
         ],
@@ -166,18 +232,138 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildCurrencyOption(String symbol) {
+  Widget _buildBalancesStep() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("¿Con cuánto empezamos?",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const Text(
+              "Para simplificar tu vida financiera, organizaremos tu dinero en 3 Cuentas Maestras (por ahora):",
+              style: TextStyle(color: Colors.white70, fontSize: 15)),
+          const SizedBox(height: 24),
+          _buildAccountInputCard(
+              "Efectivo (Cash)",
+              "Dinero físico en tu bolsillo. Úsalo para gastos diarios rápidos (pasajes, snacks).",
+              _cashController,
+              Icons.payments_outlined,
+              Colors.green),
+          const SizedBox(height: 16),
+          _buildAccountInputCard(
+              "Banco (Bank)",
+              "Tu dinero digital. Aquí recibes tu sueldo y manejas tus transferencias.",
+              _bankController,
+              Icons.credit_card,
+              Colors.blue),
+          const SizedBox(height: 16),
+          _buildAccountInputCard(
+              "Ahorros (Savings)",
+              "Tu dinero intocable. Úsalo solo para cumplir Metas o Emergencias.",
+              _savingsController,
+              Icons.savings,
+              Colors.purple),
+          const SizedBox(height: 24),
+          const Center(
+            child: Text(
+                "💡 Pro-tip: Más adelante podrás crear cuentas personalizadas.",
+                style: TextStyle(
+                    color: Colors.white30,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetStep() {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.pie_chart_outline,
+              size: 64, color: Color(0xFF00E5FF)),
+          const SizedBox(height: 24),
+          const Text("Define tu límite",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const Text(
+              "Establece un presupuesto mensual objetivo para mantener tus gastos bajo control.",
+              style: TextStyle(color: Colors.white70, fontSize: 16)),
+          const SizedBox(height: 40),
+          _buildMoneyInput("Presupuesto Mensual", _budgetController,
+              Icons.speed, Colors.orange),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGETS ---
+
+  Widget _buildTextField(String label, TextEditingController controller,
+      {IconData? icon}) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white60),
+          prefixIcon: icon != null ? Icon(icon, color: Colors.white60) : null,
+          enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Colors.white24),
+              borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Color(0xFF00E5FF)),
+              borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.05)),
+    );
+  }
+
+  Widget _buildMoneyInput(String label, TextEditingController controller,
+      IconData icon, Color iconColor) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: const TextStyle(color: Colors.white, fontSize: 18),
+      decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white70),
+          prefixIcon: Icon(icon, color: iconColor),
+          prefixText: "$_selectedCurrency ",
+          prefixStyle:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Colors.white24),
+              borderRadius: BorderRadius.circular(12)),
+          focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: iconColor),
+              borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.05)),
+    );
+  }
+
+  Widget _currencyChip(String symbol) {
     final isSelected = _selectedCurrency == symbol;
     return GestureDetector(
-      onTap: () {
-        setState(() => _selectedCurrency = symbol);
-      },
-      child: Container(
+      onTap: () => setState(() => _selectedCurrency = symbol),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF00E5FF).withOpacity(0.2)
-              : Colors.transparent,
+          color: isSelected ? const Color(0xFF00E5FF) : Colors.transparent,
           border: Border.all(
               color: isSelected ? const Color(0xFF00E5FF) : Colors.grey),
           borderRadius: BorderRadius.circular(12),
@@ -185,7 +371,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: Text(
           symbol,
           style: TextStyle(
-              color: isSelected ? const Color(0xFF00E5FF) : Colors.white,
+              color: isSelected ? Colors.black : Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.bold),
         ),
@@ -193,116 +379,63 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  Widget _buildFinancialStep() {
-    return Padding(
-      padding: const EdgeInsets.all(30),
+  Widget _buildAccountInputCard(String title, String desc,
+      TextEditingController controller, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10)),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Configuración Financiera",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          // Budget Limit
-          const Text("Límite Mensual de Gastos",
-              style: TextStyle(color: Colors.grey)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(title,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold))
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(desc,
+              style: const TextStyle(
+                  color: Colors.white60, fontSize: 13, height: 1.4)),
+          const SizedBox(height: 16),
           TextField(
-            controller: _budgetController,
+            controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             decoration: InputDecoration(
                 prefixText: "$_selectedCurrency ",
-                prefixStyle: const TextStyle(color: Color(0xFF00E5FF)),
-                hintText: "Ej. 2500.00",
+                prefixStyle: TextStyle(
+                    color: color, fontSize: 18, fontWeight: FontWeight.bold),
+                hintText: "0.00",
                 hintStyle: const TextStyle(color: Colors.white24),
-                enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey)),
-                focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00E5FF)))),
-          ),
-          const SizedBox(height: 30),
-          // Initial Balance
-          const Text("Saldo Inicial (Total Dinero)",
-              style: TextStyle(color: Colors.grey)),
-          TextField(
-            controller: _balanceController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white, fontSize: 18),
-            decoration: InputDecoration(
-                prefixText: "$_selectedCurrency ",
-                prefixStyle: const TextStyle(color: Color(0xFF00E5FF)),
-                hintText: "Ej. 500.00",
-                hintStyle: const TextStyle(color: Colors.white24),
-                enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey)),
-                focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF00E5FF)))),
-          ),
-          const SizedBox(height: 50),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _finishOnboarding,
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00E5FF),
-                  foregroundColor: const Color(0xFF121C22),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25))),
-              child: const Text("¡Todo Listo!",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ),
+                isDense: true,
+                contentPadding: const EdgeInsets.all(12),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white10),
+                    borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: color),
+                    borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: Colors.black26),
           )
         ],
       ),
     );
-  }
-
-  Future<void> _finishOnboarding() async {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-    final dataSource = sl.sl<TransactionLocalDataSource>();
-
-    // 1. Save Currency
-    await provider.setCurrency(_selectedCurrency);
-
-    // 2. Save Name
-    if (_nameController.text.isNotEmpty) {
-      await dataSource.saveUserName(_nameController.text);
-    } else {
-      await dataSource.saveUserName("Viajero");
-    }
-
-    // 3. Save Budget
-    final budget = double.tryParse(_budgetController.text);
-    if (budget != null && budget > 0) {
-      provider.setBudgetLimit(budget);
-      await dataSource.saveBudgetLimit(budget);
-    }
-
-    // 4. Create Initial Balance Transaction
-    final balance = double.tryParse(_balanceController.text);
-    if (balance != null && balance > 0) {
-      final t = TransactionEntity(
-        accountId: 1, // Cuenta Principal
-        categoryId: 0, // Sin Categoría / Ingreso
-        amount: balance,
-        date: DateTime.now(),
-        description: "Saldo Inicial",
-      );
-      await provider.addTransaction(t);
-    }
-
-    // 5. Complete Onboarding
-    await dataSource.setFirstTime(false);
-
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainPage()),
-      );
-    }
   }
 }
