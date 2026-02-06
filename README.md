@@ -12,11 +12,11 @@
 
 ## 📱 Vistazo Rápido a la Aplicación
 
-La aplicación cuenta con una interfaz moderna en **Modo Oscuro**, diseñada para ser elegante y funcional.
+La aplicación cuenta con una interfaz moderna adaptable a **Modo Claro ☀️** y **Modo Oscuro 🌙**, diseñada para ser elegante y funcional en cualquier entorno.
 
 | 🏠 Home | 📊 Estadísticas | 📜 Historial | ⚙️ Configuración |
 |:---:|:---:|:---:|:---:|
-| Resumen de saldo, estado de ánimo y actividad reciente. | Gráficos de dona interactivos y desglose de gastos. | Lista detallada de transacciones agrupadas por fecha. | Gestión de perfil, presupuesto y preferencias. |
+| Resumen de saldo, estado de ánimo y actividad reciente. | Gráficos de dona interactivos y desglose de gastos. | Lista detallada de transacciones agrupadas por fecha. | Gestión de perfil, presupuesto, temas y preferencias. |
 
 ---
 
@@ -26,6 +26,7 @@ La aplicación cuenta con una interfaz moderna en **Modo Oscuro**, diseñada par
 No pierdas de vista el dinero que llevas en la billetera.
 *   **Saldo Unificado:** Vista combinada de tus cuentas bancarias y efectivo físico.
 *   **Entrada Rápida:** Agrega transacciones en segundos con un teclado numérico gigante y categorización intuitiva.
+*   **Billetera Completa:** Gestiona múltiples cuentas, transferencias y metas de ahorro visuales.
 
 ### 2. 😐 Feedback Emocional (Smart HUD)
 La interfaz reacciona a tus hábitos de gasto.
@@ -33,14 +34,19 @@ La interfaz reacciona a tus hábitos de gasto.
 *   🟡 **Neutral:** Cuando te acercas al límite (80% - 100%).
 *   🔴 **Alerta:** Si has excedido tu presupuesto mensual.
 
-### 3. 📊 Estadísticas Visuales
+### 3. 🎨 Personalización Visual (¡Nuevo!)
+Adapta la app a tu estilo o condiciones de luz.
+*   **Temas Dinámicos:** Cambia instantáneamente entre un modo claro limpio ("Paper Style") y un modo oscuro sofisticado ("Midnight Blue").
+*   **Consistencia:** Desde los gráficos hasta los diálogos de calendario, todo elemento respeta tu elección visual.
+
+### 4. 📊 Estadísticas Visuales
 Entiende dónde se va tu dinero con un vistazo.
 *   **Gráfico Circular (Donut Chart):** Visualización clara de porcentajes de gasto.
-*   **Top Spending:** Lista de categorías donde más gastas, con alertas visuales si superas el promedio.
+*   **Top Spending:** Lista de categorías donde más gastas, con alertas visuales.
 
-### 4. ⚙️ Control Total y Privacidad
+### 5. ⚙️ Control Total y Privacidad
 *   **Configuración de Presupuesto:** Define tu límite mensual fácilmente.
-*   **Gestión de Suscripciones:** Recordatorios visuales de tus pagos recurrentes (Netflix, Spotify, etc.).
+*   **Exportación de Datos:** Genera reportes CSV de tus transacciones (Copiar al portapapeles) para análisis externo.
 *   **Offline First:** Todos los datos se guardan localmente en tu dispositivo usando **SQLite**. Cero rastreadores, cero nube.
 
 ---
@@ -117,10 +123,11 @@ Sigue estos pasos para correr el proyecto en tu entorno local:
 
 ## 📅 Próximos Pasos (Roadmap)
 
-*   [ ] **Billetera:** Gestión detallada de múltiples cuentas y transferencias entre ellas.
-*   [ ] **Exportación:** Exportar reportes en PDF o Excel.
+*   [x] **Temas:** Soporte completo para Light/Dark Mode.
+*   [x] **Billetera:** Gestión de cuentas, transferencias y metas de ahorro.
+*   [x] **Exportación:** Exportar reportes básicos (CSV).
 *   [ ] **Sincronización Opcional:** Backup en Google Drive (cifrado).
-*   [ ] **Metas de Ahorro:** Crear alcancías virtuales para objetivos específicos.
+*   [ ] **Notificaciones Inteligentes:** Avisos predictivos de gastos recurrentes.
 
 ---
 
