@@ -17,6 +17,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
+  bool _isSpeedDialOpen = false;
 
   List<Widget> get _pages => [
         HomePage(onSeeAllPressed: () => _onItemTapped(2)),
@@ -518,63 +519,221 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode =
+        Provider.of<DashboardProvider>(context, listen: false).isDarkMode;
+
     return Scaffold(
-      body: _pages[_currentIndex],
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
+      backgroundColor: isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          FloatingActionButton.small(
-            heroTag: "voice_btn",
-            onPressed: _showVoiceSimulator,
-            backgroundColor: Colors.tealAccent,
-            child: const Icon(Icons.mic, color: Colors.black),
+          // 1. Page Content
+          _pages[_currentIndex],
+
+          // 2. Backdrop (Dims only when Speed Dial is open)
+          if (_isSpeedDialOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _isSpeedDialOpen = false),
+                child: Container(
+                  color: Colors.black.withOpacity(0.6),
+                ),
+              ),
+            ),
+
+          // 3. Custom Floating Navigation Dock
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20,
+            child: Container(
+              height: 70,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2937), // Dark control center
+                borderRadius: BorderRadius.circular(35),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black45,
+                    blurRadius: 15,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildDockItem(Icons.home_rounded, 0),
+                  _buildDockItem(Icons.bar_chart_rounded, 1),
+                  const SizedBox(width: 60), // Space for FAB
+                  _buildDockItem(Icons.history_rounded, 2),
+                  _buildDockItem(Icons.account_balance_wallet_rounded, 3),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 12),
-          FloatingActionButton(
-            heroTag: "add_btn",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const AddTransactionPage()),
-              );
-            },
-            backgroundColor: Colors.cyan,
-            elevation: 4,
-            shape: const CircleBorder(),
-            child: const Icon(Icons.add, color: Colors.white),
+
+          // 4. Speed Dial Options
+          if (_isSpeedDialOpen)
+            Positioned(
+              bottom: 110,
+              left: 0,
+              right: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Voice Option
+                  _buildSpeedDialOption(
+                    icon: Icons.mic_rounded,
+                    label: "Por Voz",
+                    color: Colors.tealAccent,
+                    onTap: () {
+                      setState(() => _isSpeedDialOpen = false);
+                      _showVoiceSimulator();
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // Manual Option
+                  _buildSpeedDialOption(
+                    icon: Icons.edit_note_rounded,
+                    label: "Manual",
+                    color: Colors.cyanAccent,
+                    onTap: () {
+                      setState(() => _isSpeedDialOpen = false);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const AddTransactionPage()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+          // 5. Main "Super FAB"
+          Positioned(
+            bottom: 25, // Lowered for better alignment
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isSpeedDialOpen = !_isSpeedDialOpen;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 64,
+                  width: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: _isSpeedDialOpen
+                          ? [Colors.redAccent, Colors.red]
+                          : [Colors.cyan, Colors.blueAccent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isSpeedDialOpen
+                            ? Colors.redAccent.withOpacity(0.3)
+                            : Colors.cyan.withOpacity(0.3), // Reduced opacity
+                        blurRadius: 15, // Softer blur
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: AnimatedRotation(
+                    turns: _isSpeedDialOpen ? 0.125 : 0, // 45 degrees
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.add_rounded,
+                        color: Colors.white, size: 36),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        color: const Color(0xFF15202B),
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            _buildNavItem(Icons.home_filled, 0),
-            _buildNavItem(Icons.bar_chart, 1),
-            const SizedBox(width: 48), // Space for FAB
-            _buildNavItem(Icons.history, 2),
-            _buildNavItem(Icons.account_balance_wallet_rounded, 3),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, int index) {
+  Widget _buildSpeedDialOption(
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Label
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [
+              BoxShadow(
+                  color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+            ],
+          ),
+          child: Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, color: Colors.black87)),
+        ),
+        const SizedBox(width: 12),
+        // Mini FAB
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            height: 50,
+            width: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              boxShadow: [
+                BoxShadow(
+                    color: color.withOpacity(0.5),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4))
+              ],
+            ),
+            child: Icon(icon, color: Colors.black87, size: 24),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDockItem(IconData icon, int index) {
     final isSelected = _currentIndex == index;
-    return IconButton(
-      icon: Icon(
-        icon,
-        color: isSelected ? Colors.cyan : Colors.grey,
-        size: 28,
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isSelected
+              ? Colors.cyanAccent.withOpacity(0.1)
+              : Colors.transparent,
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? Colors.cyanAccent : Colors.grey,
+          size: 28,
+          shadows: isSelected
+              ? [
+                  BoxShadow(
+                      color: Colors.cyanAccent.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 1)
+                ]
+              : null,
+        ),
       ),
-      onPressed: () => _onItemTapped(index),
     );
   }
 }

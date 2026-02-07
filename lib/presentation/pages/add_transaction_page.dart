@@ -508,12 +508,14 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   Widget _buildAccountChip(int id,
       {required bool isSource, required bool isDarkMode}) {
-    final selectedId = isSource ? _selectedSourceId : _selectedDestId;
-    final isSelected = selectedId == id;
-    final inactiveTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+    final selectId = isSource ? _selectedSourceId : _selectedDestId;
+    final isSelected = selectId == id;
+    final inactiveTextColor =
+        isDarkMode ? Colors.grey[400] : Colors.grey[800]; // Darker Grey
     final inactiveBorderColor =
-        isDarkMode ? Colors.transparent : Colors.grey[300]!;
-    final inactiveBgColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+        isDarkMode ? Colors.transparent : Colors.grey[400]!; // Darker Border
+    final inactiveBgColor =
+        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100]!; // Grey tint
 
     // Account Colors
     Color chipColor;
@@ -521,16 +523,19 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     switch (id) {
       case 1:
         chipColor = Colors.amber;
-        contentColor = Colors.black; // Better contrast for Amber
+        contentColor = Colors.black;
         break;
       case 2:
-        chipColor = Colors.blueAccent;
+        chipColor = const Color(0xFF64B5F6); // Light Blue 300
+        contentColor = Colors.black;
         break;
       case 3:
-        chipColor = Colors.purpleAccent;
+        chipColor = const Color(0xFFE040FB); // Purple Accent
+        contentColor = Colors.black;
         break;
       default:
         chipColor = _activeColor;
+        contentColor = Colors.white; // Default fallback
     }
 
     return GestureDetector(
@@ -549,7 +554,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         decoration: BoxDecoration(
           color: isSelected ? chipColor : inactiveBgColor,
           borderRadius: BorderRadius.circular(20),
-          border: isSelected ? null : Border.all(color: inactiveBorderColor),
+          border: isSelected
+              ? null
+              : Border.all(color: inactiveBorderColor, width: 1.5),
         ),
         child: Row(
           children: [

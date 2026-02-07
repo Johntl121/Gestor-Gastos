@@ -129,45 +129,6 @@ class SettingsPage extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // 4. SUBSCRIPTION MANAGER
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("Suscripciones",
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.add_circle, color: Colors.cyan),
-                    onPressed: () => _showAddSubscriptionDialog(context),
-                  )
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Placeholder List
-              Container(
-                padding: const EdgeInsets.all(20),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: isDarkMode
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              offset: const Offset(0, 4),
-                              blurRadius: 10,
-                            )
-                          ]),
-                child: Text(
-                  "Tus suscripciones aparecerán aquí en futuras versiones.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: subTextColor),
-                ),
-              ),
-
               const SizedBox(height: 30),
 
               // 5. APP PREFERENCES
@@ -518,15 +479,6 @@ class SettingsPage extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
-  }
-
-  void _showAddSubscriptionDialog(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("🚀 Próximamente: Gestión avanzada en Billetera"),
-        backgroundColor: Colors.purpleAccent,
       ),
     );
   }

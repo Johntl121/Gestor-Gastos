@@ -411,6 +411,31 @@ class DashboardProvider extends ChangeNotifier {
     await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
   }
 
+  Future<void> markSubscriptionAsPaid(Subscription subscription) async {
+    // 1. Create Expense Transaction
+    final transaction = TransactionEntity(
+        accountId: subscription.accountToCharge,
+        categoryId: 9, // Suscripciones (Using ID 9 from AddTransactionPage)
+        amount: -subscription.amount,
+        date: DateTime.now(),
+        description: subscription.name,
+        note: "Pago de suscripción mensual",
+        type: TransactionType.expense);
+
+    await addTransaction(transaction);
+
+    // 2. Update Subscription State
+    final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
+    if (index != -1) {
+      _subscriptions[index] = subscription.copyWith(isPaidThisMonth: true);
+      notifyListeners();
+      await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+    }
+  }
+
+  double get totalFixedExpenses =>
+      _subscriptions.fold(0.0, (sum, item) => sum + item.amount);
+
   Future<void> setCurrency(String symbol) async {
     _currencySymbol = symbol;
     notifyListeners();
