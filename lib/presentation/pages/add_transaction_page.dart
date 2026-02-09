@@ -72,7 +72,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     3: Icons.savings,
   };
 
-  final Map<int, Map<String, dynamic>> _categories = {
+  final Map<int, Map<String, dynamic>> _expenseCategories = {
     // Alimentación
     1: {'name': 'Comida', 'icon': Icons.restaurant, 'color': Colors.orange},
     2: {
@@ -126,15 +126,30 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     // Financiero
     16: {'name': 'Deudas', 'icon': Icons.money_off, 'color': Colors.deepOrange},
     17: {'name': 'Ahorro', 'icon': Icons.savings, 'color': Colors.lime},
-    // Ingresos
-    18: {
-      'name': 'Sueldo',
-      'icon': Icons.attach_money,
-      'color': Colors.green.shade800
-    },
-    19: {'name': 'Negocio', 'icon': Icons.store, 'color': Colors.blue.shade900},
     // Otros
     20: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.blueGrey},
+  };
+
+  final Map<int, Map<String, dynamic>> _incomeCategories = {
+    18: {
+      'name': 'Sueldo',
+      'icon': Icons.monetization_on,
+      'color': Colors.green.shade800
+    },
+    19: {'name': 'Negocio', 'icon': Icons.work, 'color': Colors.blue.shade900},
+    21: {
+      'name': 'Inversiones',
+      'icon': Icons.trending_up,
+      'color': Colors.purple
+    },
+    22: {
+      'name': 'Regalos',
+      'icon': Icons.card_giftcard,
+      'color': Colors.pinkAccent
+    },
+    23: {'name': 'Ventas', 'icon': Icons.storefront, 'color': Colors.orange},
+    24: {'name': 'Préstamos', 'icon': Icons.handshake, 'color': Colors.teal},
+    25: {'name': 'Otros', 'icon': Icons.category, 'color': Colors.blueGrey},
   };
 
   Color get _activeColor {
@@ -194,8 +209,10 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         amount = amount * -1;
       }
 
-      final catName =
-          _categories[_selectedCategoryId]?['name'] ?? 'Transacción';
+      final activeMap = _transactionType == TransactionType.income
+          ? _incomeCategories
+          : _expenseCategories;
+      final catName = activeMap[_selectedCategoryId]?['name'] ?? 'Transacción';
 
       if (widget.transactionToEdit != null) {
         // Update Mode
@@ -399,23 +416,33 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5, // Cleaner Grid
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 12,
-                        childAspectRatio: 0.70,
-                      ),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final catId = index + 1;
-                        return _buildCategoryItem(
-                            catId, categoryInactiveBg, isDarkMode);
-                      },
-                    ),
+                    // Determine which map to show
+                    Builder(builder: (context) {
+                      final activeMap =
+                          _transactionType == TransactionType.income
+                              ? _incomeCategories
+                              : _expenseCategories;
+                      final keys = activeMap.keys.toList();
+
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5, // Cleaner Grid
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 12,
+                          childAspectRatio: 0.70,
+                        ),
+                        itemCount: keys.length,
+                        itemBuilder: (context, index) {
+                          final catId = keys[index];
+                          // Pass the map to the item builder so it looks up correctly
+                          return _buildCategoryItem(
+                              catId, categoryInactiveBg, isDarkMode, activeMap);
+                        },
+                      );
+                    }),
                   ],
                   const SizedBox(height: 24),
                 ],
@@ -435,7 +462,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _transactionType = type),
+        onTap: () => _onTypeChanged(type),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           alignment: Alignment.center,
@@ -454,6 +481,21 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         ),
       ),
     );
+  }
+
+  void _onTypeChanged(TransactionType type) {
+    if (_transactionType != type) {
+      setState(() {
+        _transactionType = type;
+        // Reset category to the first one in the new list to avoid invalid ID
+        // Or set to null if preferred, but let's default to first for valid UI
+        if (type == TransactionType.income) {
+          _selectedCategoryId = _incomeCategories.keys.first;
+        } else {
+          _selectedCategoryId = _expenseCategories.keys.first;
+        }
+      });
+    }
   }
 
   Widget _buildHeroInput(String currency, bool isDarkMode) {
@@ -576,9 +618,10 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildCategoryItem(int id, Color inactiveBgColor, bool isDarkMode) {
+  Widget _buildCategoryItem(int id, Color inactiveBgColor, bool isDarkMode,
+      Map<int, Map<String, dynamic>> activeMap) {
     final isSelected = _selectedCategoryId == id;
-    final catData = _categories[id]!;
+    final catData = activeMap[id]!;
     final color = _activeColor;
     final inactiveIconColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 

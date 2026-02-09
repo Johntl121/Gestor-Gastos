@@ -343,7 +343,8 @@ class _HistoryPageState extends State<HistoryPage> {
                             child: Text("No hay transacciones",
                                 style: TextStyle(color: Colors.grey[600])))
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.only(
+                                left: 16, right: 16, top: 10, bottom: 100),
                             itemCount: grouped.keys.length,
                             itemBuilder: (context, index) {
                               final key = grouped.keys.elementAt(index);
@@ -365,12 +366,24 @@ class _HistoryPageState extends State<HistoryPage> {
                                               color: Colors.white),
                                         ),
                                         onDismissed: (direction) {
+                                          final deletedTransaction = t;
                                           if (t.id != null) {
                                             provider.deleteTransaction(t.id!);
                                             ScaffoldMessenger.of(context)
-                                                .showSnackBar(const SnackBar(
-                                              content:
-                                                  Text('Transacción eliminada'),
+                                                .clearSnackBars();
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(SnackBar(
+                                              content: const Text(
+                                                  'Transacción eliminada'),
+                                              action: SnackBarAction(
+                                                  label: 'DESHACER',
+                                                  textColor: Colors.cyanAccent,
+                                                  onPressed: () {
+                                                    provider.addTransaction(
+                                                        deletedTransaction);
+                                                  }),
+                                              duration:
+                                                  const Duration(seconds: 4),
                                             ));
                                           }
                                         },
@@ -744,7 +757,8 @@ class _HistoryPageState extends State<HistoryPage> {
                             style: const TextStyle(color: Colors.grey)));
                   }
                   return ListView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.only(
+                        left: 16, right: 16, top: 16, bottom: 100),
                     children: dayTransactions.map((t) {
                       return Dismissible(
                         key: Key(t.id.toString()),
@@ -757,10 +771,19 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                         onDismissed: (direction) {
                           if (t.id != null) {
+                            final deletedTransaction = t;
                             provider.deleteTransaction(t.id!);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Transacción eliminada')));
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text('Transacción eliminada'),
+                              action: SnackBarAction(
+                                  label: 'DESHACER',
+                                  textColor: Colors.cyanAccent,
+                                  onPressed: () {
+                                    provider.addTransaction(deletedTransaction);
+                                  }),
+                              duration: const Duration(seconds: 4),
+                            ));
                           }
                         },
                         child: GestureDetector(

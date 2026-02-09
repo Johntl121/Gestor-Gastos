@@ -21,7 +21,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 6, // Increment version
+      version: 8, // Increment version
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -29,6 +29,7 @@ class LocalDatabase {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // ... (previous migrations)
     if (oldVersion < 2) {
       // Migración V1 -> V2: Asegurar que existan categorías y segunda cuenta
 
@@ -98,6 +99,40 @@ class LocalDatabase {
             "INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)");
       }
     }
+
+    if (oldVersion < 7) {
+      // Migración V6 -> V7: Agregar columnas 'currencySymbol' e 'iconCode' a accounts
+      try {
+        await db.execute(
+            "ALTER TABLE accounts ADD COLUMN currencySymbol TEXT DEFAULT 'S/'");
+      } catch (e) {
+        // Ignore if exists
+      }
+      try {
+        await db.execute(
+            "ALTER TABLE accounts ADD COLUMN iconCode INTEGER DEFAULT 58343"); // Wallet icon code
+      } catch (e) {
+        // Ignore if exists
+      }
+
+      // Update existing default accounts with icons
+      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 1',
+          [57533]); // Payments (Cash)
+      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 2',
+          [57774]); // Account Balance (Bank)
+      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 3',
+          [58343]); // Savings (Piggy/Wallet)
+    }
+
+    if (oldVersion < 8) {
+      // Migración V7 -> V8: Agregar columna 'includeInTotal'
+      try {
+        await db.execute(
+            "ALTER TABLE accounts ADD COLUMN includeInTotal INTEGER DEFAULT 1");
+      } catch (e) {
+        // Ignore if exists
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -113,7 +148,10 @@ class LocalDatabase {
         name TEXT NOT NULL,
         type TEXT NOT NULL CHECK(type IN ('CASH', 'DIGITAL')),
         balance REAL DEFAULT 0.0,
-        color INTEGER
+        color INTEGER,
+        currencySymbol TEXT DEFAULT 'S/',
+        iconCode INTEGER DEFAULT 58343,
+        includeInTotal INTEGER DEFAULT 1
       )
     ''');
 
@@ -149,16 +187,8 @@ class LocalDatabase {
   }
 
   Future<void> _seedData(Database db) async {
-    // Cuentas Iniciales
-    await db.rawInsert('''
-      INSERT INTO accounts(name, type, balance, color) VALUES('Efectivo', 'CASH', 0.0, 4283215696)
-    ''');
-    await db.rawInsert('''
-      INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)
-    '''); // Color Azul
-    await db.rawInsert('''
-      INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)
-    '''); // Color Morado
+    // Cuentas Iniciales - REMOVED per user request
+    // No default accounts. User must create them or Onboarding will do it.
 
     // Categorías Iniciales (Gastos)
     await db.rawInsert('''
@@ -178,6 +208,8 @@ class LocalDatabase {
   Future<void> clearAllTables() async {
     final db = await database;
     await db.delete('transactions');
-    await db.rawUpdate('UPDATE accounts SET balance = 0.0');
+    await db.delete('accounts');
+    await db
+        .delete('sqlite_sequence', where: 'name = ?', whereArgs: ['accounts']);
   }
 }

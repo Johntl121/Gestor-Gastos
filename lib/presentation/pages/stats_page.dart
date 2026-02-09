@@ -153,7 +153,7 @@ class StatsPage extends StatelessWidget {
                                       : provider.currentStatsPeriod ==
                                               PeriodType.year
                                           ? "ESTE AÑO"
-                                          : DateFormat('MMMM yyyy')
+                                          : DateFormat('MMMM yyyy', 'es_ES')
                                               .format(provider.currentStatsDate)
                                               .toUpperCase(),
                                   style: const TextStyle(
@@ -228,32 +228,27 @@ class StatsPage extends StatelessWidget {
   }
 
   /// Construye una pestaña del selector de periodo (Semana, Mes, Año)
+  /// Estilo High Contrast
   Widget _buildPeriodTab(
       String text, bool isSelected, VoidCallback onTap, bool isDarkMode) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: isSelected
-              ? BoxDecoration(
-                  color: isDarkMode ? const Color(0xFF1F2937) : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          spreadRadius: 1)
-                    ])
-              : null,
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.cyanAccent : Colors.transparent,
+            borderRadius: BorderRadius.circular(30), // Rounded pill shape
+          ),
           child: Text(
             text,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: isSelected
-                  ? (isDarkMode ? Colors.white : Colors.black)
-                  : Colors.grey,
-              fontWeight: FontWeight.bold,
+                  ? Colors.black // High contrast on Cyan
+                  : (isDarkMode ? Colors.white70 : Colors.black54),
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.normal,
               fontSize: 14,
             ),
           ),

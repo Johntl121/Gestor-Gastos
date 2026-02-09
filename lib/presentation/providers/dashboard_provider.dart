@@ -17,11 +17,16 @@ import '../../data/models/subscription.dart';
 import '../../data/datasources/transaction_local_data_source.dart';
 import '../../data/datasources/local_database.dart';
 import '../../injection_container.dart';
+import '../../domain/usecases/account_usecases.dart';
+import '../../domain/entities/account_entity.dart';
+import '../../domain/usecases/delete_account_usecase.dart';
+import '../../domain/usecases/update_account_usecase.dart';
 
 enum PeriodType { week, month, year }
 
 /// DashboardProvider: Gestiona el estado principal de la aplicación.
 /// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
+
 class DashboardProvider extends ChangeNotifier {
   final GetAccountBalanceUseCase getAccountBalance;
   final GetBudgetMoodUseCase getBudgetMood;
@@ -30,6 +35,10 @@ class DashboardProvider extends ChangeNotifier {
   final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
   final UpdateTransactionUseCase updateTransactionUseCase;
   final DeleteTransactionUseCase deleteTransactionUseCase;
+  final CreateAccountUseCase createAccountUseCase;
+  final GetAccountsUseCase getAccountsUseCase;
+  final DeleteAccountUseCase deleteAccountUseCase;
+  final UpdateAccountUseCase updateAccountUseCase;
 
   DashboardProvider({
     required this.getAccountBalance,
@@ -39,7 +48,12 @@ class DashboardProvider extends ChangeNotifier {
     required this.getMonthlyBudgetUseCase,
     required this.updateTransactionUseCase,
     required this.deleteTransactionUseCase,
+    required this.createAccountUseCase,
+    required this.getAccountsUseCase,
+    required this.deleteAccountUseCase,
+    required this.updateAccountUseCase,
   }) {
+    _userPin = sl<TransactionLocalDataSource>().getSecurityPin();
     loadData();
   }
 
@@ -48,9 +62,11 @@ class DashboardProvider extends ChangeNotifier {
   bool _isLoading = false;
   Failure? _failure;
   List<TransactionEntity> _transactions = [];
+  List<AccountEntity> _accounts = []; // New Accounts List
   List<Subscription> _subscriptions = [];
   String _currencySymbol = 'S/';
   String _userName = 'Usuario';
+  String _userAvatar = '😎'; // Default
   DateTime _currentStatsDate = DateTime.now();
   PeriodType _currentStatsPeriod = PeriodType.month;
 
@@ -60,10 +76,62 @@ class DashboardProvider extends ChangeNotifier {
   bool _enableBiometrics = false;
 
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
-  double get cashBalance => _balanceBreakdown?.cash ?? 0.0;
-  double get bankBalance =>
-      (_balanceBreakdown?.digital ?? 0.0) - savingsBalance;
-  double get savingsBalance => _balanceBreakdown?.savings ?? 0.0;
+  List<AccountEntity> get accounts => _accounts;
+
+  // Mock Exchange Rates (Base: PEN/S/)
+  static const Map<String, double> _exchangeRatesToPEN = {
+    'S/': 1.0,
+    '\$': 3.75, // USD
+    '€': 4.10, // EUR
+    '¥': 0.025, // JPY
+    '₽': 0.040, // RUB
+    '₿': 350000.0 // BTC (Example)
+  };
+
+  // Computed Totals from Accounts List (Normalized to Base Currency)
+  double get totalBalance =>
+      _accounts.where((a) => a.includeInTotal).fold(0.0, (sum, acc) {
+        final rate = _exchangeRatesToPEN[acc.currencySymbol] ?? 1.0;
+        return sum + (acc.currentBalance * rate);
+      });
+
+  // Legacy getters for backward compatibility (mapped from simple IDs or Names)
+  double get cashBalance => _accounts
+      .firstWhere((a) => a.id == 1 || a.name == 'Efectivo',
+          orElse: () =>
+              _accounts.firstOrNull ??
+              const AccountEntity(
+                  id: 0,
+                  name: '',
+                  initialBalance: 0,
+                  currencySymbol: '',
+                  colorValue: 0,
+                  iconCode: 0))
+      .currentBalance;
+
+  // Bank is usually ID 2
+  double get bankBalance => _accounts
+      .firstWhere((a) => a.id == 2 || a.name == 'Bancaria',
+          orElse: () => const AccountEntity(
+              id: 0,
+              name: '',
+              initialBalance: 0,
+              currencySymbol: '',
+              colorValue: 0,
+              iconCode: 0))
+      .currentBalance;
+
+  // Savings is usually ID 3
+  double get savingsBalance => _accounts
+      .firstWhere((a) => a.id == 3 || a.name == 'Ahorros',
+          orElse: () => const AccountEntity(
+              id: 0,
+              name: '',
+              initialBalance: 0,
+              currencySymbol: '',
+              colorValue: 0,
+              iconCode: 0))
+      .currentBalance;
 
   BudgetMood get budgetMood => _budgetMood;
   bool get isLoading => _isLoading;
@@ -72,6 +140,7 @@ class DashboardProvider extends ChangeNotifier {
   List<Subscription> get subscriptions => _subscriptions;
   String get currencySymbol => _currencySymbol;
   String get userName => _userName;
+  String get userAvatar => _userAvatar;
   DateTime get currentStatsDate => _currentStatsDate;
 
   PeriodType get currentStatsPeriod => _currentStatsPeriod;
@@ -87,12 +156,14 @@ class DashboardProvider extends ChangeNotifier {
   void setPin(String pin) {
     _userPin = pin;
     notifyListeners();
+    sl<TransactionLocalDataSource>().saveSecurityPin(pin);
   }
 
   /// Removes the current PIN.
   void removePin() {
     _userPin = null;
     notifyListeners();
+    sl<TransactionLocalDataSource>().saveSecurityPin(null);
   }
 
   /// Verifies if the input matches the stored PIN.
@@ -108,11 +179,18 @@ class DashboardProvider extends ChangeNotifier {
     _failure = null;
     notifyListeners();
 
-    // Obtener Saldo
+    // Obtener Saldo (Legacy Breakdown)
     final balanceResult = await getAccountBalance(NoParams());
     balanceResult.fold(
       (fail) => _failure = fail,
       (balance) => _balanceBreakdown = balance,
+    );
+
+    // Obtener Cuentas (New)
+    final accountsResult = await getAccountsUseCase(NoParams());
+    accountsResult.fold(
+      (fail) => _failure = fail,
+      (accounts) => _accounts = accounts,
     );
 
     // Obtener Estado de Ánimo
@@ -146,6 +224,9 @@ class DashboardProvider extends ChangeNotifier {
 
     _currencySymbol = sl<TransactionLocalDataSource>().getCurrency();
     _userName = sl<TransactionLocalDataSource>().getUserName() ?? 'Usuario';
+    _userAvatar = sl<TransactionLocalDataSource>().getUserAvatar();
+    _userPin =
+        sl<TransactionLocalDataSource>().getSecurityPin(); // Load Security PIN
     // _isDarkMode = sl<TransactionLocalDataSource>().getTheme() ?? true; // Future implementation
 
     // Goals Init
@@ -169,6 +250,12 @@ class DashboardProvider extends ChangeNotifier {
     _userName = name;
     notifyListeners();
     await sl<TransactionLocalDataSource>().saveUserName(name);
+  }
+
+  Future<void> setUserAvatar(String avatar) async {
+    _userAvatar = avatar;
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().saveUserAvatar(avatar);
   }
 
   void toggleTheme(bool value) {
@@ -520,13 +607,83 @@ class DashboardProvider extends ChangeNotifier {
 
     await addTransaction(transaction);
 
-    // 2. Remove Goal (or archive)
+    await addTransaction(transaction);
     _goals.removeAt(index);
     notifyListeners();
   }
 
+  Future<void> createAccount(AccountEntity account) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final result =
+        await createAccountUseCase(CreateAccountParams(account: account));
+
+    result.fold(
+      (fail) {
+        _failure = fail;
+        _isLoading = false;
+        notifyListeners();
+      },
+      (_) {
+        loadData();
+      },
+    );
+  }
+
+  Future<void> updateAccount(AccountEntity account) async {
+    // Optimistic Update
+    final index = _accounts.indexWhere((a) => a.id == account.id);
+    if (index != -1) {
+      _accounts[index] = account;
+      notifyListeners();
+    }
+
+    final result =
+        await updateAccountUseCase(UpdateAccountParams(account: account));
+
+    result.fold((fail) {
+      _failure = fail;
+      notifyListeners();
+      loadData();
+    }, (_) => loadData());
+  }
+
+  // --- Account Deletion Logic ---
+  List<AccountEntity> _deletedAccounts = [];
+
+  void softDeleteAccount(AccountEntity account) {
+    _deletedAccounts.add(account);
+    _accounts.removeWhere((a) => a.id == account.id);
+    notifyListeners();
+  }
+
+  void undoDeleteAccount(AccountEntity account) {
+    if (_deletedAccounts.any((a) => a.id == account.id)) {
+      _deletedAccounts.removeWhere((a) => a.id == account.id);
+      _accounts.add(account);
+      _accounts.sort((a, b) => a.id.compareTo(b.id));
+      notifyListeners();
+    }
+  }
+
+  Future<void> confirmDeleteAccount(int id) async {
+    _deletedAccounts.removeWhere((a) => a.id == id);
+
+    final result = await deleteAccountUseCase(DeleteAccountParams(id: id));
+
+    result.fold((fail) {
+      _failure = fail;
+      notifyListeners();
+      loadData();
+    }, (_) {
+      loadData();
+    });
+  }
+
   void resetState() {
     _transactions = [];
+    _accounts = []; // Correctly reset accounts
     _subscriptions = [];
     _goals = [];
     _balanceBreakdown = null;

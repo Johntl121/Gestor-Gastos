@@ -372,11 +372,16 @@ class _MainPageState extends State<MainPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-                      child: Text("S/ ${draft.amount.abs().toStringAsFixed(2)}",
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold)),
+                      child: Consumer<DashboardProvider>(
+                        builder: (context, provider, _) {
+                          return Text(
+                              "${provider.currencySymbol} ${draft.amount.abs().toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold));
+                        },
+                      ),
                     ),
                     const SizedBox(height: 20),
                     const Text("Cuenta:", style: TextStyle(color: Colors.grey)),

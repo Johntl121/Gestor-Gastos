@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/dashboard_provider.dart';
-import 'onboarding_page.dart';
+import 'intro_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -38,10 +38,26 @@ class SettingsPage extends StatelessWidget {
                 decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: cyanColor, width: 2)),
-                child: const CircleAvatar(
-                  radius: 50,
-                  backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?img=11'), // Placeholder
+                child: GestureDetector(
+                  onTap: () => _showAvatarSelectionSheet(context),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.transparent,
+                        child: Text(provider.userAvatar,
+                            style: const TextStyle(fontSize: 70)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                            color: Colors.cyanAccent, shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt,
+                            size: 18, color: Colors.black),
+                      )
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -562,6 +578,103 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  void _showAvatarSelectionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (context) {
+        final provider = Provider.of<DashboardProvider>(context, listen: false);
+        return Container(
+          padding: const EdgeInsets.all(30),
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text("Elige tu avatar",
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 20,
+                  children: [
+                    '😎',
+                    '🦸',
+                    '🕵️',
+                    '🤖',
+                    '🦁',
+                    '👽',
+                    '🦊',
+                    '🐱',
+                    '🐼',
+                    '🐨',
+                    '🐯',
+                    '🐮',
+                    '🐷',
+                    '🐸',
+                    '🦄',
+                    '🐲',
+                    '👻',
+                    '💀',
+                    '👾',
+                    '🧘',
+                    '🚵',
+                    '🤸',
+                    '🧖',
+                    '🧟',
+                    '🧛',
+                    '🧝',
+                    '🧞',
+                    '🧜',
+                    '⚽',
+                    '🏀',
+                    '🎮',
+                    '🎵',
+                    '🎨',
+                    '📷'
+                  ]
+                      .map((emoji) => GestureDetector(
+                            onTap: () {
+                              provider
+                                  .setUserAvatar(emoji); // Update immediately
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(emoji,
+                                  style: const TextStyle(fontSize: 32)),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _confirmReset(BuildContext context) {
     final provider = Provider.of<DashboardProvider>(context, listen: false);
     final isDarkMode = provider.isDarkMode;
@@ -596,8 +709,7 @@ class SettingsPage extends StatelessWidget {
 
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (context) => const OnboardingPage()),
+                  MaterialPageRoute(builder: (context) => const IntroPage()),
                   (route) => false,
                 );
               }

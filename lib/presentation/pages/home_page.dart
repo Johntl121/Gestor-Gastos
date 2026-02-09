@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
@@ -20,8 +19,7 @@ class HomePage extends StatelessWidget {
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         // Obtener el balance total (o 0.00 si es nulo)
-        final balance = provider.balanceBreakdown?.total ?? 0.00;
-        final mood = provider.budgetMood;
+        final balance = provider.totalBalance;
 
         // Calcular Ingresos y Gastos de Hoy
         double todayIncome = 0;
@@ -57,12 +55,14 @@ class HomePage extends StatelessWidget {
           }
         }
 
-        // Theme Logic
-        final isDarkMode = provider.isDarkMode;
-        final backgroundColor =
-            isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
-        final textColor = isDarkMode ? Colors.white : const Color(0xFF2D3748);
-        final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+        // Theme Logic from Context
+        final theme = Theme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+
+        final backgroundColor = theme.scaffoldBackgroundColor;
+        final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
+        final subTextColor =
+            isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
         return Scaffold(
           backgroundColor: backgroundColor,
@@ -88,10 +88,21 @@ class HomePage extends StatelessWidget {
                         },
                         child: Row(
                           children: [
-                            const CircleAvatar(
-                              radius: 20,
-                              backgroundImage: NetworkImage(
-                                  'https://i.pravatar.cc/150?img=1'),
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.cyanAccent,
+                                  width: 2,
+                                ),
+                              ),
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.transparent,
+                                child: Text(provider.userAvatar,
+                                    style: const TextStyle(
+                                        fontSize: 28)), // Slightly larger
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Column(
@@ -110,24 +121,47 @@ class HomePage extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.white,
-                          shape: BoxShape.circle,
+
+                      // Campana de Notificaciones
+                      GestureDetector(
+                        onTap: () => _showNotificationSheet(context),
+                        child: Stack(
+                          alignment: Alignment.topRight,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.notifications_none,
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black54),
+                            ),
+                            // Red Dot if pending
+                            if (_hasPendingNotifications(provider))
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                  color: Colors.redAccent,
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                          ],
                         ),
-                        child: Icon(Icons.notifications_none,
-                            color: isDarkMode ? Colors.white : Colors.black54),
                       )
                     ],
                   ),
 
                   const SizedBox(height: 30),
 
-                  // Widget de Estado de Ánimo Financiero
-                  _buildMoodIndicator(mood, isDarkMode),
+                  // Widget de Estado de Ánimo Financiero (Clásico)
+                  _buildMoodIndicator(
+                      provider.budgetLimit, monthSpent, isDarkMode),
 
                   const SizedBox(height: 10),
 
@@ -148,16 +182,23 @@ class HomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    _getMoodQuote(mood),
-                    style: const TextStyle(
-                        color: Colors.cyanAccent, fontStyle: FontStyle.italic),
+                    _getMoodQuote(provider.budgetLimit, monthSpent),
+                    style: TextStyle(
+                        color: Colors.cyanAccent.withOpacity(0.8),
+                        fontStyle: FontStyle.italic,
+                        fontSize: 13),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    "⚠️ Totales estimados en S/",
+                    style: TextStyle(color: Colors.orangeAccent, fontSize: 10),
                   ),
 
                   const SizedBox(height: 30),
 
                   // Tarjeta de Presupuesto
-                  _buildBudgetCard(provider.budgetLimit, monthSpent,
-                      provider.currencySymbol, isDarkMode),
+                  _buildBudgetCard(context, provider.budgetLimit, monthSpent,
+                      provider.currencySymbol),
 
                   const SizedBox(height: 20),
 
@@ -176,7 +217,7 @@ class HomePage extends StatelessWidget {
                               amount:
                                   "+${provider.currencySymbol} ${todayIncome.toStringAsFixed(2)}",
                               label: "Ingresos Hoy",
-                              isDarkMode: isDarkMode)),
+                              context: context)),
                       const SizedBox(width: 15),
                       Expanded(
                           child: _buildSummaryCard(
@@ -188,7 +229,7 @@ class HomePage extends StatelessWidget {
                               amount:
                                   "-${provider.currencySymbol} ${todayExpense.toStringAsFixed(2)}",
                               label: "Gastos Hoy",
-                              isDarkMode: isDarkMode)),
+                              context: context)),
                     ],
                   ),
 
@@ -230,12 +271,48 @@ class HomePage extends StatelessWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final transaction = provider.transactions[index];
-                            return _buildTransactionItem(
-                                transaction, provider, isDarkMode);
+                            return Dismissible(
+                              key: Key(transaction.id.toString()),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(Icons.delete,
+                                    color: Colors.white),
+                              ),
+                              onDismissed: (_) {
+                                final deleted = transaction;
+                                if (transaction.id != null) {
+                                  provider.deleteTransaction(transaction.id!);
+                                  ScaffoldMessenger.of(context)
+                                      .clearSnackBars();
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(SnackBar(
+                                    content: const Text(
+                                        'Transacción eliminada de recientes'),
+                                    action: SnackBarAction(
+                                      label: 'DESHACER',
+                                      textColor: Colors.cyanAccent,
+                                      onPressed: () {
+                                        provider.addTransaction(deleted);
+                                      },
+                                    ),
+                                    duration: const Duration(seconds: 4),
+                                  ));
+                                }
+                              },
+                              child: _buildTransactionItem(
+                                  transaction, provider, context),
+                            );
                           },
                         ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -246,23 +323,24 @@ class HomePage extends StatelessWidget {
   }
 
   /// Construye el widget del indicador de estado de ánimo (la carita)
-  Widget _buildMoodIndicator(BudgetMood mood, bool isDarkMode) {
+  /// Estilo Clásico con 3 fases
+  Widget _buildMoodIndicator(double limit, double spent, bool isDarkMode) {
+    // 1. Calculate Health Percentage
+    final remaining = (limit - spent).clamp(0, limit);
+    final percent = (limit > 0) ? (remaining / limit) : 0.0;
+
     IconData icon;
     Color color;
 
-    switch (mood) {
-      case BudgetMood.happy:
-        icon = Icons.sentiment_very_satisfied_rounded;
-        color = Colors.amber.shade600;
-        break;
-      case BudgetMood.neutral:
-        icon = Icons.sentiment_neutral_rounded;
-        color = Colors.amber.shade300;
-        break;
-      case BudgetMood.sad:
-        icon = Icons.sentiment_very_dissatisfied_rounded;
-        color = Colors.redAccent;
-        break;
+    if (percent > 0.50) {
+      icon = Icons.sentiment_very_satisfied_rounded;
+      color = Colors.greenAccent.shade700;
+    } else if (percent > 0.20) {
+      icon = Icons.sentiment_neutral_rounded;
+      color = Colors.amber.shade300;
+    } else {
+      icon = Icons.sentiment_very_dissatisfied_rounded;
+      color = Colors.redAccent;
     }
 
     return Stack(
@@ -278,42 +356,94 @@ class HomePage extends StatelessWidget {
           ),
           child: Icon(icon, size: 60, color: color),
         ),
-        Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF1F2937) : Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                    color: isDarkMode ? Colors.black12 : Colors.black12,
-                    blurRadius: 4)
-              ]),
-          child: const Icon(Icons.edit, size: 14, color: Colors.tealAccent),
-        )
       ],
     );
   }
 
-  /// Retorna una frase motivacional según el estado de ánimo
-  String _getMoodQuote(BudgetMood mood) {
-    switch (mood) {
-      case BudgetMood.happy:
-        return "\"¡Te sientes genial hoy!\"";
-      case BudgetMood.neutral:
-        return "\"Todo marcha bien.\"";
-      case BudgetMood.sad:
-        return "\"Cuidado con los gastos.\"";
+  /// Retorna una frase motivacional basada en % de presupuesto
+  String _getMoodQuote(double limit, double spent) {
+    if (limit == 0) return "Define un presupuesto.";
+    final percent = (limit - spent) / limit;
+
+    if (percent > 0.50) return "\"¡Estás en la cima! Sigue así.\"";
+    if (percent > 0.20) return "\"Todo en orden, pero mantente atento.\"";
+    return "\"¡Alerta roja! Presupuesto excedido.\"";
+  }
+
+  // --- Notification Logic ---
+  bool _hasPendingNotifications(DashboardProvider provider) {
+    // Check subscriptions due in <= 3 days or overdue
+    final now = DateTime.now();
+    for (var sub in provider.subscriptions) {
+      if (sub.isPaidThisMonth) continue;
+
+      // Simplified check: if day of month is close
+      final dueDay = sub.renewalDay;
+      final currentDay = now.day;
+
+      // Handle end of month wrap logic simply:
+      if (currentDay >= dueDay) return true; // Overdue this month
+      if (dueDay - currentDay <= 3) return true; // Due soon
     }
+    return false;
+  }
+
+  void _showNotificationSheet(BuildContext context) {
+    final provider = Provider.of<DashboardProvider>(context, listen: false);
+    final subs =
+        provider.subscriptions.where((s) => !s.isPaidThisMonth).toList();
+
+    showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1E2A32),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Notificaciones",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                if (subs.isEmpty)
+                  const Text("¡Todo al día! No tienes pagos pendientes.",
+                      style: TextStyle(color: Colors.grey))
+                else
+                  ...subs.map((s) => ListTile(
+                        leading: const Icon(Icons.warning_amber_rounded,
+                            color: Colors.orangeAccent),
+                        title: Text("Pago próximo: ${s.name}",
+                            style: const TextStyle(color: Colors.white)),
+                        subtitle: Text("Vence el día ${s.renewalDay}",
+                            style: const TextStyle(color: Colors.grey)),
+                        trailing: Text("S/ ${s.amount}",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
+                      ))
+              ],
+            ),
+          );
+        });
   }
 
   /// Construye la tarjeta de progreso del presupuesto mensual
   Widget _buildBudgetCard(
-      double limit, double spent, String currency, bool isDarkMode) {
+      BuildContext context, double limit, double spent, String currency) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     // Calculamos el progreso (0.0 a 1.0)
     final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
-    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black;
-    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -391,10 +521,13 @@ class HomePage extends StatelessWidget {
       required Color backgroundColor,
       required String amount,
       required String label,
-      required bool isDarkMode}) {
-    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black;
-    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+      required BuildContext context}) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -433,7 +566,10 @@ class HomePage extends StatelessWidget {
 
   /// Construye un item individual de la lista de transacciones con el Nuevo Estilo
   Widget _buildTransactionItem(
-      TransactionEntity t, DashboardProvider provider, bool isDarkMode) {
+      TransactionEntity t, DashboardProvider provider, BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     // 1. Logic for Transfer & Legacy Fix
     bool isTransfer = t.type == TransactionType.transfer ||
         t.description.toLowerCase().contains('transferencia');
@@ -449,9 +585,9 @@ class HomePage extends StatelessWidget {
     IconData icon;
     bool isIncome = t.amount > 0;
 
-    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
     if (isTransfer) {
       final source = provider.getAccountName(t.accountId);

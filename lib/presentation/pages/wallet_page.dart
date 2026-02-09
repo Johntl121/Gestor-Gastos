@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../../domain/entities/goal_entity.dart';
+import '../../domain/entities/account_entity.dart'; // Import
 import '../../data/models/subscription.dart';
 
 class WalletPage extends StatefulWidget {
@@ -47,14 +48,14 @@ class _WalletPageState extends State<WalletPage> {
       Colors.blueAccent
     ];
 
-    final isDarkMode =
-        Provider.of<DashboardProvider>(context, listen: false).isDarkMode;
-    final backgroundColor = isDarkMode ? const Color(0xFF1E293B) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black87;
-    final subTextColor = isDarkMode ? Colors.white70 : Colors.grey[700];
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final backgroundColor = theme.cardColor;
+    final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
+    final subTextColor = theme.textTheme.bodyMedium?.color ?? Colors.grey;
     final inputFillColor =
-        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100];
-    final inputHintColor = isDarkMode ? Colors.white30 : Colors.grey[500];
+        isDarkMode ? const Color(0xFF0F172A) : Colors.grey[100];
+    final inputHintColor = theme.hintColor;
     final unselectedIconBg = isDarkMode ? Colors.white10 : Colors.grey[200];
     final unselectedIconColor = isDarkMode ? Colors.grey : Colors.grey[600];
 
@@ -234,6 +235,407 @@ class _WalletPageState extends State<WalletPage> {
             }));
   }
 
+  void _showAddAccountSheet(BuildContext context,
+      {AccountEntity? accountToEdit}) {
+    final nameController = TextEditingController(text: accountToEdit?.name);
+    final balanceController = TextEditingController(
+        text: accountToEdit?.currentBalance.toStringAsFixed(2));
+
+    // Theme Logic
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final subTextColor = theme.textTheme.bodyMedium?.color ?? Colors.grey;
+    final inputFillColor =
+        isDarkMode ? const Color(0xFF0F172A) : Colors.grey[100];
+    final sheetColor = theme.cardColor;
+
+    // Default Values
+    int selectedIconCode =
+        accountToEdit?.iconCode ?? Icons.account_balance.codePoint;
+    int selectedColorValue =
+        accountToEdit?.colorValue ?? Colors.blueAccent.value;
+    String selectedCurrency = accountToEdit?.currencySymbol ??
+        Provider.of<DashboardProvider>(context, listen: false).currencySymbol;
+    bool includeInTotal = accountToEdit?.includeInTotal ?? true;
+
+    final icons = [
+      Icons.account_balance,
+      Icons.credit_card,
+      Icons.money,
+      Icons.wallet,
+      Icons.smartphone,
+      Icons.qr_code,
+      Icons.savings,
+      Icons.lock,
+      Icons.flight,
+      Icons.currency_bitcoin,
+      Icons.show_chart,
+      Icons.diamond,
+      Icons.home,
+      Icons.directions_car,
+    ];
+
+    // Basic Colors
+    final colors = [
+      Colors.blueAccent,
+      Colors.green,
+      Colors.purple,
+      Colors.orange,
+      Colors.pink,
+      Colors.teal,
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: sheetColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(builder: (context, setState) {
+        return Padding(
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              left: 20,
+              right: 20,
+              top: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ... (Title, Name, Balance, Currency, Icon, Color)
+
+              // Title Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(accountToEdit == null ? "Nueva Cuenta" : "Editar Cuenta",
+                      style: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold)),
+                  if (accountToEdit != null)
+                    IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          // DELETE LOGIC
+                          Navigator.pop(ctx);
+                          final provider = Provider.of<DashboardProvider>(
+                              context,
+                              listen: false);
+                          provider.softDeleteAccount(accountToEdit);
+
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(
+                                content: Text(
+                                    "Cuenta '${accountToEdit.name}' eliminada."),
+                                duration: const Duration(seconds: 4),
+                                action: SnackBarAction(
+                                    label: "DESHACER",
+                                    textColor: Colors.cyanAccent,
+                                    onPressed: () {
+                                      provider.undoDeleteAccount(accountToEdit);
+                                    }),
+                              ))
+                              .closed
+                              .then((reason) {
+                            if (reason != SnackBarClosedReason.action) {
+                              provider.confirmDeleteAccount(accountToEdit.id);
+                            }
+                          });
+                        }),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Name Input
+              TextField(
+                controller: nameController,
+                style: TextStyle(color: textColor),
+                decoration: InputDecoration(
+                  labelText: "Nombre de la cuenta",
+                  labelStyle: TextStyle(color: subTextColor),
+                  filled: true,
+                  fillColor: inputFillColor,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: isDarkMode
+                          ? BorderSide.none
+                          : BorderSide(color: Colors.grey.shade300)),
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              // Balance & Currency Row
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: balanceController,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(color: textColor),
+                      decoration: InputDecoration(
+                        labelText: "Saldo Inicial",
+                        labelStyle: TextStyle(color: subTextColor),
+                        filled: true,
+                        fillColor: inputFillColor,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: isDarkMode
+                                ? BorderSide.none
+                                : BorderSide(color: Colors.grey.shade300)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 1,
+                    child: GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                            context: context,
+                            backgroundColor: const Color(0xFF0F172A),
+                            shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(25))),
+                            builder: (ctx) {
+                              return Container(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text("Selecciona la Divisa",
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 15),
+                                    ...[
+                                      {
+                                        'symbol': 'S/',
+                                        'name': 'Sol Peruano',
+                                        'iso': 'PEN'
+                                      },
+                                      {
+                                        'symbol': '\$',
+                                        'name': 'Dólar Americano',
+                                        'iso': 'USD'
+                                      },
+                                      {
+                                        'symbol': '€',
+                                        'name': 'Euro',
+                                        'iso': 'EUR'
+                                      },
+                                      {
+                                        'symbol': '¥',
+                                        'name': 'Yen Japonés',
+                                        'iso': 'JPY'
+                                      },
+                                      {
+                                        'symbol': '₽',
+                                        'name': 'Rublo Ruso',
+                                        'iso': 'RUB'
+                                      },
+                                    ].map((currency) {
+                                      final isSelected = selectedCurrency ==
+                                          currency['symbol'];
+                                      return ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: Colors.white10,
+                                          child: Text(currency['symbol']!,
+                                              style: const TextStyle(
+                                                  color: Colors.cyan)),
+                                        ),
+                                        title: Text(currency['name']!,
+                                            style: const TextStyle(
+                                                color: Colors.white)),
+                                        subtitle: Text(currency['iso']!,
+                                            style: const TextStyle(
+                                                color: Colors.grey)),
+                                        trailing: isSelected
+                                            ? const Icon(Icons.check_circle,
+                                                color: Colors.cyanAccent)
+                                            : null,
+                                        onTap: () {
+                                          setState(() {
+                                            selectedCurrency =
+                                                currency['symbol']!;
+                                          });
+                                          Navigator.pop(ctx);
+                                        },
+                                      );
+                                    }).toList(),
+                                    const SizedBox(height: 20),
+                                  ],
+                                ),
+                              );
+                            });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: inputFillColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: isDarkMode
+                                  ? Colors.grey
+                                  : Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(selectedCurrency,
+                                style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                            Icon(Icons.arrow_drop_down, color: textColor),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Icon Selector
+              Text("Icono", style: TextStyle(color: subTextColor)),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Row(
+                  children: icons.map((icon) {
+                    final isSelected = icon.codePoint == selectedIconCode;
+                    return GestureDetector(
+                      onTap: () =>
+                          setState(() => selectedIconCode = icon.codePoint),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.cyan.withOpacity(0.2)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(color: Colors.cyan)
+                              : null,
+                        ),
+                        child: Icon(icon,
+                            color: isSelected ? Colors.cyan : Colors.grey,
+                            size: 28),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Color Selector
+              Text("Color", style: TextStyle(color: subTextColor)),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: colors.map((color) {
+                  final isSelected = color.value == selectedColorValue;
+                  return GestureDetector(
+                    onTap: () =>
+                        setState(() => selectedColorValue = color.value),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? Border.all(color: Colors.white, width: 3)
+                            : null,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+
+              // Include in Total Switch
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeColor: Colors.cyan,
+                title: Text("Incluir en Saldo Disponible",
+                    style: TextStyle(color: textColor)),
+                subtitle: const Text(
+                  "Si lo desactivas, este dinero no aparecerá en la pantalla de inicio.",
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                value: includeInTotal,
+                secondary: Icon(
+                  includeInTotal ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.grey,
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    includeInTotal = val;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 30),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    final balanceInput =
+                        double.tryParse(balanceController.text) ?? 0.0;
+
+                    if (name.isNotEmpty) {
+                      final isUpdate = accountToEdit != null;
+                      final id = accountToEdit?.id ??
+                          (DateTime.now().millisecondsSinceEpoch & 0xFFFFFFFF);
+
+                      final account = AccountEntity(
+                          id: id,
+                          name: name,
+                          initialBalance: balanceInput,
+                          currencySymbol: selectedCurrency,
+                          colorValue: selectedColorValue,
+                          iconCode: selectedIconCode,
+                          includeInTotal: includeInTotal,
+                          currentBalance: balanceInput);
+
+                      if (isUpdate) {
+                        Provider.of<DashboardProvider>(context, listen: false)
+                            .updateAccount(account);
+                      } else {
+                        Provider.of<DashboardProvider>(context, listen: false)
+                            .createAccount(account);
+                      }
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(selectedColorValue)),
+                  child: const Text("Guardar Cuenta",
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
   void _showDepositDialog(BuildContext context, GoalEntity goal) {
     final amountController = TextEditingController();
     int selectedSource = 2; // Default Bank
@@ -242,9 +644,10 @@ class _WalletPageState extends State<WalletPage> {
         context: context,
         builder: (ctx) => StatefulBuilder(builder: (context, setState) {
               return AlertDialog(
-                backgroundColor: const Color(0xFF1E293B),
+                backgroundColor: Theme.of(context).cardColor,
                 title: Text("Depositar a ${goal.name}",
-                    style: const TextStyle(color: Colors.white)),
+                    style: TextStyle(
+                        color: Theme.of(context).textTheme.titleLarge?.color)),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -322,12 +725,14 @@ class _WalletPageState extends State<WalletPage> {
     showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Text("¿Eliminar Meta?",
-                  style: TextStyle(color: Colors.white)),
+              backgroundColor: Theme.of(context).cardColor,
+              title: Text("¿Eliminar Meta?",
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.titleLarge?.color)),
               content: Text(
                   "El dinero ahorrado (S/ ${goal.currentAmount.toStringAsFixed(2)}) permanecerá en tu cuenta de Ahorros pero se desvinculará de esta meta.",
-                  style: const TextStyle(color: Colors.white70)),
+                  style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color)),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
@@ -351,7 +756,7 @@ class _WalletPageState extends State<WalletPage> {
   void _showGoalDetails(BuildContext context, GoalEntity goal) {
     showModalBottomSheet(
         context: context,
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Theme.of(context).cardColor,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         builder: (ctx) {
@@ -384,8 +789,9 @@ class _WalletPageState extends State<WalletPage> {
 
                 const SizedBox(height: 16),
                 Text(goal.name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color:
+                            Theme.of(context).textTheme.headlineMedium?.color,
                         fontSize: 24,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
@@ -526,10 +932,10 @@ class _WalletPageState extends State<WalletPage> {
     return Consumer<DashboardProvider>(
       builder: (context, provider, child) {
         final goals = provider.goals;
-        final isDarkMode = provider.isDarkMode;
-        final backgroundColor =
-            isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
-        final textColor = isDarkMode ? Colors.white : Colors.black;
+        final theme = Theme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+        final backgroundColor = theme.scaffoldBackgroundColor;
+        final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
 
         return Scaffold(
           backgroundColor: backgroundColor,
@@ -550,31 +956,58 @@ class _WalletPageState extends State<WalletPage> {
                 // --- Accounts PageView ---
                 SizedBox(
                   height: 200,
-                  child: PageView(
+                  child: PageView.builder(
                     controller: PageController(viewportFraction: 0.9),
-                    children: [
-                      _buildAccountCard(
-                        "Efectivo",
-                        provider.currencySymbol,
-                        provider.cashBalance,
-                        Colors.amber,
-                        Icons.payments_outlined,
-                      ),
-                      _buildAccountCard(
-                        "Banco",
-                        provider.currencySymbol,
-                        provider.bankBalance,
-                        Colors.blueAccent,
-                        Icons.account_balance,
-                      ),
-                      _buildAccountCard(
-                        "Ahorros",
-                        provider.currencySymbol,
-                        provider.savingsBalance,
-                        Colors.purpleAccent,
-                        Icons.savings,
-                      ),
-                    ],
+                    itemCount: provider.accounts.length + 1, // +1 for Add Card
+                    itemBuilder: (context, index) {
+                      if (index < provider.accounts.length) {
+                        final account = provider.accounts[index];
+                        return GestureDetector(
+                          onTap: () => _showAddAccountSheet(context,
+                              accountToEdit: account),
+                          child: _buildAccountCard(context, account),
+                        );
+                      } else {
+                        // Add Account Card
+                        return GestureDetector(
+                          onTap: () => _showAddAccountSheet(context),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Colors.white10
+                                  : Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                  color: isDarkMode
+                                      ? Colors.white24
+                                      : Colors.grey.shade400,
+                                  style: BorderStyle.solid),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.add_circle_outline,
+                                      size: 48,
+                                      color: isDarkMode
+                                          ? Colors.white54
+                                          : Colors.grey),
+                                  const SizedBox(height: 8),
+                                  Text("Añadir Cuenta",
+                                      style: TextStyle(
+                                          color: isDarkMode
+                                              ? Colors.white54
+                                              : Colors.grey,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold))
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ),
 
@@ -639,7 +1072,7 @@ class _WalletPageState extends State<WalletPage> {
                 // --- Fixed Expenses Section (Suscripciones) ---
                 _buildFixedExpensesSection(context, provider, isDarkMode),
 
-                const SizedBox(height: 100), // Spacing for safe area
+                const SizedBox(height: 120), // Spacing for safe area
               ],
             ),
           ),
@@ -648,8 +1081,7 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildAccountCard(String title, String currency, double balance,
-      Color color, IconData icon) {
+  Widget _buildAccountCard(BuildContext context, AccountEntity account) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(24),
@@ -663,7 +1095,10 @@ class _WalletPageState extends State<WalletPage> {
           )
         ],
         gradient: LinearGradient(
-          colors: [color, color.withOpacity(0.7)],
+          colors: [
+            Color(account.colorValue),
+            Color(account.colorValue).withOpacity(0.7)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -675,15 +1110,64 @@ class _WalletPageState extends State<WalletPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: Colors.white70, size: 32),
-              const Icon(Icons.more_horiz, color: Colors.white70),
+              Icon(IconData(account.iconCode, fontFamily: 'MaterialIcons'),
+                  color: Colors.white70, size: 32),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz, color: Colors.white),
+                color: const Color(0xFF1E293B),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showAddAccountSheet(context, accountToEdit: account);
+                  } else if (value == 'delete') {
+                    final provider =
+                        Provider.of<DashboardProvider>(context, listen: false);
+                    provider.softDeleteAccount(account);
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(
+                          content: Text("Cuenta '${account.name}' eliminada."),
+                          duration: const Duration(seconds: 4),
+                          action: SnackBarAction(
+                              label: "DESHACER",
+                              textColor: Colors.cyanAccent,
+                              onPressed: () {
+                                provider.undoDeleteAccount(account);
+                              }),
+                        ))
+                        .closed
+                        .then((reason) {
+                      if (reason != SnackBarClosedReason.action) {
+                        provider.confirmDeleteAccount(account.id);
+                      }
+                    });
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(children: [
+                        Icon(Icons.edit, color: Colors.cyanAccent),
+                        SizedBox(width: 8),
+                        Text('Editar', style: TextStyle(color: Colors.white))
+                      ])),
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children: [
+                        Icon(Icons.delete, color: Colors.redAccent),
+                        SizedBox(width: 8),
+                        Text('Eliminar',
+                            style: TextStyle(color: Colors.redAccent))
+                      ])),
+                ],
+              ),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                account.name,
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
@@ -692,7 +1176,7 @@ class _WalletPageState extends State<WalletPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                "$currency ${balance.toStringAsFixed(2)}",
+                "${account.currencySymbol} ${account.currentBalance.toStringAsFixed(2)}",
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 32,
@@ -833,7 +1317,7 @@ class _WalletPageState extends State<WalletPage> {
                         color: Colors.redAccent.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8)),
                     child: Text(
-                      "Total: S/ ${totalFixed.toStringAsFixed(2)}",
+                      "Total: ${provider.currencySymbol} ${totalFixed.toStringAsFixed(2)}",
                       style: const TextStyle(
                           color: Colors.redAccent,
                           fontWeight: FontWeight.bold,

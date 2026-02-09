@@ -85,8 +85,20 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       // Obtener todas las cuentas
       final List<Map<String, dynamic>> accountsMap = await db.query('accounts');
-      final accounts =
-          accountsMap.map((e) => AccountModel.fromJson(e)).toList();
+
+      // Map to AccountModel handling legacy fields if needed
+      final accounts = accountsMap.map((e) {
+        // Handle migration/legacy data where new columns might be null
+        return AccountModel(
+          id: e['id'],
+          name: e['name'],
+          initialBalance:
+              0.0, // SQL 'balance' is technically current balance in this architecture
+          currencySymbol: e['currencySymbol'] ?? 'S/',
+          colorValue: e['color'] ?? 0xFF4CAF50,
+          iconCode: e['iconCode'] ?? 58343, // Icons.account_balance_wallet
+        ).copyWith(currentBalance: (e['balance'] as num).toDouble());
+      }).toList();
 
       double total = 0;
       double cash = 0;
@@ -95,14 +107,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
       for (var account in accounts) {
         total += account.currentBalance;
-        if (account.type == AccountEnumType.cash) {
+
+        // Legacy categorization for BalanceBreakdown
+        if (account.id == 1 || account.name.toLowerCase() == 'efectivo') {
           cash += account.currentBalance;
+        } else if (account.id == 3 || account.name.toLowerCase() == 'ahorros') {
+          savings += account.currentBalance;
         } else {
+          // All other accounts (Bank, Crypto, Custom) are treated as Digital/Other
           digital += account.currentBalance;
-          // Check specifically for Savings
-          if (account.name == 'Ahorros' || account.id == 3) {
-            savings = account.currentBalance;
-          }
         }
       }
 
@@ -263,6 +276,90 @@ class TransactionRepositoryImpl implements TransactionRepository {
             WHERE id = ?
           ''', [transactionToDelete.amount, transactionToDelete.accountId]);
       }
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<AccountEntity>>> getAccounts() async {
+    try {
+      final db = await localDatabase.database;
+      final List<Map<String, dynamic>> maps = await db.query('accounts');
+
+      final accounts = maps.map((e) {
+        return AccountModel(
+          id: e['id'],
+          name: e['name'],
+          initialBalance: 0.0,
+          currencySymbol: e['currencySymbol'] ?? 'S/',
+          colorValue: e['color'] ?? 0xFF4CAF50,
+          iconCode: e['iconCode'] ?? 58343,
+          includeInTotal:
+              e['includeInTotal'] == null ? true : (e['includeInTotal'] == 1),
+        ).copyWith(currentBalance: (e['balance'] as num).toDouble());
+      }).toList();
+
+      return Right(accounts);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> createAccount(AccountEntity account) async {
+    try {
+      final db = await localDatabase.database;
+
+      // SQL Insert expects Map
+      await db.insert('accounts', {
+        'name': account.name,
+        'type': 'DIGITAL', // Maintain legacy check constraint
+        'balance': account.initialBalance,
+        'color': account.colorValue,
+        'currencySymbol': account.currencySymbol,
+        'iconCode': account.iconCode,
+        'includeInTotal': account.includeInTotal ? 1 : 0
+      });
+
+      // Also creation initial transaction for record keeping if balance > 0?
+      // Let's stick to just setting balance for now as requested.
+
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteAccount(int id) async {
+    try {
+      final db = await localDatabase.database;
+      // Cascade delete handles dependent transactions
+      await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateAccount(AccountEntity account) async {
+    try {
+      final db = await localDatabase.database;
+      await db.update(
+          'accounts',
+          {
+            'name': account.name,
+            'balance': account.currentBalance,
+            'color': account.colorValue,
+            'currencySymbol': account.currencySymbol,
+            'iconCode': account.iconCode,
+            'includeInTotal': account.includeInTotal ? 1 : 0
+          },
+          where: 'id = ?',
+          whereArgs: [account.id]);
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

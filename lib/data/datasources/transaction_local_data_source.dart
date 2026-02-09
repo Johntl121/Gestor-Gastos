@@ -9,6 +9,8 @@ const String KEY_FIRST_TIME = 'FIRST_TIME';
 const String KEY_USER_NAME = 'USER_NAME';
 const String KEY_CURRENCY = 'CURRENCY';
 const String KEY_BUDGET_LIMIT = 'BUDGET_LIMIT';
+const String KEY_SECURITY_PIN = 'SECURITY_PIN';
+const String KEY_USER_AVATAR = 'USER_AVATAR';
 
 abstract class TransactionLocalDataSource {
   Future<List<TransactionModel>> getTransactions();
@@ -25,6 +27,10 @@ abstract class TransactionLocalDataSource {
   double getBudgetLimit();
   Future<void> saveCurrency(String symbol);
   String getCurrency();
+  Future<void> saveSecurityPin(String? pin);
+  String? getSecurityPin();
+  Future<void> saveUserAvatar(String avatar);
+  String getUserAvatar();
   Future<void> clearAllData();
 }
 
@@ -112,6 +118,29 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   @override
   String getCurrency() {
     return sharedPreferences.getString(KEY_CURRENCY) ?? 'S/';
+  }
+
+  @override
+  Future<void> saveSecurityPin(String? pin) {
+    if (pin == null) {
+      return sharedPreferences.remove(KEY_SECURITY_PIN);
+    }
+    return sharedPreferences.setString(KEY_SECURITY_PIN, pin);
+  }
+
+  @override
+  String? getSecurityPin() {
+    return sharedPreferences.getString(KEY_SECURITY_PIN);
+  }
+
+  @override
+  Future<void> saveUserAvatar(String avatar) {
+    return sharedPreferences.setString(KEY_USER_AVATAR, avatar);
+  }
+
+  @override
+  String getUserAvatar() {
+    return sharedPreferences.getString(KEY_USER_AVATAR) ?? '😎';
   }
 
   @override
