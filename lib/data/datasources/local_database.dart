@@ -21,7 +21,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 8, // Increment version
+      version: 10, // Increment version
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -133,6 +133,25 @@ class LocalDatabase {
         // Ignore if exists
       }
     }
+
+    if (oldVersion < 9) {
+      // Migración V8 -> V9: Agregar columna 'receivedAmount' a transactions para transferencias multidivisa
+      try {
+        await db
+            .execute("ALTER TABLE transactions ADD COLUMN receivedAmount REAL");
+      } catch (e) {
+        // Ignore if exists
+      }
+    }
+
+    if (oldVersion < 10) {
+      // Migración V9 -> V10: Agregar columna 'imagePath' a transactions
+      try {
+        await db.execute("ALTER TABLE transactions ADD COLUMN imagePath TEXT");
+      } catch (e) {
+        // Ignore
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -177,6 +196,8 @@ class LocalDatabase {
         description TEXT,
         type TEXT DEFAULT 'EXPENSE',
         destinationAccountId INTEGER,
+        receivedAmount REAL,
+        imagePath TEXT,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE CASCADE,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )

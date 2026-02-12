@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/services/notification_service.dart';
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
 import '../../domain/entities/balance_breakdown.dart';
@@ -23,6 +24,8 @@ import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 
 enum PeriodType { week, month, year }
+
+enum StatsType { expense, income }
 
 /// DashboardProvider: Gestiona el estado principal de la aplicación.
 /// Coordina la obtención de saldos, transacciones y el cálculo del estado de ánimo financiero.
@@ -67,8 +70,10 @@ class DashboardProvider extends ChangeNotifier {
   String _currencySymbol = 'S/';
   String _userName = 'Usuario';
   String _userAvatar = '😎'; // Default
+  String? _profileImagePath;
   DateTime _currentStatsDate = DateTime.now();
   PeriodType _currentStatsPeriod = PeriodType.month;
+  StatsType _currentStatsType = StatsType.expense;
 
   double _budgetLimit = 2400.00;
   bool _isDarkMode = true;
@@ -141,9 +146,11 @@ class DashboardProvider extends ChangeNotifier {
   String get currencySymbol => _currencySymbol;
   String get userName => _userName;
   String get userAvatar => _userAvatar;
+  String? get profileImagePath => _profileImagePath;
   DateTime get currentStatsDate => _currentStatsDate;
 
   PeriodType get currentStatsPeriod => _currentStatsPeriod;
+  StatsType get currentStatsType => _currentStatsType;
   bool get isDarkMode => _isDarkMode;
   bool get enableNotifications => _enableNotifications;
   bool get enableBiometrics => _enableBiometrics;
@@ -225,6 +232,7 @@ class DashboardProvider extends ChangeNotifier {
     _currencySymbol = sl<TransactionLocalDataSource>().getCurrency();
     _userName = sl<TransactionLocalDataSource>().getUserName() ?? 'Usuario';
     _userAvatar = sl<TransactionLocalDataSource>().getUserAvatar();
+    _profileImagePath = sl<TransactionLocalDataSource>().getProfileImagePath();
     _userPin =
         sl<TransactionLocalDataSource>().getSecurityPin(); // Load Security PIN
     // _isDarkMode = sl<TransactionLocalDataSource>().getTheme() ?? true; // Future implementation
@@ -254,8 +262,16 @@ class DashboardProvider extends ChangeNotifier {
 
   Future<void> setUserAvatar(String avatar) async {
     _userAvatar = avatar;
+    _profileImagePath = null; // Clear custom image if avatar is selected
     notifyListeners();
     await sl<TransactionLocalDataSource>().saveUserAvatar(avatar);
+    await sl<TransactionLocalDataSource>().saveProfileImagePath(null);
+  }
+
+  Future<void> setProfileImagePath(String? path) async {
+    _profileImagePath = path;
+    notifyListeners();
+    await sl<TransactionLocalDataSource>().saveProfileImagePath(path);
   }
 
   void toggleTheme(bool value) {
@@ -300,6 +316,11 @@ class DashboardProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setStatsType(StatsType type) {
+    _currentStatsType = type;
+    notifyListeners();
+  }
+
   /// Obtiene el gasto total por categoría para el mes actual.
   /// Retorna un mapa: {'Comida': 150.0, 'Transporte': 50.0}
   Map<String, double> get spendingByCategory {
@@ -307,9 +328,16 @@ class DashboardProvider extends ChangeNotifier {
     final period = _currentStatsPeriod;
 
     final expenses = _transactions.where((t) {
-      if (t.amount >= 0) return false; // Solo gastos
+      // 1. Filter by Type (Expense vs Income)
+      if (_currentStatsType == StatsType.expense) {
+        if (t.amount >= 0) return false; // Solo gastos (negativos)
+      } else {
+        if (t.amount <= 0) return false; // Solo ingresos (positivos)
+      }
+
       if (t.type == TransactionType.transfer)
         return false; // Ignorar transferencias
+      // ... rest of date filtering ...
 
       if (period == PeriodType.week) {
         // Week Logic: Monday to Sunday
@@ -347,8 +375,24 @@ class DashboardProvider extends ChangeNotifier {
   }
 
   /// Obtiene el total de gastos del mes actual.
-  double get totalMonthlyExpenses {
+  /// Obtiene el total de gastos (o ingresos) del mes actual según el filtro seleccionado.
+  double get totalStatsAmount {
     return spendingByCategory.values.fold(0.0, (sum, item) => sum + item);
+  }
+
+  // Legacy (Keep for Home Page Budget Calculation)
+  double get totalMonthlyExpenses {
+    // Force specific calculation for expenses regardless of filter
+    // This is a bit hacky but safe for getters without side effects if we duplicate logic
+    // Better to extract logic. For now, let's just replicate the specific filter for expenses.
+    final now = DateTime.now();
+    return _transactions
+        .where((t) =>
+            t.amount < 0 &&
+            t.type != TransactionType.transfer &&
+            t.date.month == now.month &&
+            t.date.year == now.year)
+        .fold(0.0, (sum, t) => sum + t.amount.abs());
   }
 
   double get totalSpent {
@@ -378,12 +422,13 @@ class DashboardProvider extends ChangeNotifier {
         .toList();
   }
 
-  Future<void> addTransaction(TransactionEntity transaction) async {
+  Future<void> addTransaction(TransactionEntity transaction,
+      {bool updateBalance = true}) async {
     _isLoading = true;
     notifyListeners();
 
-    final result = await addTransactionUseCase(
-        AddTransactionParams(transaction: transaction));
+    final result = await addTransactionUseCase(AddTransactionParams(
+        transaction: transaction, updateBalance: updateBalance));
 
     result.fold(
       (fail) {
@@ -421,6 +466,7 @@ class DashboardProvider extends ChangeNotifier {
     required int sourceAccountId,
     required int destinationAccountId,
     String? note,
+    double? receivedAmount,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -435,6 +481,7 @@ class DashboardProvider extends ChangeNotifier {
       note: note,
       type: TransactionType.transfer,
       destinationAccountId: destinationAccountId,
+      receivedAmount: receivedAmount,
     );
 
     final result = await addTransactionUseCase(
@@ -453,16 +500,20 @@ class DashboardProvider extends ChangeNotifier {
   }
 
   String getAccountName(int id) {
-    // Basic Map based on established IDs
-    switch (id) {
-      case 1:
-        return 'Efectivo';
-      case 2:
-        return 'Bancaria';
-      case 3:
-        return 'Ahorros';
-      default:
-        return 'Cuenta $id';
+    try {
+      return _accounts.firstWhere((a) => a.id == id).name;
+    } catch (e) {
+      // Fallback for Legacy or Deleted Accounts
+      switch (id) {
+        case 1:
+          return 'Efectivo'; // Legacy fallback
+        case 2:
+          return 'Bancaria'; // Legacy fallback
+        case 3:
+          return 'Ahorros'; // Legacy fallback
+        default:
+          return 'Cuenta Eliminada';
+      }
     }
   }
 
@@ -490,12 +541,36 @@ class DashboardProvider extends ChangeNotifier {
     _subscriptions.add(subscription);
     notifyListeners();
     await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+
+    // Schedule Notification
+    // Use hashCode of ID string simply
+    await NotificationService().scheduleMonthlyNotification(
+      id: subscription.id.hashCode,
+      title: "Recordatorio de Pago",
+      body: "¡Hoy vence tu pago de ${subscription.name}! 📅",
+      dayOfMonth: subscription.renewalDay,
+      time: const TimeOfDay(hour: 9, minute: 0),
+    );
   }
 
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
     await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+
+    // Cancel Notification
+    await NotificationService().cancelNotification(id.hashCode);
+  }
+
+  void reorderSubscriptions(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final Subscription item = _subscriptions.removeAt(oldIndex);
+    _subscriptions.insert(newIndex, item);
+    notifyListeners();
+    // Cache new order
+    sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
   }
 
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {
@@ -554,8 +629,38 @@ class DashboardProvider extends ChangeNotifier {
     }
   }
 
-  void deleteGoal(String id) {
-    _goals.removeWhere((g) => g.id == id);
+  Future<void> deleteGoal(String id,
+      {bool refund = false, int? refundAccountId}) async {
+    final index = _goals.indexWhere((g) => g.id == id);
+    if (index == -1) return;
+
+    final goal = _goals[index];
+
+    if (refund && refundAccountId != null && goal.currentAmount > 0) {
+      // Create Refund Transaction (Income)
+      final transaction = TransactionEntity(
+          accountId: refundAccountId,
+          categoryId:
+              14, // Using Ahorro category for consistency or 10/12 if preferred
+          amount: goal.currentAmount, // Positive for Income
+          date: DateTime.now(),
+          description: "Reembolso Meta: ${goal.name}",
+          note: "Dinero devuelto al eliminar meta",
+          type: TransactionType.income); // Treat as Income to restore balance
+
+      await addTransaction(transaction);
+    }
+
+    _goals.removeAt(index);
+    notifyListeners();
+  }
+
+  void reorderGoals(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final GoalEntity item = _goals.removeAt(oldIndex);
+    _goals.insert(newIndex, item);
     notifyListeners();
   }
 
@@ -564,16 +669,23 @@ class DashboardProvider extends ChangeNotifier {
     final index = _goals.indexWhere((g) => g.id == goalId);
     if (index == -1) return;
 
-    // 1. Create Real Transfer (Source -> Savings)
-    // Savings Account ID is 3
-    await addTransfer(
-        amount: amount,
-        sourceAccountId: sourceAccountId,
-        destinationAccountId: 3,
-        note: "Depósito a Meta: ${_goals[index].name}");
-
-    // 2. Update Goal Local State
     final goal = _goals[index];
+
+    // 1. Create Expense Transaction (Reduces Source Balance)
+    // We categorize it as "Ahorro" generally.
+    final transaction = TransactionEntity(
+        accountId: sourceAccountId,
+        categoryId:
+            14, // Assuming 14 is 'Ahorro' based on filter list in HistoryPage, or use generic
+        amount: -amount, // Negative for Expense/Outflow
+        date: DateTime.now(),
+        description: "Meta: ${goal.name}",
+        note: "Ahorro procesado",
+        type: TransactionType.expense);
+
+    await addTransaction(transaction);
+
+    // 2. Update Goal Local State (Only tracks progress, doesn't add to Savings Account)
     final updatedGoal = GoalEntity(
         id: goal.id,
         name: goal.name,

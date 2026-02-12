@@ -19,8 +19,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
   });
 
   @override
-  Future<Either<Failure, void>> addTransaction(
-      TransactionEntity transaction) async {
+  Future<Either<Failure, void>> addTransaction(TransactionEntity transaction,
+      {bool updateBalance = true}) async {
     try {
       // 1. Persistir en Shared Preferences (Lista de Transacciones)
       final transactions = await transactionLocalDataSource.getTransactions();
@@ -36,40 +36,46 @@ class TransactionRepositoryImpl implements TransactionRepository {
           description: transaction.description,
           note: transaction.note,
           type: transaction.type,
-          destinationAccountId: transaction.destinationAccountId);
+          destinationAccountId: transaction.destinationAccountId,
+          receivedAmount: transaction.receivedAmount,
+          imagePath: transaction.imagePath);
 
       transactions.add(transactionWithId);
       await transactionLocalDataSource.cacheTransactions(transactions);
 
       // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
-      final db = await localDatabase.database;
+      if (updateBalance) {
+        final db = await localDatabase.database;
 
-      // 2. Actualizar Saldo de Cuenta en SQL (LocalDatabase)
-      if (transaction.type == TransactionType.transfer &&
-          transaction.destinationAccountId != null) {
-        // Transfer Logic: Subtract from Source, Add to Destination
-        // Assumption: 'transaction.amount' is Positive in Transfer UI Logic (User enters 500)
-        // Source (accountId): -500
-        // Dest (destinationAccountId): +500
+        if (transaction.type == TransactionType.transfer &&
+            transaction.destinationAccountId != null) {
+          // Transfer Logic: Subtract from Source, Add to Destination
+          // Assumption: 'transaction.amount' is Positive in Transfer UI Logic (User enters 500)
+          // Source (accountId): -500
+          // Dest (destinationAccountId): +500
 
-        await db.rawUpdate('''
+          await db.rawUpdate('''
             UPDATE accounts 
             SET balance = balance - ? 
             WHERE id = ?
           ''', [transaction.amount.abs(), transaction.accountId]);
 
-        await db.rawUpdate('''
+          await db.rawUpdate('''
             UPDATE accounts 
             SET balance = balance + ? 
             WHERE id = ?
-          ''', [transaction.amount.abs(), transaction.destinationAccountId]);
-      } else {
-        // Standard Expense/Income Logic
-        await db.rawUpdate('''
+          ''', [
+            transaction.receivedAmount ?? transaction.amount.abs(),
+            transaction.destinationAccountId
+          ]);
+        } else {
+          // Standard Expense/Income Logic
+          await db.rawUpdate('''
             UPDATE accounts 
             SET balance = balance + ? 
             WHERE id = ?
           ''', [transaction.amount, transaction.accountId]);
+        }
       }
 
       return const Right(null);
@@ -206,6 +212,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
             note: t.note,
             type: newType,
             destinationAccountId: t.destinationAccountId,
+            receivedAmount: t.receivedAmount,
+            imagePath: t.imagePath,
           );
         }
       }
@@ -266,15 +274,39 @@ class TransactionRepositoryImpl implements TransactionRepository {
         transactions.removeAt(index);
         await transactionLocalDataSource.cacheTransactions(transactions);
 
-        // Restore Account Balance (Subtract the transaction amount)
-        // If it was -50 (expense), we subtract -50 => +50 (refund).
-        // If it was +100 (income), we subtract +100 => -100 (remove income).
         final db = await localDatabase.database;
-        await db.rawUpdate('''
+
+        if (transactionToDelete.type == TransactionType.transfer &&
+            transactionToDelete.destinationAccountId != null) {
+          // Revert Transfer
+          // Source: Add back
+          await db.rawUpdate('''
+            UPDATE accounts 
+            SET balance = balance + ? 
+            WHERE id = ?
+          ''', [
+            transactionToDelete.amount.abs(),
+            transactionToDelete.accountId
+          ]);
+
+          // Dest: Subtract
+          final destAmount = transactionToDelete.receivedAmount ??
+              transactionToDelete.amount.abs();
+          await db.rawUpdate('''
             UPDATE accounts 
             SET balance = balance - ? 
             WHERE id = ?
-          ''', [transactionToDelete.amount, transactionToDelete.accountId]);
+          ''', [destAmount, transactionToDelete.destinationAccountId]);
+        } else {
+          // Restore Account Balance (Subtract the transaction amount)
+          // If it was -50 (expense), we subtract -50 => +50 (refund).
+          // If it was +100 (income), we subtract +100 => -100 (remove income).
+          await db.rawUpdate('''
+                UPDATE accounts 
+                SET balance = balance - ? 
+                WHERE id = ?
+            ''', [transactionToDelete.amount, transactionToDelete.accountId]);
+        }
       }
       return const Right(null);
     } catch (e) {

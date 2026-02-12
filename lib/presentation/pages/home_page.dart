@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import '../../domain/entities/transaction_entity.dart';
+
 import '../providers/dashboard_provider.dart';
 import 'package:intl/intl.dart';
 import 'settings_page.dart';
@@ -8,11 +10,17 @@ import 'settings_page.dart';
 /// HomePage: Pantalla principal de la aplicación.
 /// Muestra el balance general, el estado de ánimo financiero, el progreso del presupuesto
 /// y las transacciones recientes.
-class HomePage extends StatelessWidget {
+
+class HomePage extends StatefulWidget {
   final VoidCallback? onSeeAllPressed;
 
   const HomePage({super.key, this.onSeeAllPressed});
 
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Usamos Consumer para escuchar cambios en DashboardProvider
@@ -99,9 +107,15 @@ class HomePage extends StatelessWidget {
                               child: CircleAvatar(
                                 radius: 20,
                                 backgroundColor: Colors.transparent,
-                                child: Text(provider.userAvatar,
-                                    style: const TextStyle(
-                                        fontSize: 28)), // Slightly larger
+                                backgroundImage:
+                                    provider.profileImagePath != null
+                                        ? FileImage(
+                                            File(provider.profileImagePath!))
+                                        : null,
+                                child: provider.profileImagePath == null
+                                    ? Text(provider.userAvatar,
+                                        style: const TextStyle(fontSize: 28))
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -245,7 +259,7 @@ class HomePage extends StatelessWidget {
                               fontSize: 18,
                               color: textColor)),
                       GestureDetector(
-                        onTap: onSeeAllPressed,
+                        onTap: widget.onSeeAllPressed,
                         child: const Text("Ver todo",
                             style: TextStyle(
                                 color: Colors.tealAccent,

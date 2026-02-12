@@ -1,5 +1,8 @@
+import 'dart:ui'; // For lerpDouble
 import 'package:flutter/material.dart';
+import 'package:confetti/confetti.dart';
 import 'package:provider/provider.dart';
+import '../../core/services/notification_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../../domain/entities/goal_entity.dart';
 import '../../domain/entities/account_entity.dart'; // Import
@@ -13,6 +16,24 @@ class WalletPage extends StatefulWidget {
 }
 
 class _WalletPageState extends State<WalletPage> {
+  // Flag to lock scroll during reordering to prevent "running away"
+  bool _isDragging = false;
+
+  late ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 3));
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
   // --- DIALOGS & ACTIONS ---
 
   void _showGoalFormDialog(BuildContext context, {GoalEntity? toEdit}) {
@@ -134,10 +155,12 @@ class _WalletPageState extends State<WalletPage> {
                                     ? Color(selectedColorValue).withOpacity(0.2)
                                     : unselectedIconBg,
                                 shape: BoxShape.circle,
-                                border: isSelected
-                                    ? Border.all(
-                                        color: Color(selectedColorValue))
-                                    : null),
+                                border: Border.all(
+                                    color: isSelected
+                                        ? Color(selectedColorValue)
+                                        : Colors.transparent,
+                                    width: 2.0 // Fixed width to prevent jumping
+                                    )),
                             child: Icon(icon,
                                 color: isSelected
                                     ? Color(selectedColorValue)
@@ -639,6 +662,7 @@ class _WalletPageState extends State<WalletPage> {
   void _showDepositDialog(BuildContext context, GoalEntity goal) {
     final amountController = TextEditingController();
     int selectedSource = 2; // Default Bank
+    String? errorText;
 
     showDialog(
         context: context,
@@ -653,32 +677,111 @@ class _WalletPageState extends State<WalletPage> {
                   children: [
                     TextField(
                       controller: amountController,
-                      keyboardType: TextInputType.number,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
-                      decoration: const InputDecoration(
+                      onChanged: (val) {
+                        if (errorText != null) {
+                          setState(() => errorText = null);
+                        }
+                      },
+                      decoration: InputDecoration(
                           prefixText: "S/ ",
                           prefixStyle:
-                              TextStyle(color: Colors.cyan, fontSize: 24),
+                              const TextStyle(color: Colors.cyan, fontSize: 24),
                           border: InputBorder.none,
                           hintText: "0.00",
-                          hintStyle: TextStyle(color: Colors.white30)),
+                          hintStyle: const TextStyle(color: Colors.white30),
+                          errorText: errorText, // Inline Error Display
+                          errorStyle: const TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 20),
                     const Text("Desde:", style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _sourceChip("Efectivo", 1, selectedSource == 1,
-                            (val) => setState(() => selectedSource = val)),
-                        _sourceChip("Banco", 2, selectedSource == 2,
-                            (val) => setState(() => selectedSource = val)),
-                      ],
-                    )
+                    Consumer<DashboardProvider>(
+                      builder: (context, provider, _) {
+                        // 1. Handle Empty State
+                        if (provider.accounts.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              "No tienes cuentas registradas.",
+                              style: TextStyle(color: Colors.redAccent),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }
+
+                        // 2. Validate Selection (Prevent Crash)
+                        // If selectedSource (default 2) is not in the list, fallback to first available account
+                        if (!provider.accounts
+                            .any((a) => a.id == selectedSource)) {
+                          final defaultAcc = provider.accounts.firstWhere(
+                              (a) => a.id == 2,
+                              orElse: () => provider.accounts.first);
+                          selectedSource = defaultAcc.id;
+                        }
+
+                        // 3. Render Dropdown
+                        return DropdownButtonFormField<int>(
+                          isExpanded:
+                              true, // IMPORTANT: Fixes Right Overflow and Flex errors
+                          value: selectedSource,
+                          dropdownColor: Theme.of(context).cardColor,
+                          style: TextStyle(
+                              color:
+                                  Theme.of(context).textTheme.bodyLarge?.color,
+                              fontSize: 16),
+                          decoration: InputDecoration(
+                            labelText: "Debitar de / Origen",
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            prefixIcon: const Icon(Icons.account_balance_wallet,
+                                color: Colors.cyan),
+                            filled: true,
+                            fillColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white.withOpacity(0.05)
+                                    : Colors.grey[100],
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                          ),
+                          items: provider.accounts.map((account) {
+                            return DropdownMenuItem<int>(
+                              value: account.id,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                      IconData(account.iconCode,
+                                          fontFamily: 'MaterialIcons'),
+                                      size: 18,
+                                      color: Color(account.colorValue)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "${account.name} - ${account.currencySymbol} ${account.currentBalance.toStringAsFixed(2)}",
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => selectedSource = val);
+                            }
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
                 actions: [
@@ -690,11 +793,43 @@ class _WalletPageState extends State<WalletPage> {
                       onPressed: () {
                         final amount =
                             double.tryParse(amountController.text) ?? 0;
+                        final remainingAmount =
+                            goal.targetAmount - goal.currentAmount;
+
                         if (amount > 0) {
+                          // Validation: Amount exceeds remaining
+                          if (amount > remainingAmount) {
+                            final currency = Provider.of<DashboardProvider>(
+                                    context,
+                                    listen: false)
+                                .currencySymbol;
+
+                            // Inline Error via setState
+                            setState(() {
+                              errorText =
+                                  "Solo te faltan $currency ${remainingAmount.toStringAsFixed(2)}";
+                            });
+                            return; // Stop execution, keep dialog open
+                          }
+
+                          // Success: Process Deposit
+                          if (amount >= remainingAmount) {
+                            _confettiController.play();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        "¡FELICIDADES! 🎉 Meta Completada",
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold)),
+                                    backgroundColor: Colors.amber));
+                          }
+
                           Provider.of<DashboardProvider>(context, listen: false)
                               .depositToGoal(goal.id, amount, selectedSource);
-                          Navigator.pop(ctx);
-                          Navigator.pop(context); // Close details sheet too
+
+                          Navigator.pop(ctx); // Close Dialog
+                          Navigator.pop(context); // Close Bottom Sheet
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -706,51 +841,156 @@ class _WalletPageState extends State<WalletPage> {
             }));
   }
 
-  Widget _sourceChip(
-      String label, int value, bool isSelected, Function(int) onSelect) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) onSelect(value);
-      },
-      selectedColor: Colors.cyan.withOpacity(0.3),
-      backgroundColor: Colors.black26,
-      labelStyle: TextStyle(color: isSelected ? Colors.cyan : Colors.grey),
-      side: BorderSide(color: isSelected ? Colors.cyan : Colors.transparent),
-    );
-  }
-
   void _confirmDeleteGoal(BuildContext context, GoalEntity goal) {
-    showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              backgroundColor: Theme.of(context).cardColor,
-              title: Text("¿Eliminar Meta?",
-                  style: TextStyle(
-                      color: Theme.of(context).textTheme.titleLarge?.color)),
-              content: Text(
-                  "El dinero ahorrado (S/ ${goal.currentAmount.toStringAsFixed(2)}) permanecerá en tu cuenta de Ahorros pero se desvinculará de esta meta.",
-                  style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyMedium?.color)),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text("Cancelar",
-                        style: TextStyle(color: Colors.grey))),
-                ElevatedButton(
-                    onPressed: () {
-                      Provider.of<DashboardProvider>(context, listen: false)
-                          .deleteGoal(goal.id);
-                      Navigator.pop(ctx); // Close Dialog
-                      Navigator.pop(context); // Close BottomSheet
-                    },
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    child: const Text("Eliminar",
-                        style: TextStyle(color: Colors.white)))
-              ],
-            ));
+    if (goal.currentAmount > 0) {
+      // 1. Pre-fetch and Validate Default Account
+      final provider = Provider.of<DashboardProvider>(context, listen: false);
+      int selectedRefundAccount = 2; // Default Attempt
+
+      if (provider.accounts.isNotEmpty) {
+        // If default 2 doesn't exist, pick first available
+        if (!provider.accounts.any((a) => a.id == selectedRefundAccount)) {
+          selectedRefundAccount = provider.accounts.first.id;
+        }
+      } else {
+        // Edge case: No accounts at all.
+        // We might want to warn user or just let them delete without refund if they really force it,
+        // but for now let's assume valid state or they can't save.
+        selectedRefundAccount = -1;
+      }
+
+      showDialog(
+          context: context,
+          builder: (ctx) => StatefulBuilder(builder: (context, setState) {
+                return AlertDialog(
+                  backgroundColor: Theme.of(context).cardColor,
+                  title: Text(
+                    "Eliminar Meta con Saldo",
+                    style: TextStyle(
+                        color: Theme.of(context).textTheme.titleLarge?.color),
+                  ),
+                  content: SizedBox(
+                    width: double.maxFinite, // Fix for Layout Issues
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Esta meta tiene ahorrados S/ ${goal.currentAmount.toStringAsFixed(2)}. Selecciona una cuenta para devolver el dinero antes de eliminarla.",
+                          style: TextStyle(
+                              color:
+                                  Theme.of(context).textTheme.bodyMedium?.color,
+                              fontSize: 14),
+                        ),
+                        const SizedBox(height: 16),
+                        if (selectedRefundAccount == -1)
+                          const Text("No hay cuentas para devolver fondos.",
+                              style: TextStyle(color: Colors.red))
+                        else
+                          DropdownButtonFormField<int>(
+                            isExpanded: true,
+                            value: selectedRefundAccount,
+                            items: provider.accounts.map((acc) {
+                              return DropdownMenuItem<int>(
+                                value: acc.id,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                        IconData(acc.iconCode,
+                                            fontFamily: 'MaterialIcons'),
+                                        size: 18,
+                                        color: Color(acc.colorValue)),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "${acc.name} (${acc.currencySymbol} ${acc.currentBalance.toStringAsFixed(2)})",
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            color: Theme.of(context)
+                                                .textTheme
+                                                .bodyLarge
+                                                ?.color),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => selectedRefundAccount = val);
+                              }
+                            },
+                            decoration: InputDecoration(
+                              labelText: "Devolver a:",
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                            ),
+                          )
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("Cancelar",
+                            style: TextStyle(color: Colors.grey))),
+                    ElevatedButton(
+                        onPressed: () async {
+                          final provider = Provider.of<DashboardProvider>(
+                              context,
+                              listen: false);
+                          await provider.deleteGoal(goal.id,
+                              refund: true,
+                              refundAccountId: selectedRefundAccount);
+                          Navigator.pop(ctx);
+                          Navigator.pop(context); // Close Detail Sheet
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(
+                                  "Meta eliminada y dinero devuelto a la cuenta seleccionada"),
+                              backgroundColor: Colors.green));
+                        },
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent),
+                        child: const Text("Eliminar y Devolver",
+                            style: TextStyle(color: Colors.white)))
+                  ],
+                );
+              }));
+    } else {
+      // Standard Delete (No funds)
+      showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                backgroundColor: Theme.of(context).cardColor,
+                title: Text("¿Eliminar Meta?",
+                    style: TextStyle(
+                        color: Theme.of(context).textTheme.titleLarge?.color)),
+                content: Text("Esta acción no se puede deshacer.",
+                    style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color)),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("Cancelar",
+                          style: TextStyle(color: Colors.grey))),
+                  ElevatedButton(
+                      onPressed: () {
+                        Provider.of<DashboardProvider>(context, listen: false)
+                            .deleteGoal(goal.id);
+                        Navigator.pop(ctx); // Close Dialog
+                        Navigator.pop(context); // Close BottomSheet
+                      },
+                      style:
+                          ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text("Eliminar",
+                          style: TextStyle(color: Colors.white)))
+                ],
+              ));
+    }
   }
 
   void _showGoalDetails(BuildContext context, GoalEntity goal) {
@@ -790,8 +1030,7 @@ class _WalletPageState extends State<WalletPage> {
                 const SizedBox(height: 16),
                 Text(goal.name,
                     style: TextStyle(
-                        color:
-                            Theme.of(context).textTheme.headlineMedium?.color,
+                        color: Theme.of(ctx).textTheme.headlineMedium?.color,
                         fontSize: 24,
                         fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
@@ -809,8 +1048,7 @@ class _WalletPageState extends State<WalletPage> {
                             borderRadius: BorderRadius.circular(6))),
                     Container(
                         height: 12,
-                        width:
-                            MediaQuery.of(context).size.width * 0.8 * progress,
+                        width: MediaQuery.of(ctx).size.width * 0.8 * progress,
                         decoration: BoxDecoration(
                             color: isCompleted ? Colors.amber : goal.color,
                             borderRadius: BorderRadius.circular(6),
@@ -892,12 +1130,11 @@ class _WalletPageState extends State<WalletPage> {
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                      onPressed: () {
-                        // Logic to withdraw without spending could go here
-                        Navigator.pop(ctx);
-                      },
+                      onPressed: () => _confirmDeleteGoal(context, goal),
                       child: const Text("Retirar dinero (Sin registrar gasto)",
-                          style: TextStyle(color: Colors.grey)))
+                          style: TextStyle(
+                              color: Colors.white70,
+                              decoration: TextDecoration.underline)))
                 ] else ...[
                   SizedBox(
                     width: double.infinity,
@@ -948,133 +1185,202 @@ class _WalletPageState extends State<WalletPage> {
             centerTitle: true,
             iconTheme: IconThemeData(color: textColor),
           ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 20),
-                // --- Accounts PageView ---
-                SizedBox(
-                  height: 200,
-                  child: PageView.builder(
-                    controller: PageController(viewportFraction: 0.9),
-                    itemCount: provider.accounts.length + 1, // +1 for Add Card
-                    itemBuilder: (context, index) {
-                      if (index < provider.accounts.length) {
-                        final account = provider.accounts[index];
-                        return GestureDetector(
-                          onTap: () => _showAddAccountSheet(context,
-                              accountToEdit: account),
-                          child: _buildAccountCard(context, account),
-                        );
-                      } else {
-                        // Add Account Card
-                        return GestureDetector(
-                          onTap: () => _showAddAccountSheet(context),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? Colors.white10
-                                  : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
+          body: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              SingleChildScrollView(
+                physics: _isDragging
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(), // Restore standard scroll physics
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    // --- Accounts PageView ---
+                    SizedBox(
+                      height: 200,
+                      child: PageView.builder(
+                        controller: PageController(viewportFraction: 0.9),
+                        itemCount:
+                            provider.accounts.length + 1, // +1 for Add Card
+                        itemBuilder: (context, index) {
+                          if (index < provider.accounts.length) {
+                            final account = provider.accounts[index];
+                            return GestureDetector(
+                              onTap: () => _showAddAccountSheet(context,
+                                  accountToEdit: account),
+                              child: _buildAccountCard(context, account),
+                            );
+                          } else {
+                            // Add Account Card
+                            return GestureDetector(
+                              onTap: () => _showAddAccountSheet(context),
+                              child: Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
                                   color: isDarkMode
-                                      ? Colors.white24
-                                      : Colors.grey.shade400,
-                                  style: BorderStyle.solid),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_circle_outline,
-                                      size: 48,
+                                      ? Colors.white10
+                                      : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
                                       color: isDarkMode
-                                          ? Colors.white54
-                                          : Colors.grey),
-                                  const SizedBox(height: 8),
-                                  Text("Añadir Cuenta",
-                                      style: TextStyle(
+                                          ? Colors.white24
+                                          : Colors.grey.shade400,
+                                      style: BorderStyle.solid),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.add_circle_outline,
+                                          size: 48,
                                           color: isDarkMode
                                               ? Colors.white54
-                                              : Colors.grey,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold))
-                                ],
+                                              : Colors.grey),
+                                      const SizedBox(height: 8),
+                                      Text("Añadir Cuenta",
+                                          style: TextStyle(
+                                              color: isDarkMode
+                                                  ? Colors.white54
+                                                  : Colors.grey,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold))
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-
-                // --- Goals Section ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Mis Metas (${goals.length})",
-                        style: TextStyle(
-                            color: textColor,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold),
+                            );
+                          }
+                        },
                       ),
-                      GestureDetector(
-                        onTap: () => _showGoalFormDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.cyan,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.add,
-                              color: Colors.white, size: 20),
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Goals List
-                if (goals.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(40.0),
-                    child: Center(
-                        child: Text(
-                            "No tienes metas activas.\n¡Crea una para empezar a ahorrar!",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: isDarkMode
-                                    ? Colors.blueGrey[200]
-                                    : Colors.grey))),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: goals
-                          .map((goal) =>
-                              _buildGoalItem(context, goal, isDarkMode))
-                          .toList(),
                     ),
-                  ),
 
-                const SizedBox(height: 40),
+                    const SizedBox(height: 40),
 
-                // --- Fixed Expenses Section (Suscripciones) ---
-                _buildFixedExpensesSection(context, provider, isDarkMode),
+                    // --- Goals Section ---
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Mis Metas (${goals.length})",
+                            style: TextStyle(
+                                color: textColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          GestureDetector(
+                            onTap: () => _showGoalFormDialog(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.cyan,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.add,
+                                  color: Colors.white, size: 20),
+                            ),
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
 
-                const SizedBox(height: 120), // Spacing for safe area
-              ],
-            ),
+                    // Goals List
+                    if (goals.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(40.0),
+                        child: Center(
+                            child: Text(
+                                "No tienes metas activas.\n¡Crea una para empezar a ahorrar!",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.blueGrey[200]
+                                        : Colors.grey))),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: ReorderableListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: goals.length,
+                          onReorderStart: (_) =>
+                              setState(() => _isDragging = true),
+                          onReorderEnd: (_) =>
+                              setState(() => _isDragging = false),
+                          onReorder: (oldIndex, newIndex) {
+                            // User request: just UI update for now, or update provider order
+                            // Since provider might not have reorder method yet, we do it locally or call provider if exists.
+                            // Assuming provider needs an update method. For now, let's just update the list via provider if possible or just let it slide visually.
+                            // Actually, ReorderableListView requires updating the data source.
+                            // Let's assume we can call a method on provider or we should add one.
+                            // Since I can't edit provider here easily without checking it, I'll assume we need to add a method or just reorder the local list copy if it was a local state, but it is from provider.
+                            // I will add a reorder method call to provider.
+                            Provider.of<DashboardProvider>(context,
+                                    listen: false)
+                                .reorderGoals(oldIndex, newIndex);
+                          },
+                          proxyDecorator: (child, index, animation) {
+                            return AnimatedBuilder(
+                              animation: animation,
+                              builder: (BuildContext context, Widget? child) {
+                                final double animValue =
+                                    Curves.easeInOut.transform(animation.value);
+                                final double elevation =
+                                    lerpDouble(0, 6, animValue)!;
+                                return Material(
+                                  elevation: elevation,
+                                  color: Colors.transparent,
+                                  shadowColor: Colors.black.withOpacity(0.2),
+                                  child: Transform.scale(
+                                    scale: 0.95,
+                                    child: Opacity(
+                                      opacity: 0.7,
+                                      child: child,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: child,
+                            );
+                          },
+                          itemBuilder: (context, index) {
+                            final goal = goals[index];
+                            return Container(
+                              key: ValueKey(goal.id),
+                              margin: const EdgeInsets.only(
+                                  bottom: 15), // Move margin here from Item
+                              child: _buildGoalItem(context, goal, isDarkMode),
+                            );
+                          },
+                        ),
+                      ),
+
+                    const SizedBox(height: 40),
+
+                    // --- Fixed Expenses Section (Suscripciones) ---
+                    _buildFixedExpensesSection(context, provider, isDarkMode),
+
+                    const SizedBox(height: 120), // Spacing for safe area
+                  ],
+                ),
+              ),
+              ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: const [
+                  Colors.cyan,
+                  Colors.purple,
+                  Colors.amber,
+                  Colors.green
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -1197,90 +1503,157 @@ class _WalletPageState extends State<WalletPage> {
     final int percent = (progress * 100).toInt();
     final bool isCompleted = progress >= 1.0;
 
-    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-    final textColor = isDarkMode ? Colors.white : Colors.black;
-    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey;
+    final String currency =
+        Provider.of<DashboardProvider>(context, listen: false).currencySymbol;
+
+    // Colors & Theme
+    final baseColor = isCompleted ? Colors.amber : goal.color;
+    final accentColor = isCompleted ? Colors.amberAccent : baseColor;
+
+    // Premium Gradient
+    final gradientBg = isDarkMode
+        ? const LinearGradient(
+            colors: [
+                Color(0xFF1E293B),
+                Color(0xFF2A3F5F)
+              ], // Requested Deep Blue
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight)
+        : const LinearGradient(
+            colors: [Colors.white, Color(0xFFF1F5F9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight);
+
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+    final subTextColor = isDarkMode ? Colors.white70 : Colors.black54;
 
     return GestureDetector(
       onTap: () => _showGoalDetails(context, goal),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border:
-                isCompleted ? Border.all(color: Colors.amber, width: 2) : null,
-            boxShadow: isCompleted
-                ? [
-                    BoxShadow(
-                        color: Colors.amber.withOpacity(0.2), blurRadius: 10)
-                  ]
-                : (isDarkMode
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          offset: const Offset(0, 4),
-                          blurRadius: 10,
-                        )
-                      ])),
-        child: Row(
+          borderRadius: BorderRadius.circular(20), // Requested 20
+          gradient: gradientBg,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5))
+          ],
+          border: isCompleted
+              ? Border.all(color: Colors.amber, width: 2)
+              : Border.all(
+                  color: isDarkMode ? Colors.white10 : Colors.grey[200]!,
+                  width: 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isCompleted
-                    ? Colors.amber.withOpacity(0.2)
-                    : goal.color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(isCompleted ? Icons.emoji_events : goal.icon,
-                  color: isCompleted ? Colors.amber : goal.color),
+            // Header: Icon + Title
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: baseColor.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(isCompleted ? Icons.emoji_events : goal.icon,
+                      color: baseColor, size: 24),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Text(
+                    goal.name,
+                    style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        goal.name,
-                        style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16),
+            const SizedBox(height: 20),
+
+            // Amounts and Percentage
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Amounts
+                Text(
+                  "$currency ${goal.currentAmount.toStringAsFixed(0)} / $currency ${goal.targetAmount.toStringAsFixed(0)}",
+                  style: TextStyle(
+                      color: subTextColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500),
+                ),
+                // Percentage
+                Text(
+                  "$percent%",
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Motivational Text
+            // Motivational Text
+            if (isCompleted)
+              Text(
+                "¡Felicidades! Meta Alcanzada 🎉",
+                style: TextStyle(
+                    color: Colors.amber,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
+              )
+            else
+              const SizedBox.shrink(),
+
+            const SizedBox(height: 12),
+
+            // Gradient Progress Bar
+            Stack(
+              children: [
+                // Background
+                Container(
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.black26 : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                // Foreground Gradient
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Container(
+                      height: 12,
+                      width: constraints.maxWidth * progress,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        gradient: LinearGradient(
+                          colors: [
+                            baseColor.withOpacity(0.7),
+                            accentColor
+                          ], // Gradient
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                              color: baseColor.withOpacity(0.4),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2))
+                        ],
                       ),
-                      Text(
-                        isCompleted ? "¡COMPLETADA!" : "$percent%",
-                        style: TextStyle(
-                            color: isCompleted ? Colors.amber : goal.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      color: isCompleted ? Colors.amber : goal.color,
-                      backgroundColor:
-                          isDarkMode ? Colors.white10 : Colors.grey[200],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "S/ ${goal.currentAmount.toStringAsFixed(0)} / S/ ${goal.targetAmount.toStringAsFixed(0)}",
-                    style: TextStyle(color: subTextColor, fontSize: 12),
-                  ),
-                ],
-              ),
-            )
+                    );
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1302,12 +1675,21 @@ class _WalletPageState extends State<WalletPage> {
             children: [
               Row(
                 children: [
-                  Text(
-                    "Gastos Fijos",
-                    style: TextStyle(
-                        color: textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
+                  GestureDetector(
+                    onDoubleTap: () {
+                      NotificationService().scheduleTestNotification();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('🔔 Notificación de prueba en 5 seg...'),
+                        backgroundColor: Colors.purple,
+                      ));
+                    },
+                    child: Text(
+                      "Gastos Fijos",
+                      style: TextStyle(
+                          color: textColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Container(
@@ -1354,11 +1736,47 @@ class _WalletPageState extends State<WalletPage> {
         else
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: subscriptions
-                  .map(
-                      (sub) => _buildSubscriptionTile(context, sub, isDarkMode))
-                  .toList(),
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: subscriptions.length,
+              onReorderStart: (_) => setState(() => _isDragging = true),
+              onReorderEnd: (_) => setState(() => _isDragging = false),
+              onReorder: (oldIndex, newIndex) {
+                Provider.of<DashboardProvider>(context, listen: false)
+                    .reorderSubscriptions(oldIndex, newIndex);
+              },
+              proxyDecorator: (child, index, animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (BuildContext context, Widget? child) {
+                    final double animValue =
+                        Curves.easeInOut.transform(animation.value);
+                    final double elevation = lerpDouble(0, 6, animValue)!;
+                    return Material(
+                      elevation: elevation,
+                      color: Colors.transparent,
+                      shadowColor: Colors.black.withOpacity(0.2),
+                      child: Transform.scale(
+                        scale: 0.95,
+                        child: Opacity(
+                          opacity: 0.7,
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
+                  child: child,
+                );
+              },
+              itemBuilder: (context, index) {
+                final sub = subscriptions[index];
+                return Container(
+                  key: ValueKey(sub.id),
+                  margin: const EdgeInsets.only(bottom: 12), // Move margin here
+                  child: _buildSubscriptionTile(context, sub, isDarkMode),
+                );
+              },
             ),
           ),
       ],
@@ -1418,13 +1836,11 @@ class _WalletPageState extends State<WalletPage> {
           _confirmPaySubscription(context, sub);
         }
       },
-      onLongPress: () {
-        // Delete option
-        Provider.of<DashboardProvider>(context, listen: false)
-            .removeSubscription(sub.id);
-      },
+      onLongPress:
+          null, // Disable manual long press to allow ReorderableListView to handle it
+
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        // margin: const EdgeInsets.only(bottom: 12), // Handled by ReorderableListView wrapper
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: cardColor,

@@ -11,6 +11,8 @@ class TransactionModel extends TransactionEntity {
     super.note,
     super.type,
     super.destinationAccountId,
+    super.receivedAmount,
+    super.imagePath,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,10 @@ class TransactionModel extends TransactionEntity {
       note: json['note'],
       type: type,
       destinationAccountId: json['destinationAccountId'],
+      receivedAmount: json['receivedAmount'] != null
+          ? (json['receivedAmount'] as num).toDouble()
+          : null,
+      imagePath: json['imagePath'],
     );
   }
 
@@ -54,6 +60,8 @@ class TransactionModel extends TransactionEntity {
       'note': note,
       'type': type.name.toUpperCase(),
       'destinationAccountId': destinationAccountId,
+      'receivedAmount': receivedAmount,
+      'imagePath': imagePath,
     };
   }
 
@@ -68,6 +76,8 @@ class TransactionModel extends TransactionEntity {
       note: entity.note,
       type: entity.type,
       destinationAccountId: entity.destinationAccountId,
+      receivedAmount: entity.receivedAmount,
+      imagePath: entity.imagePath,
     );
   }
 }

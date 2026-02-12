@@ -11,6 +11,7 @@ const String KEY_CURRENCY = 'CURRENCY';
 const String KEY_BUDGET_LIMIT = 'BUDGET_LIMIT';
 const String KEY_SECURITY_PIN = 'SECURITY_PIN';
 const String KEY_USER_AVATAR = 'USER_AVATAR';
+const String KEY_PROFILE_IMAGE_PATH = 'PROFILE_IMAGE_PATH';
 
 abstract class TransactionLocalDataSource {
   Future<List<TransactionModel>> getTransactions();
@@ -31,6 +32,8 @@ abstract class TransactionLocalDataSource {
   String? getSecurityPin();
   Future<void> saveUserAvatar(String avatar);
   String getUserAvatar();
+  Future<void> saveProfileImagePath(String? path);
+  String? getProfileImagePath();
   Future<void> clearAllData();
 }
 
@@ -141,6 +144,19 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   @override
   String getUserAvatar() {
     return sharedPreferences.getString(KEY_USER_AVATAR) ?? '😎';
+  }
+
+  @override
+  Future<void> saveProfileImagePath(String? path) {
+    if (path == null) {
+      return sharedPreferences.remove(KEY_PROFILE_IMAGE_PATH);
+    }
+    return sharedPreferences.setString(KEY_PROFILE_IMAGE_PATH, path);
+  }
+
+  @override
+  String? getProfileImagePath() {
+    return sharedPreferences.getString(KEY_PROFILE_IMAGE_PATH);
   }
 
   @override

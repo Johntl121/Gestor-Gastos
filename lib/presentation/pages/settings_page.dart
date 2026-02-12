@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/dashboard_provider.dart';
-import 'intro_page.dart';
+
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'onboarding_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -46,8 +51,13 @@ class SettingsPage extends StatelessWidget {
                       CircleAvatar(
                         radius: 50,
                         backgroundColor: Colors.transparent,
-                        child: Text(provider.userAvatar,
-                            style: const TextStyle(fontSize: 70)),
+                        backgroundImage: provider.profileImagePath != null
+                            ? FileImage(File(provider.profileImagePath!))
+                            : null,
+                        child: provider.profileImagePath == null
+                            ? Text(provider.userAvatar,
+                                style: const TextStyle(fontSize: 70))
+                            : null,
                       ),
                       Container(
                         padding: const EdgeInsets.all(6),
@@ -290,15 +300,37 @@ class SettingsPage extends StatelessWidget {
                           style: TextStyle(color: subTextColor, fontSize: 12)),
                       onTap: () => _exportData(context),
                     ),
-                    Divider(color: Colors.grey.withOpacity(0.2), height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.delete_forever,
-                          color: Colors.redAccent),
-                      title: const Text("Reiniciar App / Borrar Todo",
-                          style: TextStyle(color: Colors.redAccent)),
-                      onTap: () => _confirmReset(context),
-                    ),
                   ],
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // 7. DANGER ZONE
+              Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text("ZONA DE PELIGRO",
+                      style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2))),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border:
+                        Border.all(color: Colors.redAccent.withOpacity(0.3))),
+                child: ListTile(
+                  leading: const Icon(Icons.delete_forever, color: Colors.red),
+                  title: const Text("Restablecer Datos de Fábrica",
+                      style: TextStyle(
+                          color: Colors.red, fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                      "Borrar transacciones, cuentas y reiniciar app.",
+                      style: TextStyle(color: Colors.red[300], fontSize: 11)),
+                  onTap: () => _confirmReset(context),
                 ),
               ),
 
@@ -668,6 +700,44 @@ class SettingsPage extends StatelessWidget {
                       .toList(),
                 ),
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _pickImage(context, ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Cámara"),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(
+                              color: Color(0xFF00E5FF), width: 1),
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 0),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _pickImage(context, ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text("Galería"),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(
+                              color: Color(0xFF00E5FF), width: 1),
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 0),
+                    ),
+                  ),
+                ],
+              )
             ],
           ),
         );
@@ -709,7 +779,8 @@ class SettingsPage extends StatelessWidget {
 
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const IntroPage()),
+                  MaterialPageRoute(
+                      builder: (context) => const OnboardingPage()),
                   (route) => false,
                 );
               }
@@ -721,5 +792,31 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    final picker = ImagePicker();
+    try {
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        imageQuality: 60, // Optimize size
+      );
+
+      if (pickedFile != null && context.mounted) {
+        final directory = await getApplicationDocumentsDirectory();
+        final String fileName =
+            'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final String savedPath = path.join(directory.path, fileName);
+
+        await File(pickedFile.path).copy(savedPath);
+
+        final provider = Provider.of<DashboardProvider>(context, listen: false);
+        await provider.setProfileImagePath(savedPath);
+
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
   }
 }

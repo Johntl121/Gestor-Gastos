@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'data/datasources/transaction_local_data_source.dart';
 import 'presentation/pages/main_page.dart';
@@ -11,10 +12,17 @@ import 'presentation/pages/intro_page.dart';
 import 'presentation/providers/dashboard_provider.dart';
 import 'presentation/pages/lock_screen.dart';
 
+import 'core/services/notification_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es_ES', null);
+  await dotenv.load(fileName: ".env");
   await di.init();
+
+  // Notifications Init
+  await NotificationService().init();
+  await NotificationService().requestPermissions();
 
   // Check First Time
   final isFirstTime = di.sl<TransactionLocalDataSource>().isFirstTime();

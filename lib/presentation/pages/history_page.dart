@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -407,7 +408,11 @@ class _HistoryPageState extends State<HistoryPage> {
 
                                             // Amount & Color Formatting
                                             bool isIncome = t.amount > 0;
-                                            String symbol =
+                                            String symbol = provider.accounts
+                                                    .where((a) =>
+                                                        a.id == t.accountId)
+                                                    .firstOrNull
+                                                    ?.currencySymbol ??
                                                 provider.currencySymbol;
                                             String absAmount = t.amount
                                                 .abs()
@@ -570,6 +575,7 @@ class _HistoryPageState extends State<HistoryPage> {
     required Color color,
     required bool isIncome,
     required bool isDarkMode,
+    bool hasAttachment = false,
     TransactionType type = TransactionType.expense,
   }) {
     final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
@@ -629,10 +635,22 @@ class _HistoryPageState extends State<HistoryPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                amount,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasAttachment)
+                    const Padding(
+                        padding: EdgeInsets.only(right: 6),
+                        child: Icon(Icons.attach_file,
+                            size: 16, color: Colors.grey)),
+                  Text(
+                    amount,
+                    style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               // Account Badge
@@ -803,7 +821,11 @@ class _HistoryPageState extends State<HistoryPage> {
                             String title = t.description;
                             String subtitle =
                                 DateFormat('h:mm a').format(t.date);
-                            String symbol = provider.currencySymbol;
+                            String symbol = provider.accounts
+                                    .where((a) => a.id == t.accountId)
+                                    .firstOrNull
+                                    ?.currencySymbol ??
+                                provider.currencySymbol;
                             String absAmount =
                                 t.amount.abs().toStringAsFixed(2);
 
@@ -862,18 +884,20 @@ class _HistoryPageState extends State<HistoryPage> {
                                 provider.getAccountName(t.accountId);
 
                             return _buildTransactionItem(
-                                title: title,
-                                subtitle: subtitle,
-                                amount: amount,
-                                accountName: accountName,
-                                accountColor: accountColor,
-                                icon: icon,
-                                color: color,
-                                isIncome: isIncome,
-                                type: isTransfer
-                                    ? TransactionType.transfer
-                                    : t.type,
-                                isDarkMode: isDarkMode);
+                              title: title,
+                              subtitle: subtitle,
+                              amount: amount,
+                              accountName: accountName,
+                              accountColor: accountColor,
+                              icon: icon,
+                              color: color,
+                              isIncome: isIncome,
+                              type: isTransfer
+                                  ? TransactionType.transfer
+                                  : t.type,
+                              isDarkMode: isDarkMode,
+                              hasAttachment: t.imagePath != null,
+                            );
                           }),
                         ),
                       );
@@ -901,7 +925,11 @@ class _HistoryPageState extends State<HistoryPage> {
 
         Color finalColor;
         String formattedAmount;
-        String symbol = provider.currencySymbol;
+        String symbol = provider.accounts
+                .where((a) => a.id == t.accountId)
+                .firstOrNull
+                ?.currencySymbol ??
+            provider.currencySymbol;
         String absAmount = t.amount.abs().toStringAsFixed(2);
 
         if (isTransfer) {
@@ -915,117 +943,159 @@ class _HistoryPageState extends State<HistoryPage> {
           formattedAmount = "- $symbol $absAmount";
         }
 
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: finalColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isTransfer
-                      ? Icons.swap_horiz
-                      : (t.amount > 0
-                          ? Icons.account_balance_wallet
-                          : Icons.shopping_bag),
-                  color: finalColor,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                formattedAmount,
-                style: TextStyle(
-                  color: finalColor,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Details List
-              if (isTransfer)
-                _buildDetailRow(
-                    Icons.swap_horiz,
-                    "Flujo",
-                    "De ${provider.getAccountName(t.accountId)} hacia ${t.destinationAccountId != null ? provider.getAccountName(t.destinationAccountId!) : 'Destino'}",
-                    isDarkMode)
-              else
-                _buildDetailRow(
-                    Icons.category, "Categoría", t.description, isDarkMode),
-              _buildDetailRow(
-                  Icons.calendar_today,
-                  "Fecha",
-                  DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date),
-                  isDarkMode),
-              if (t.note != null && t.note!.isNotEmpty)
-                _buildDetailRow(Icons.note, "Nota", t.note!, isDarkMode),
-
-              const SizedBox(height: 32),
-
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        // Delete Action
-                        if (t.id != null) {
-                          provider.deleteTransaction(t.id!);
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Transacción eliminada')),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
-                      label: const Text("Eliminar",
-                          style: TextStyle(color: Colors.redAccent)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: Colors.redAccent),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: finalColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        // Edit Action
-                        Navigator.pop(ctx); // Close Sheet
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) =>
-                                  AddTransactionPage(transactionToEdit: t)),
-                        );
-                      },
-                      icon: const Icon(Icons.edit, color: Colors.black),
-                      label: const Text("Editar",
+                  child: Icon(
+                    isTransfer
+                        ? Icons.swap_horiz
+                        : (t.amount > 0
+                            ? Icons.account_balance_wallet
+                            : Icons.shopping_bag),
+                    color: finalColor,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  formattedAmount,
+                  style: TextStyle(
+                    color: finalColor,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Details List
+                if (isTransfer)
+                  _buildDetailRow(
+                      Icons.swap_horiz,
+                      "Flujo",
+                      "De ${provider.getAccountName(t.accountId)} hacia ${t.destinationAccountId != null ? provider.getAccountName(t.destinationAccountId!) : 'Destino'}",
+                      isDarkMode)
+                else
+                  _buildDetailRow(
+                      Icons.category, "Categoría", t.description, isDarkMode),
+                _buildDetailRow(
+                    Icons.calendar_today,
+                    "Fecha",
+                    DateFormat('EEEE d MMM, h:mm a', 'es').format(t.date),
+                    isDarkMode),
+                if (t.note != null && t.note!.isNotEmpty)
+                  _buildDetailRow(Icons.note, "Nota", t.note!, isDarkMode),
+
+                if (t.imagePath != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Comprobante",
                           style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF64B5F6),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
+                              color: Colors.grey,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                                context: context,
+                                builder: (_) => Dialog(
+                                      backgroundColor: Colors.transparent,
+                                      child: InteractiveViewer(
+                                        child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            child:
+                                                Image.file(File(t.imagePath!))),
+                                      ),
+                                    ));
+                          },
+                          child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(File(t.imagePath!),
+                                  height: 150,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover)),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
+
+                const SizedBox(height: 10),
+
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          // Delete Action
+                          if (t.id != null) {
+                            provider.deleteTransaction(t.id!);
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Transacción eliminada')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.redAccent),
+                        label: const Text("Eliminar",
+                            style: TextStyle(color: Colors.redAccent)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Colors.redAccent),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // Edit Action
+                          Navigator.pop(ctx); // Close Sheet
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    AddTransactionPage(transactionToEdit: t)),
+                          );
+                        },
+                        icon: const Icon(Icons.edit, color: Colors.black),
+                        label: const Text("Editar",
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF64B5F6),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         );
       },

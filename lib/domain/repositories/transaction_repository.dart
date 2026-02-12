@@ -5,7 +5,8 @@ import '../entities/account_entity.dart';
 import '../entities/balance_breakdown.dart';
 
 abstract class TransactionRepository {
-  Future<Either<Failure, void>> addTransaction(TransactionEntity transaction);
+  Future<Either<Failure, void>> addTransaction(TransactionEntity transaction,
+      {bool updateBalance = true});
   Future<Either<Failure, BalanceBreakdown>> getBalanceBreakdown();
   Future<Either<Failure, double>> getCurrentMonthExpenses();
   Future<Either<Failure, double>> getMonthlyBudget();

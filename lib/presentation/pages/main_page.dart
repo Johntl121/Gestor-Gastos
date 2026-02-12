@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../core/services/ai_service.dart';
 import '../providers/dashboard_provider.dart';
 import 'home_page.dart';
+import '../../core/services/speech_service.dart';
 import 'add_transaction_page.dart';
 import 'stats_page.dart';
 import 'history_page.dart';
@@ -18,6 +20,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   bool _isSpeedDialOpen = false;
+  final SpeechService _speechService = SpeechService();
 
   List<Widget> get _pages => [
         HomePage(onSeeAllPressed: () => _onItemTapped(2)),
@@ -34,243 +37,192 @@ class _MainPageState extends State<MainPage> {
 
   // --- Voice Logic ---
 
-  void _showVoiceSimulator() {
-    final TextEditingController voiceController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E2A32),
-        title: const Text('Simulador de Voz',
-            style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: voiceController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Ej: "Gaste 45 en pizza"',
-            hintStyle: TextStyle(color: Colors.grey),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey)),
-            focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.tealAccent)),
-          ),
-          autofocus: true,
-          onSubmitted: (val) {
-            Navigator.pop(context);
-            _processVoiceCommand(val);
-          },
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Cancelar'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          TextButton(
-            child: const Text('Procesar',
-                style: TextStyle(color: Colors.tealAccent)),
-            onPressed: () {
-              Navigator.pop(context);
-              _processVoiceCommand(voiceController.text);
-            },
-          ),
-        ],
-      ),
-    );
+  Future<void> _startVoiceTransaction(BuildContext context) async {
+    bool available = await _speechService.init();
+    if (!available) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Reconocimiento de voz no disponible/permiso denegado')),
+        );
+      }
+      return;
+    }
+
+    String _text = "Te escucho... 🎙️";
+
+    // ignore: use_build_context_synchronously
+    showModalBottomSheet(
+        context: context,
+        isDismissible: false,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) {
+          return StatefulBuilder(builder: (context, setModalState) {
+            // Start listening if not already
+            if (!_speechService.isListening) {
+              _speechService.listen((text) {
+                setModalState(() {
+                  _text = text;
+                });
+              });
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E293B),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Te escucho... 🎙️",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 30),
+                  Text(_text,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w300),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await _speechService.stop();
+                        Navigator.pop(ctx); // Close the bottom sheet
+                        debugPrint("Texto reconocido: $_text");
+                        if (_text.isNotEmpty && _text != "Te escucho... 🎙️") {
+                          // Process with AI
+                          _processVoiceCommand(_text);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.stop, color: Colors.white),
+                      label: const Text("Detener",
+                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                    ),
+                  )
+                ],
+              ),
+            );
+          });
+        }).whenComplete(() {
+      _speechService.stop();
+    });
   }
 
-  void _processVoiceCommand(String text) {
+  Future<void> _processVoiceCommand(String text) async {
     if (text.isEmpty) return;
-    String lower = text.toLowerCase();
 
-    // 1. Detect Type (Prioritized)
-    TransactionType type = TransactionType.expense; // Default
-    bool typeDetected = false;
+    // Show Loading
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+              child: Card(
+                  color: Color(0xFF1E293B),
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.tealAccent),
+                        SizedBox(height: 15),
+                        Text("Analizando con IA... 🧠",
+                            style: TextStyle(color: Colors.white))
+                      ],
+                    ),
+                  )),
+            ));
 
-    // Priority 1: INCOME (Strongest keywords - Receiving Money)
-    if (lower.contains('recibi') ||
-        lower.contains('recibí') ||
-        lower.contains('gane') ||
-        lower.contains('gané') ||
-        lower.contains('me dieron') ||
-        lower.contains('deposito') ||
-        lower.contains('depósito') ||
-        lower.contains('sueldo') ||
-        lower.contains('cobre') ||
-        lower.contains('cobré') ||
-        lower.contains('aguinaldo') ||
-        lower.contains('ingreso') ||
-        lower.contains('ingresó') ||
-        // Loans / Slang for receiving
-        lower.contains('me empresto') ||
-        lower.contains('me emprestó') ||
-        lower.contains('me presto') ||
-        lower.contains('me prestó') ||
-        lower.contains('me prestaron') ||
-        lower.contains('me devolvieron') ||
-        lower.contains('me yapearon') ||
-        lower.contains('me plinearon')) {
-      type = TransactionType.income;
-      typeDetected = true;
+    // Available Lists (Hardcoded or from Provider)
+    final categories = [
+      "Comida",
+      "Transporte",
+      "Compras",
+      "Ocio",
+      "Salud",
+      "Hogar",
+      "Educación",
+      "Otros",
+      "Ingreso",
+      "Transferencia"
+    ];
+    final accounts = ["Efectivo", "Banco", "Ahorros"];
+
+    // AI Analysis
+    final result =
+        await AIService().analyzeTransaction(text, categories, accounts);
+
+    // Close Loading
+    Navigator.pop(context);
+
+    if (result != null) {
+      // Parse Result
+      final double amount = (result['amount'] is int)
+          ? (result['amount'] as int).toDouble()
+          : (result['amount'] as double? ?? 0.0);
+
+      final String categoryName = result['category'] ?? "Otros";
+      final String accountName = result['account'] ?? "Efectivo";
+      final String title = result['title'] ?? categoryName;
+      final String typeStr = result['type'] ?? "expense";
+
+      TransactionType type = TransactionType.expense;
+      if (typeStr == "income") type = TransactionType.income;
+      if (typeStr == "transfer") type = TransactionType.transfer;
+
+      // Map IDs (simple mapping)
+      int categoryId = 11; // Otros
+      if (categoryName == "Comida") categoryId = 1;
+      if (categoryName == "Transporte") categoryId = 2;
+      if (categoryName == "Compras") categoryId = 3;
+      if (categoryName == "Ocio") categoryId = 4;
+      if (categoryName == "Salud") categoryId = 5;
+      if (categoryName == "Hogar") categoryId = 6;
+      if (categoryName == "Educación") categoryId = 7;
+
+      int accountId = 1; // Efectivo
+      if (accountName == "Banco") accountId = 2;
+      if (accountName == "Ahorros") accountId = 3;
+
+      // Create Draft
+      final draft = TransactionEntity(
+        accountId: accountId,
+        categoryId: categoryId,
+        amount: type == TransactionType.expense ? -amount.abs() : amount.abs(),
+        date: DateTime.now(),
+        description: title,
+        note: "IA: $text", // Keep original text as note or metadata
+        type: type,
+      );
+
+      // Navigate to Edit Page (AddTransactionPage)
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => AddTransactionPage(draftTransaction: draft)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No pude entender la transacción 😕")),
+      );
     }
-
-    // Priority 2: TRANSFER
-    if (!typeDetected &&
-        (lower.contains('transferi') ||
-            lower.contains('transferí') ||
-            lower.contains('movi') ||
-            lower.contains('moví') ||
-            lower.contains('pase') ||
-            lower.contains('pasé') ||
-            lower.contains('envie') ||
-            lower.contains('envié') ||
-            lower.contains('entre cuentas'))) {
-      type = TransactionType.transfer;
-      typeDetected = true;
-    }
-
-    // Priority 3: EXPENSE (Common words + Sending Slang)
-    if (!typeDetected) {
-      if (lower.contains('gaste') ||
-          lower.contains('gasté') ||
-          lower.contains('compre') ||
-          lower.contains('compré') ||
-          lower.contains('pague') ||
-          lower.contains('pagué') ||
-          lower.contains('salida') ||
-          lower.contains('costo') ||
-          lower.contains('costó') ||
-          // Loans / Slang for sending
-          lower.contains('preste') ||
-          lower.contains('presté') ||
-          lower.contains('le preste') ||
-          lower.contains('le presté') ||
-          lower.contains('yapie') || // Sending Yape
-          lower.contains('yapié') ||
-          lower.contains('plinee') || // Sending Plin
-          lower.contains('plineé')) {
-        type = TransactionType.expense;
-        typeDetected = true;
-      }
-    }
-
-    // 2. Extract Amount
-    double amount = 0.0;
-    final RegExp numReg = RegExp(r'(\d+(\.\d+)?)');
-    final match = numReg.firstMatch(text);
-    if (match != null) {
-      amount = double.tryParse(match.group(0)!) ?? 0.0;
-    }
-
-    // 3. Detect Account
-    int accountId = 1; // Default: Cash
-
-    // Bank Keywords (incl. Peruvian Slang)
-    if (lower.contains('banco') ||
-        lower.contains('tarjeta') ||
-        lower.contains('débito') ||
-        lower.contains('debito') ||
-        lower.contains('yape') ||
-        lower.contains('yapie') ||
-        lower.contains('yapié') ||
-        lower.contains('yapeo') ||
-        lower.contains('yapear') ||
-        lower.contains('plin') ||
-        lower.contains('plinee') ||
-        lower.contains('plineé') ||
-        lower.contains('plineo') ||
-        lower.contains('plinear') ||
-        lower.contains('transferencia') ||
-        lower.contains('transferí') ||
-        lower.contains('web') ||
-        lower.contains('app')) {
-      accountId = 2; // Bank
-    } else if (lower.contains('ahorros') ||
-        lower.contains('ahorro') ||
-        lower.contains('guardadito') ||
-        lower.contains('chanchito')) {
-      accountId = 3; // Savings
-    }
-
-    // 4. Detect Category & Title
-    int categoryId = 11; // Default: Otros
-    String categoryName = "Otros";
-
-    if (type == TransactionType.expense) {
-      if (lower.contains('comida') ||
-          lower.contains('cena') ||
-          lower.contains('almuerzo') ||
-          lower.contains('desayuno') ||
-          lower.contains('snack') ||
-          lower.contains('golosinas') ||
-          lower.contains('restaurante') ||
-          lower.contains('pizza') ||
-          lower.contains('hamburguesa')) {
-        categoryId = 1;
-        categoryName = "Comida";
-      } else if (lower.contains('taxi') ||
-          lower.contains('uber') ||
-          lower.contains('bus') ||
-          lower.contains('micro') ||
-          lower.contains('pasaje') ||
-          lower.contains('gasolina') ||
-          lower.contains('transporte')) {
-        categoryId = 2;
-        categoryName = "Transporte";
-      } else if (lower.contains('ropa') ||
-          lower.contains('zapatos') ||
-          lower.contains('zapatillas') ||
-          lower.contains('pantalon') ||
-          lower.contains('camisa')) {
-        categoryId = 3;
-        categoryName = "Compras";
-      } else if (lower.contains('cine') ||
-          lower.contains('juego') ||
-          lower.contains('netflix') ||
-          lower.contains('spotify') ||
-          lower.contains('entrada') ||
-          lower.contains('ocio')) {
-        categoryId = 4;
-        categoryName = "Ocio";
-      } else if (lower.contains('farmacia') ||
-          lower.contains('doctor') ||
-          lower.contains('medicina') ||
-          lower.contains('salud')) {
-        categoryId = 5;
-        categoryName = "Salud";
-      } else if (lower.contains('casa') ||
-          lower.contains('luz') ||
-          lower.contains('agua') ||
-          lower.contains('internet') ||
-          lower.contains('alquiler') ||
-          lower.contains('hogar')) {
-        categoryId = 6;
-        categoryName = "Hogar";
-      } else if (lower.contains('curso') ||
-          lower.contains('libro') ||
-          lower.contains('clase') ||
-          lower.contains('universidad')) {
-        categoryId = 7;
-        categoryName = "Educación";
-      }
-    } else if (type == TransactionType.income) {
-      categoryName = "Ingreso";
-    } else if (type == TransactionType.transfer) {
-      categoryName = "Transferencia";
-    }
-
-    // 5. Construct Draft
-    final draft = TransactionEntity(
-      accountId: accountId,
-      categoryId: categoryId,
-      amount: type == TransactionType.expense ? -amount : amount,
-      date: DateTime.now(),
-      description: categoryName,
-      note: "${text[0].toUpperCase()}${text.substring(1)}",
-      type: type,
-    );
-
-    _showConfirmationDialog(draft);
   }
 
+  // ignore: unused_element
   void _showConfirmationDialog(TransactionEntity initialDraft) {
     // We create a mutable copy of the draft properties needed for edition in dialog
     TransactionEntity draft = initialDraft;
@@ -593,7 +545,7 @@ class _MainPageState extends State<MainPage> {
                     color: Colors.tealAccent,
                     onTap: () {
                       setState(() => _isSpeedDialOpen = false);
-                      _showVoiceSimulator();
+                      _startVoiceTransaction(context);
                     },
                   ),
                   const SizedBox(height: 16),

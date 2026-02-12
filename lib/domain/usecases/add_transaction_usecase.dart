@@ -12,15 +12,18 @@ class AddTransactionUseCase implements UseCase<void, AddTransactionParams> {
 
   @override
   Future<Either<Failure, void>> call(AddTransactionParams params) async {
-    return await repository.addTransaction(params.transaction);
+    return await repository.addTransaction(params.transaction,
+        updateBalance: params.updateBalance);
   }
 }
 
 class AddTransactionParams extends Equatable {
   final TransactionEntity transaction;
+  final bool updateBalance;
 
-  const AddTransactionParams({required this.transaction});
+  const AddTransactionParams(
+      {required this.transaction, this.updateBalance = true});
 
   @override
-  List<Object> get props => [transaction];
+  List<Object> get props => [transaction, updateBalance];
 }

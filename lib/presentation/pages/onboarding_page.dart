@@ -6,6 +6,10 @@ import '../../injection_container.dart' as sl;
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/entities/account_entity.dart';
 import 'main_page.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'dart:io';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -22,7 +26,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final TextEditingController _nameController = TextEditingController();
   String _selectedCurrency = 'S/';
   String _userProfile = "Estudiante";
+
   String _selectedAvatar = "😎"; // Default Avatar
+  File? _profileImage;
+  final ImagePicker _picker = ImagePicker();
 
   // Balances
   final TextEditingController _cashController = TextEditingController();
@@ -46,6 +53,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 60,
+      );
+
+      if (pickedFile != null) {
+        final directory = await getApplicationDocumentsDirectory();
+        // Use a fixed name or unique one. Let's use unique time based to avoid caching issues on update
+        final String fileName =
+            'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final String savedPath = path.join(directory.path, fileName);
+
+        final File savedFile = await File(pickedFile.path).copy(savedPath);
+
+        setState(() {
+          _profileImage = savedFile;
+        });
+
+        if (mounted) Navigator.pop(context); // Close sheet if open
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+      );
+    }
+  }
+
   void _nextPage() {
     // Validation
     if (_currentPage == 0 && _nameController.text.trim().isEmpty) {
@@ -62,6 +99,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _finishOnboarding() async {
     if (_isProcessing) return;
+
+    // Strict Validation for Budget
+    final budgetInput = _budgetController.text.trim();
+    final budgetValue = double.tryParse(budgetInput);
+
+    if (budgetInput.isEmpty || budgetValue == null || budgetValue <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "⚠️ Por favor, define un límite mensual válido para continuar."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isProcessing = true);
 
     final provider = Provider.of<DashboardProvider>(context, listen: false);
@@ -79,8 +132,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
         ? "Usuario"
         : _nameController.text.trim());
 
+    // 2.1 Save Profile Image
+    if (_profileImage != null) {
+      await provider.setProfileImagePath(_profileImage!.path);
+    }
+    // Also save avatar as fallback
+    await dataSource.saveUserAvatar(_selectedAvatar);
+
     // 3. Save Budget
-    final budget = double.tryParse(_budgetController.text) ?? 2400.0;
+    // 3. Save Budget
+    final budget = budgetValue; // Already validated above
     provider.setBudgetLimit(budget);
     await dataSource.saveBudgetLimit(budget);
 
@@ -137,7 +198,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             description: desc,
             note: "Saldo Inicial",
             type: TransactionType.income);
-        await provider.addTransaction(t);
+        // Do NOT update balance, because createAccount already set the initial balance
+        await provider.addTransaction(t, updateBalance: false);
       }
     }
 
@@ -325,10 +387,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   child: CircleAvatar(
                     radius: 50,
                     backgroundColor: const Color(0xFF1E293B),
-                    child: Text(
-                      _selectedAvatar,
-                      style: const TextStyle(fontSize: 50),
-                    ),
+                    backgroundImage: _profileImage != null
+                        ? FileImage(_profileImage!)
+                        : null,
+                    child: _profileImage == null
+                        ? Text(
+                            _selectedAvatar,
+                            style: const TextStyle(fontSize: 50),
+                          )
+                        : null,
                   ),
                 ),
                 Container(
@@ -505,22 +572,43 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
 
               const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text("¡Pronto podrás subir tu propia foto!")));
-                },
-                icon: const Icon(Icons.camera_alt),
-                label: const Text("Subir foto de galería"),
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
-                    foregroundColor: const Color(0xFF00E5FF),
-                    side: const BorderSide(color: Color(0xFF00E5FF), width: 1),
-                    minimumSize: const Size(double.infinity, 56),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    elevation: 0),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Cámara"),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(
+                              color: Color(0xFF00E5FF), width: 1),
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 0),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _pickImage(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text("Galería"),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: const Color(0xFF00E5FF),
+                          side: const BorderSide(
+                              color: Color(0xFF00E5FF), width: 1),
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 0),
+                    ),
+                  ),
+                ],
               )
             ],
           ),

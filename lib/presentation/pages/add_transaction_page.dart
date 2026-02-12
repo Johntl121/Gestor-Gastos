@@ -1,7 +1,12 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../domain/entities/account_entity.dart';
 import '../providers/dashboard_provider.dart';
 
 class AddTransactionPage extends StatefulWidget {
@@ -21,56 +26,149 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   // State variables
   TransactionType _transactionType = TransactionType.expense;
-  int _selectedSourceId = 1; // 1: Cash, 2: Bank, 3: Savings
-  int _selectedDestId = 2; // Default Dest: Bank
+  TransactionEntity? _editingTransaction;
+
+  // Image Attachment
+  File? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
+
+  // Account Selection
+  int? _selectedSourceAccountId;
+  int? _selectedDestAccountId;
+
+  // Category
   int _selectedCategoryId = 3; // Default Shopping
+
+  // Dynamic Currency
+  String _activeCurrencySymbol = 'S/';
+  bool _hasCurrencyMismatch = false;
+  String _mismatchSourceSymbol = '';
+  String _mismatchDestSymbol = '';
 
   @override
   void initState() {
     super.initState();
+    final provider = Provider.of<DashboardProvider>(context, listen: false);
+
     if (widget.transactionToEdit != null) {
-      final t = widget.transactionToEdit!;
-      _transactionType = t.amount < 0
+      _editingTransaction = widget.transactionToEdit!;
+      _transactionType = _editingTransaction!.amount < 0
           ? TransactionType.expense
-          : (t.type == TransactionType.transfer
+          : (_editingTransaction!.type == TransactionType.transfer
               ? TransactionType.transfer
               : TransactionType.income);
 
-      // Override if explicitly transfer in logic
-      if (t.type == TransactionType.transfer ||
-          t.description.toLowerCase().contains('transferencia')) {
+      if (_editingTransaction!.type == TransactionType.transfer ||
+          _editingTransaction!.description
+              .toLowerCase()
+              .contains('transferencia')) {
         _transactionType = TransactionType.transfer;
       }
 
-      _amountController.text = t.amount.abs().toString();
-      _selectedCategoryId = t.categoryId;
-      _selectedSourceId = t.accountId;
-      _selectedDestId = t.destinationAccountId ?? 2;
-      _noteController.text = t.note ?? '';
+      _amountController.text = _editingTransaction!.amount.abs().toString();
+      _selectedCategoryId = _editingTransaction!.categoryId;
+      _selectedSourceAccountId = _editingTransaction!.accountId;
+      _selectedDestAccountId = _editingTransaction!.destinationAccountId;
+      _noteController.text = _editingTransaction!.note ?? '';
+
+      // Load Image
+      if (_editingTransaction!.imagePath != null) {
+        final file = File(_editingTransaction!.imagePath!);
+        if (file.existsSync()) {
+          _selectedImage = file;
+        }
+      }
     } else if (widget.draftTransaction != null) {
       final t = widget.draftTransaction!;
       _transactionType = t.type;
       _amountController.text = t.amount.abs().toString();
       _selectedCategoryId = t.categoryId;
-      // Default accounts or whatever was passed
-      _selectedSourceId = t.accountId;
-      _selectedDestId = t.destinationAccountId ?? 2;
+      _selectedSourceAccountId = t.accountId;
+      _selectedDestAccountId = t.destinationAccountId;
       _noteController.text = t.note ?? '';
+    } else {
+      if (provider.accounts.isNotEmpty) {
+        _selectedSourceAccountId = provider.accounts.first.id;
+        if (provider.accounts.length > 1) {
+          _selectedDestAccountId = provider.accounts[1].id;
+        }
+      }
+    }
+
+    _updateCurrencySymbol(provider);
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 50, // Optimize size
+      );
+
+      if (pickedFile != null) {
+        // Save permanently
+        final directory = await getApplicationDocumentsDirectory();
+        final String fileName = path.basename(pickedFile.path);
+        final String savedPath = path.join(directory.path, fileName);
+
+        // Copy to app docs
+        final File savedFile = await File(pickedFile.path).copy(savedPath);
+
+        setState(() {
+          _selectedImage = savedFile;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+      );
+    }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _selectedImage = null;
+    });
+  }
+
+  void _updateCurrencySymbol(DashboardProvider provider) {
+    if (_selectedSourceAccountId != null) {
+      final account = provider.accounts.firstWhere(
+          (a) => a.id == _selectedSourceAccountId,
+          orElse: () => provider.accounts.first);
+      setState(() {
+        _activeCurrencySymbol = account.currencySymbol;
+      });
+    }
+
+    if (_transactionType == TransactionType.transfer &&
+        _selectedDestAccountId != null &&
+        _selectedSourceAccountId != null) {
+      final source =
+          provider.accounts.firstWhere((a) => a.id == _selectedSourceAccountId);
+      final dest =
+          provider.accounts.firstWhere((a) => a.id == _selectedDestAccountId);
+
+      if (source.currencySymbol != dest.currencySymbol) {
+        setState(() {
+          _hasCurrencyMismatch = true;
+          _mismatchSourceSymbol = source.currencySymbol;
+          _mismatchDestSymbol = dest.currencySymbol;
+        });
+      } else {
+        setState(() {
+          _hasCurrencyMismatch = false;
+        });
+      }
+    } else {
+      setState(() {
+        _hasCurrencyMismatch = false;
+      });
     }
   }
 
   // Data definitions
-  final Map<int, String> _sourceNames = {
-    1: 'Efectivo',
-    2: 'Bancaria',
-    3: 'Ahorros',
-  };
-
-  final Map<int, IconData> _sourceIcons = {
-    1: Icons.account_balance_wallet,
-    2: Icons.account_balance,
-    3: Icons.savings,
-  };
+  // Removed static maps _sourceNames and _sourceIcons in favor of dynamic accounts
 
   final Map<int, Map<String, dynamic>> _expenseCategories = {
     // Alimentación
@@ -184,7 +282,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
     // Validation for Transfer
     if (_transactionType == TransactionType.transfer &&
-        _selectedSourceId == _selectedDestId) {
+        _selectedSourceAccountId == _selectedDestAccountId) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Cuenta de origen y destino no pueden ser iguales')),
@@ -193,20 +291,37 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     }
 
     final provider = Provider.of<DashboardProvider>(context, listen: false);
+
+    // Block Currency Mismatch
+    if (_hasCurrencyMismatch) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("No es posible transferir entre monedas diferentes.")));
+      return;
+    }
+
     final note = _noteController.text.trim();
 
     if (_transactionType == TransactionType.transfer) {
       // Handle Transfer Logic
-      provider.addTransfer(
-        amount: amount,
-        sourceAccountId: _selectedSourceId,
-        destinationAccountId: _selectedDestId,
-        note: note.isNotEmpty ? note : null,
-      );
+      if (_selectedSourceAccountId != null && _selectedDestAccountId != null) {
+        provider.addTransfer(
+          amount: amount,
+          sourceAccountId: _selectedSourceAccountId!,
+          destinationAccountId: _selectedDestAccountId!,
+          note: note.isNotEmpty ? note : null,
+        );
+      }
     } else {
       // Handle Expense/Income logic
       if (_transactionType == TransactionType.expense) {
         amount = amount * -1;
+      }
+
+      // Ensure Account ID is valid
+      if (_selectedSourceAccountId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Selecciona una cuenta")));
+        return;
       }
 
       final activeMap = _transactionType == TransactionType.income
@@ -218,25 +333,27 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         // Update Mode
         final updatedTransaction = TransactionEntity(
           id: widget.transactionToEdit!.id,
-          accountId: _selectedSourceId,
+          accountId: _selectedSourceAccountId!,
           categoryId: _selectedCategoryId,
           amount: amount,
           date: widget.transactionToEdit!.date,
           description: catName,
           note: note.isNotEmpty ? note : null,
           type: _transactionType, // Explicit type update
+          imagePath: _selectedImage?.path,
         );
         provider.updateTransaction(updatedTransaction);
       } else {
         // Add Mode
         final transaction = TransactionEntity(
-          accountId: _selectedSourceId,
+          accountId: _selectedSourceAccountId!,
           categoryId: _selectedCategoryId,
           amount: amount,
           date: DateTime.now(),
           description: catName,
           note: note.isNotEmpty ? note : null,
           type: _transactionType, // Explicit type
+          imagePath: _selectedImage?.path,
         );
         provider.addTransaction(transaction);
       }
@@ -315,7 +432,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   const SizedBox(height: 30),
 
                   // 2. AMOUNT HERO
-                  _buildHeroInput(provider.currencySymbol, isDarkMode),
+                  // 2. AMOUNT HERO
+                  _buildHeroInput(_activeCurrencySymbol, isDarkMode),
 
                   const SizedBox(height: 20),
 
@@ -332,21 +450,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildAccountChip(1,
-                              isSource: true, isDarkMode: isDarkMode),
-                          const SizedBox(width: 10),
-                          _buildAccountChip(2,
-                              isSource: true, isDarkMode: isDarkMode),
-                          const SizedBox(width: 10),
-                          _buildAccountChip(3,
-                              isSource: true, isDarkMode: isDarkMode),
-                        ],
-                      ),
-                    ),
+                    _buildAccountSelector(provider.accounts,
+                        isSource: true, isDarkMode: isDarkMode),
+
                     const SizedBox(height: 24),
 
                     // Destination
@@ -360,21 +466,29 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildAccountChip(1,
-                              isSource: false, isDarkMode: isDarkMode),
+                    _buildAccountSelector(provider.accounts,
+                        isSource: false, isDarkMode: isDarkMode),
+
+                    if (_hasCurrencyMismatch)
+                      Container(
+                        margin: const EdgeInsets.only(top: 20),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.redAccent.withOpacity(0.3))),
+                        child: Row(children: [
+                          const Icon(Icons.error_outline,
+                              color: Colors.redAccent),
                           const SizedBox(width: 10),
-                          _buildAccountChip(2,
-                              isSource: false, isDarkMode: isDarkMode),
-                          const SizedBox(width: 10),
-                          _buildAccountChip(3,
-                              isSource: false, isDarkMode: isDarkMode),
-                        ],
-                      ),
-                    ),
+                          Expanded(
+                              child: Text(
+                                  "No es posible transferir entre monedas diferentes ($_mismatchSourceSymbol vs $_mismatchDestSymbol).\nPor favor, registra un Gasto y un Ingreso por separado.",
+                                  style: const TextStyle(
+                                      color: Colors.redAccent, fontSize: 12)))
+                        ]),
+                      )
                   ] else ...[
                     // STANDARD EXPENSE/INCOME
                     Align(
@@ -387,21 +501,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildAccountChip(1,
-                              isSource: true, isDarkMode: isDarkMode),
-                          const SizedBox(width: 10),
-                          _buildAccountChip(2,
-                              isSource: true, isDarkMode: isDarkMode),
-                          const SizedBox(width: 10),
-                          _buildAccountChip(3,
-                              isSource: true, isDarkMode: isDarkMode),
-                        ],
-                      ),
-                    ),
+                    _buildAccountSelector(provider.accounts,
+                        isSource: true, isDarkMode: isDarkMode),
                     const SizedBox(height: 30),
 
                     // 4. CATEGORY GRID
@@ -498,8 +599,10 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     }
   }
 
-  Widget _buildHeroInput(String currency, bool isDarkMode) {
+  Widget _buildHeroInput(String currency, bool isDarkMode,
+      {TextEditingController? controller}) {
     final amountColor = isDarkMode ? Colors.white : Colors.black87;
+    final ctrl = controller ?? _amountController;
 
     return Column(
       children: [
@@ -519,7 +622,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             const SizedBox(width: 8),
             IntrinsicWidth(
               child: TextField(
-                controller: _amountController,
+                controller: ctrl,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.center,
@@ -548,46 +651,48 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     );
   }
 
-  Widget _buildAccountChip(int id,
+  Widget _buildAccountSelector(List<AccountEntity> accounts,
       {required bool isSource, required bool isDarkMode}) {
-    final selectId = isSource ? _selectedSourceId : _selectedDestId;
-    final isSelected = selectId == id;
-    final inactiveTextColor =
-        isDarkMode ? Colors.grey[400] : Colors.grey[800]; // Darker Grey
-    final inactiveBorderColor =
-        isDarkMode ? Colors.transparent : Colors.grey[400]!; // Darker Border
-    final inactiveBgColor =
-        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100]!; // Grey tint
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: accounts.map((account) {
+          return Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: _buildAccountChip(account,
+                  isSource: isSource, isDarkMode: isDarkMode));
+        }).toList(),
+      ),
+    );
+  }
 
-    // Account Colors
-    Color chipColor;
-    Color contentColor = Colors.white;
-    switch (id) {
-      case 1:
-        chipColor = Colors.amber;
-        contentColor = Colors.black;
-        break;
-      case 2:
-        chipColor = const Color(0xFF64B5F6); // Light Blue 300
-        contentColor = Colors.black;
-        break;
-      case 3:
-        chipColor = const Color(0xFFE040FB); // Purple Accent
-        contentColor = Colors.black;
-        break;
-      default:
-        chipColor = _activeColor;
-        contentColor = Colors.white; // Default fallback
-    }
+  Widget _buildAccountChip(AccountEntity account,
+      {required bool isSource, required bool isDarkMode}) {
+    final selectedId =
+        isSource ? _selectedSourceAccountId : _selectedDestAccountId;
+    final isSelected = selectedId == account.id;
+    final inactiveTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[800];
+    final inactiveBorderColor =
+        isDarkMode ? Colors.transparent : Colors.grey[400]!;
+    final inactiveBgColor =
+        isDarkMode ? const Color(0xFF1F2937) : Colors.grey[100]!;
+
+    // Use account color
+    final Color chipColor = Color(account.colorValue);
+    final Color contentColor = Colors
+        .white; // Or evaluate contrast: ThemeData.estimateBrightnessForColor(chipColor) == Brightness.dark ? Colors.white : Colors.black;
 
     return GestureDetector(
       onTap: () {
         setState(() {
           if (isSource) {
-            _selectedSourceId = id;
+            _selectedSourceAccountId = account.id;
           } else {
-            _selectedDestId = id;
+            _selectedDestAccountId = account.id;
           }
+          final provider =
+              Provider.of<DashboardProvider>(context, listen: false);
+          _updateCurrencySymbol(provider);
         });
       },
       child: AnimatedContainer(
@@ -602,11 +707,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         ),
         child: Row(
           children: [
-            Icon(_sourceIcons[id],
+            Icon(IconData(account.iconCode, fontFamily: 'MaterialIcons'),
                 size: 18, color: isSelected ? contentColor : inactiveTextColor),
             const SizedBox(width: 8),
             Text(
-              _sourceNames[id]!,
+              account.name,
               style: TextStyle(
                   color: isSelected ? contentColor : inactiveTextColor,
                   fontWeight: FontWeight.bold,
@@ -687,14 +792,71 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             ),
           ),
           const SizedBox(height: 16),
-          // Save Button
+          // Attachment UI
+          Row(
+            children: [
+              if (_selectedImage != null)
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      margin: const EdgeInsets.only(top: 8, right: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade500),
+                        image: DecorationImage(
+                          image: FileImage(_selectedImage!),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _removeImage,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.cancel,
+                            color: Colors.red, size: 24),
+                      ),
+                    )
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.camera_alt,
+                          color: Colors.grey, size: 28),
+                      onPressed: () => _pickImage(ImageSource.camera),
+                      tooltip: "Tomar Foto",
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.photo_library,
+                          color: Colors.grey, size: 28),
+                      onPressed: () => _pickImage(ImageSource.gallery),
+                      tooltip: "Galería",
+                    ),
+                    Text(
+                      "Adjuntar comprobante",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    )
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: _saveTransaction,
+              onPressed: _hasCurrencyMismatch ? null : _saveTransaction,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _activeColor,
+                disabledBackgroundColor:
+                    isDarkMode ? Colors.white10 : Colors.grey[300],
+                disabledForegroundColor: Colors.grey,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
