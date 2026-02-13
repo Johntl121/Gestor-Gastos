@@ -601,51 +601,50 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   Widget _buildHeroInput(String currency, bool isDarkMode,
       {TextEditingController? controller}) {
-    final amountColor = isDarkMode ? Colors.white : Colors.black87;
     final ctrl = controller ?? _amountController;
+    // Usamos el color activo para el texto también para que combine con el cursor
+    final amountColor = isDarkMode ? Colors.white : _activeColor;
 
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              currency,
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-                color: _activeColor,
-              ),
+        Text(
+          currency,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: _activeColor, // Símbolo en color activo
+          ),
+        ),
+        const SizedBox(width: 12),
+        IntrinsicWidth(
+          child: TextField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.bold,
+              color: amountColor,
             ),
-            const SizedBox(width: 8),
-            IntrinsicWidth(
-              child: TextField(
-                controller: ctrl,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: amountColor,
-                ),
-                cursorColor: _activeColor,
-                decoration: InputDecoration(
-                  hintText: '0.00',
-                  hintStyle: TextStyle(
-                      color: isDarkMode ? Colors.white24 : Colors.black12),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
-                autofocus: true,
-              ),
+            cursorColor: _activeColor, // Color dinámico según tipo
+            cursorHeight: 40.0, // Altura ajustada a fuente
+            cursorWidth: 3.0,
+            cursorRadius: const Radius.circular(2.0),
+            decoration: InputDecoration(
+              hintText: '0.00',
+              hintStyle: TextStyle(
+                  color: isDarkMode ? Colors.white24 : Colors.black12,
+                  fontSize: 40),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
             ),
-          ],
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+            ],
+            autofocus: true,
+          ),
         ),
       ],
     );

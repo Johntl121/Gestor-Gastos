@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/dashboard_provider.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-import '../../core/services/ai_service.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+
+import '../../core/services/gemini_client.dart';
+import '../../domain/entities/transaction_entity.dart';
 
 /// StatsPage: Pantalla de Estadísticas.
 /// Muestra un desglose visual de los gastos mediante gráficos y listas detalladas.
@@ -134,11 +136,48 @@ class _StatsPageState extends State<StatsPage> {
           automaticallyImplyLeading: false, // Prevent default back button
           iconTheme: IconThemeData(color: textColor),
           actions: [
-            IconButton(
-              onPressed: () => _showFinancialCoach(context, provider),
-              icon:
-                  const Icon(Icons.psychology_alt, color: Colors.purpleAccent),
-              tooltip: "Coach Financiero IA",
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purpleAccent.withOpacity(0.3),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      )
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: () => _showFinancialCoach(context, provider),
+                    icon: const Icon(Icons.psychology_alt,
+                        color: Colors.purpleAccent),
+                    tooltip: "Coach Financiero IA",
+                  ),
+                ),
+                if (provider.canRequestAnalysis('weekly') ||
+                    provider.canRequestAnalysis('monthly'))
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.redAccent,
+                              blurRadius: 4,
+                              spreadRadius: 1)
+                        ],
+                      ),
+                    ),
+                  )
+              ],
             )
           ],
         ),
@@ -547,88 +586,362 @@ class _StatsPageState extends State<StatsPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: BoxDecoration(
-          color: provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: FutureBuilder<String>(
-          future: AIService().getFinancialAdvice(
-              provider.transactions, // Assuming this getter exists
-              2000.0 // Default Budget if not available
+      builder: (ctx) => const FinancialCoachSheet(),
+    );
+  }
+}
+
+class FinancialCoachSheet extends StatefulWidget {
+  const FinancialCoachSheet({super.key});
+
+  @override
+  State<FinancialCoachSheet> createState() => _FinancialCoachSheetState();
+}
+
+class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
+  String _selectedMode = 'weekly';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<DashboardProvider>(context, listen: false);
+
+      // Zero-Data State Check (relaxed for barely active users)
+      if (provider.transactions.length <= 5) {
+        provider.setFinancialAdvice(
+            "¡Bienvenido a tu Coach Financiero! 🚀 Estoy listo para ayudarte a cumplir tus metas. Por favor, registra tu primer Ingreso o Gasto para que pueda analizar tus números y desbloquear las herramientas.");
+      } else {
+        // Por defecto mostramos el último análisis semanal si existe
+        provider.showCachedAdvice('weekly');
+      }
+    });
+  }
+
+  Widget _buildAnalysisButton(
+      DashboardProvider provider, String type, String label, IconData icon) {
+    // Exigimos más de 5 transacciones para considerar usuario activo
+    final hasData = provider.transactions.length > 5;
+
+    // 1. Check availability
+    bool isAvailable = false;
+    int daysWait = 0;
+
+    if (hasData) {
+      isAvailable = provider.canRequestAnalysis(type);
+      daysWait = provider.getDaysUntilAvailable(type);
+    }
+    // If !hasData, isAvailable remains false (disabled)
+
+    // 2. Visual State
+    final isSelected = _selectedMode == type;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // 3. Define colors
+    final baseColor = type == 'weekly' ? Colors.cyanAccent : Colors.tealAccent;
+    final activeColor = type == 'weekly' ? Colors.cyan : Colors.teal;
+
+    final buttonColor = !hasData
+        ? Colors.grey.withOpacity(0.1) // Disabled look
+        : (isSelected ? activeColor.withOpacity(0.2) : Colors.transparent);
+
+    final borderColor = !hasData
+        ? Colors.grey.withOpacity(0.2)
+        : (isSelected ? baseColor : Colors.grey.withOpacity(0.3));
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!hasData) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text("Registra al menos un movimiento para desbloquear"),
+                duration: Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
               ),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+            );
+            return;
+          }
+
+          setState(() => _selectedMode = type);
+          _handleRequest(provider, type);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: buttonColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!isAvailable)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 6.0),
+                      child: Icon(Icons.lock_outline,
+                          size: 16, color: Colors.grey),
+                    ),
+                  Icon(icon,
+                      size: 20,
+                      color: !hasData
+                          ? Colors.grey
+                          : (isSelected
+                              ? baseColor
+                              : (isAvailable
+                                  ? Colors.grey[400]
+                                  : Colors.grey))),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: !hasData
+                      ? Colors.grey
+                      : (isSelected
+                          ? (isDark ? Colors.white : Colors.black87)
+                          : Colors.grey),
+                ),
+              ),
+              if (hasData && !isAvailable)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "Disponible en $daysWait días",
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleRequest(DashboardProvider provider, String type) async {
+    // Bloqueo de seguridad: Si tiene pocas transacciones (< 6), no usar API
+    if (provider.transactions.length <= 5) {
+      provider.setFinancialAdvice(
+          "¡Bienvenido! Sigue registrando movimientos. Necesitamos al menos 6 para aconsejarte mejor. 🚀");
+      return;
+    }
+
+    if (!provider.canRequestAnalysis(type)) {
+      provider.showCachedAdvice(type);
+      return;
+    }
+
+    provider.setAdviceLoading(true);
+    try {
+      final transactions = provider.transactions;
+      final budgetLimit = provider.budgetLimit;
+
+      // 1. Filtrar según periodo
+      final now = DateTime.now();
+      final filterDays = type == 'weekly' ? 7 : 30;
+      final startDate = now.subtract(Duration(days: filterDays));
+
+      final recent = transactions
+          .where((t) =>
+              t.date.isAfter(startDate) && t.type != TransactionType.transfer)
+          .toList();
+
+      if (recent.isEmpty) {
+        provider.setFinancialAdvice(
+            "No hay suficientes datos recientes ($filterDays días) para analizar. ¡Sigue registrando!");
+        return;
+      }
+
+      // 2. Calcular totales y buffer
+      double totalIncome = 0;
+      double totalExpense = 0;
+      final buffer = StringBuffer();
+
+      // Header de datos
+      buffer.writeln("Periodo: Últimos $filterDays días");
+      buffer.writeln(
+          "Presupuesto Mensual Base: ${budgetLimit.toStringAsFixed(2)}");
+
+      for (var t in recent) {
+        if (t.type == TransactionType.income) {
+          totalIncome += t.amount.abs();
+        } else {
+          totalExpense += t.amount.abs();
+        }
+
+        // Limitar tamaño del log
+        if (buffer.length < 3500) {
+          buffer.writeln(
+              "- ${DateFormat('dd/MM').format(t.date)}: ${t.description} (${t.amount.abs().toStringAsFixed(2)})");
+        }
+      }
+
+      buffer.writeln("\nResumen Total:");
+      buffer.writeln("Ingresos: ${totalIncome.toStringAsFixed(2)}");
+      buffer.writeln("Gastos: ${totalExpense.toStringAsFixed(2)}");
+      buffer.writeln(
+          "Balance: ${(totalIncome - totalExpense).toStringAsFixed(2)}");
+
+      // 3. Llamar a Gemini con contexto y tipo
+      final advice = await GeminiClient().obtenerConsejo(
+        contextData: buffer.toString(),
+        periodType: type,
+        isNewUser:
+            false, // Ya manejamos el caso "nuevo" antes de llamar a la API
+      );
+
+      if (type == 'weekly') {
+        await provider.saveWeeklyAdvice(advice);
+      } else {
+        await provider.saveMonthlyAdvice(advice);
+      }
+    } catch (e) {
+      provider.setFinancialAdvice("Error al contactar al coach: $e");
+    } finally {
+      provider.setAdviceLoading(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        minHeight: MediaQuery.of(context).size.height * 0.4,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1E293B)
+            : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Consumer<DashboardProvider>(
+        builder: (context, provider, child) {
+          if (provider.isAdviceLoading) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.purpleAccent),
+                  SizedBox(height: 16),
+                  Text("Analizando tus finanzas con IA...",
+                      style: TextStyle(fontSize: 16)),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(
+                      bottom: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                ),
+                child: Row(
                   children: [
-                    CircularProgressIndicator(color: Colors.purpleAccent),
-                    SizedBox(height: 16),
-                    Text("Analizando tus finanzas con IA...",
-                        style: TextStyle(fontSize: 16)),
+                    const Icon(Icons.psychology_alt,
+                        color: Colors.purpleAccent, size: 28),
+                    const SizedBox(width: 12),
+                    const Text("Coach Financiero",
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    )
                   ],
                 ),
-              );
-            }
+              ),
 
-            if (snapshot.hasError) {
-              return Center(child: Text("Error: ${snapshot.error}"));
-            }
+              // Action Buttons
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    _buildAnalysisButton(provider, 'weekly', "Análisis Semanal",
+                        Icons.calendar_view_week),
+                    const SizedBox(width: 12),
+                    _buildAnalysisButton(provider, 'monthly', "Balance Mensual",
+                        Icons.calendar_month),
+                  ],
+                ),
+              ),
 
-            return Column(
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                        bottom:
-                            BorderSide(color: Colors.grey.withOpacity(0.2))),
-                  ),
-                  child: Row(
+              // Content
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.psychology_alt,
-                          color: Colors.purpleAccent, size: 28),
-                      const SizedBox(width: 12),
-                      const Text("Coach Financiero",
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
-                      )
+                      MarkdownBody(
+                        data: provider.financialAdvice ??
+                            "No pudimos generar un consejo. Intenta de nuevo.",
+                        styleSheet:
+                            MarkdownStyleSheet.fromTheme(Theme.of(context))
+                                .copyWith(
+                          p: TextStyle(
+                            fontSize: 16,
+                            height: 1.8,
+                            color: provider.isDarkMode
+                                ? Colors.white.withOpacity(0.9)
+                                : Colors.black87,
+                          ),
+                          h3: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purpleAccent,
+                            height: 2.0,
+                          ),
+                          strong: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: provider.isDarkMode
+                                ? Colors.yellowAccent
+                                : Colors.deepOrange,
+                          ),
+                          blockquote: TextStyle(
+                            color: provider.isDarkMode
+                                ? Colors.cyanAccent
+                                : Colors.teal,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          blockquoteDecoration: BoxDecoration(
+                            color: provider.isDarkMode
+                                ? Colors.cyanAccent.withOpacity(0.1)
+                                : Colors.teal.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: const Border(
+                                left: BorderSide(color: Colors.cyan, width: 4)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                          height:
+                              60), // Espacio extra para asegurar scroll final
                     ],
                   ),
                 ),
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: MarkdownBody(
-                      data: snapshot.data ?? "No hay consejos disponibles.",
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                            fontSize: 16,
-                            color: provider.isDarkMode
-                                ? Colors.white70
-                                : Colors.black87),
-                        h1: const TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold),
-                        h2: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
-                        listBullet: const TextStyle(
-                            color: Colors.purpleAccent, fontSize: 16),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

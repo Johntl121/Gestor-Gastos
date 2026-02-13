@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/notification_service.dart';
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
@@ -239,6 +240,8 @@ class DashboardProvider extends ChangeNotifier {
 
     // Goals Init
     // _goals is memory-only for now, so it starts empty.
+
+    await _loadCoachPersistence();
 
     _isLoading = false;
     notifyListeners();
@@ -798,10 +801,110 @@ class DashboardProvider extends ChangeNotifier {
     _accounts = []; // Correctly reset accounts
     _subscriptions = [];
     _goals = [];
+    _financialAdvice = null;
     _balanceBreakdown = null;
     _budgetLimit = 2400.00;
     _budgetMood = BudgetMood.neutral;
     _currencySymbol = 'S/';
+    notifyListeners();
+  }
+
+  // --- Financial Coach Optimization & Persistence ---
+  String? _financialAdvice;
+  bool _isAdviceLoading = false;
+
+  DateTime? _lastWeeklyAnalysis;
+  DateTime? _lastMonthlyAnalysis;
+  String? _weeklyAdvice;
+  String? _monthlyAdvice;
+
+  String? get financialAdvice => _financialAdvice;
+  bool get isAdviceLoading => _isAdviceLoading;
+  DateTime? get lastWeeklyAnalysis => _lastWeeklyAnalysis;
+  DateTime? get lastMonthlyAnalysis => _lastMonthlyAnalysis;
+  String? get weeklyAdvice => _weeklyAdvice;
+  String? get monthlyAdvice => _monthlyAdvice;
+
+  void setFinancialAdvice(String? advice) {
+    _financialAdvice = advice;
+    notifyListeners();
+  }
+
+  void setAdviceLoading(bool loading) {
+    _isAdviceLoading = loading;
+    notifyListeners();
+  }
+
+  Future<void> _loadCoachPersistence() async {
+    final prefs = await SharedPreferences.getInstance();
+    final weeklyDateStr = prefs.getString('last_weekly_analysis_date');
+    if (weeklyDateStr != null) {
+      _lastWeeklyAnalysis = DateTime.tryParse(weeklyDateStr);
+    }
+    final monthlyDateStr = prefs.getString('last_monthly_analysis_date');
+    if (monthlyDateStr != null) {
+      _lastMonthlyAnalysis = DateTime.tryParse(monthlyDateStr);
+    }
+
+    _weeklyAdvice = prefs.getString('weekly_advice_content');
+    _monthlyAdvice = prefs.getString('monthly_advice_content');
+  }
+
+  Future<void> saveWeeklyAdvice(String advice) async {
+    _weeklyAdvice = advice;
+    _financialAdvice = advice; // Show it immediately
+    _lastWeeklyAnalysis = DateTime.now();
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('weekly_advice_content', advice);
+    await prefs.setString(
+        'last_weekly_analysis_date', _lastWeeklyAnalysis!.toIso8601String());
+  }
+
+  Future<void> saveMonthlyAdvice(String advice) async {
+    _monthlyAdvice = advice;
+    _financialAdvice = advice; // Show it immediately
+    _lastMonthlyAnalysis = DateTime.now();
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('monthly_advice_content', advice);
+    await prefs.setString(
+        'last_monthly_analysis_date', _lastMonthlyAnalysis!.toIso8601String());
+  }
+
+  bool canRequestAnalysis(String type) {
+    if (type == 'weekly') {
+      if (_lastWeeklyAnalysis == null) return true;
+      final diff = DateTime.now().difference(_lastWeeklyAnalysis!);
+      return diff.inDays >= 7;
+    } else {
+      // Monthly
+      if (_lastMonthlyAnalysis == null) return true;
+      final diff = DateTime.now().difference(_lastMonthlyAnalysis!);
+      return diff.inDays >= 30;
+    }
+  }
+
+  int getDaysUntilAvailable(String type) {
+    if (type == 'weekly') {
+      if (_lastWeeklyAnalysis == null) return 0;
+      final diff = DateTime.now().difference(_lastWeeklyAnalysis!);
+      return (7 - diff.inDays).clamp(0, 7);
+    } else {
+      if (_lastMonthlyAnalysis == null) return 0;
+      final diff = DateTime.now().difference(_lastMonthlyAnalysis!);
+      return (30 - diff.inDays).clamp(0, 30);
+    }
+  }
+
+  void showCachedAdvice(String type) {
+    if (type == 'weekly') {
+      _financialAdvice = _weeklyAdvice ?? "No hay análisis semanal previo.";
+    } else {
+      _financialAdvice = _monthlyAdvice ?? "No hay balance mensual previo.";
+    }
     notifyListeners();
   }
 }

@@ -424,74 +424,158 @@ class _WalletPageState extends State<WalletPage> {
                                 borderRadius: BorderRadius.vertical(
                                     top: Radius.circular(25))),
                             builder: (ctx) {
+                              final currencies = [
+                                {'symbol': 'S/', 'name': 'Sol', 'code': 'PEN'},
+                                {
+                                  'symbol': '\$',
+                                  'name': 'Dólar',
+                                  'code': 'USD'
+                                },
+                                {'symbol': '€', 'name': 'Euro', 'code': 'EUR'},
+                                {'symbol': '¥', 'name': 'Yen', 'code': 'JPY'},
+                                {'symbol': '₽', 'name': 'Rublo', 'code': 'RUB'},
+                              ];
+
                               return Container(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 20),
+                                    const EdgeInsets.symmetric(vertical: 24),
+                                decoration: const BoxDecoration(
+                                    color: Color(
+                                        0xFF0F172A), // Dark background for contrast
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(25))),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("Selecciona la Divisa",
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 15),
-                                    ...[
-                                      {
-                                        'symbol': 'S/',
-                                        'name': 'Sol Peruano',
-                                        'iso': 'PEN'
-                                      },
-                                      {
-                                        'symbol': '\$',
-                                        'name': 'Dólar Americano',
-                                        'iso': 'USD'
-                                      },
-                                      {
-                                        'symbol': '€',
-                                        'name': 'Euro',
-                                        'iso': 'EUR'
-                                      },
-                                      {
-                                        'symbol': '¥',
-                                        'name': 'Yen Japonés',
-                                        'iso': 'JPY'
-                                      },
-                                      {
-                                        'symbol': '₽',
-                                        'name': 'Rublo Ruso',
-                                        'iso': 'RUB'
-                                      },
-                                    ].map((currency) {
-                                      final isSelected = selectedCurrency ==
-                                          currency['symbol'];
-                                      return ListTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Colors.white10,
-                                          child: Text(currency['symbol']!,
-                                              style: const TextStyle(
-                                                  color: Colors.cyan)),
-                                        ),
-                                        title: Text(currency['name']!,
-                                            style: const TextStyle(
-                                                color: Colors.white)),
-                                        subtitle: Text(currency['iso']!,
-                                            style: const TextStyle(
-                                                color: Colors.grey)),
-                                        trailing: isSelected
-                                            ? const Icon(Icons.check_circle,
-                                                color: Colors.cyanAccent)
-                                            : null,
-                                        onTap: () {
-                                          setState(() {
-                                            selectedCurrency =
-                                                currency['symbol']!;
-                                          });
-                                          Navigator.pop(ctx);
-                                        },
-                                      );
-                                    }).toList(),
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(horizontal: 20),
+                                      child: Text("Selecciona la Divisa",
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
                                     const SizedBox(height: 20),
+                                    ShaderMask(
+                                      shaderCallback: (Rect bounds) {
+                                        return const LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [
+                                            Colors.white,
+                                            Colors.white,
+                                            Colors.transparent
+                                          ],
+                                          stops: [
+                                            0.0,
+                                            0.8,
+                                            1.0
+                                          ], // El desvanecido empieza al 80% del ancho
+                                        ).createShader(bounds);
+                                      },
+                                      blendMode: BlendMode.dstIn,
+                                      child: SizedBox(
+                                        height: 120, // Altura del carrusel
+                                        child: ListView.separated(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20),
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: currencies.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(width: 12),
+                                          itemBuilder: (context, index) {
+                                            final currency = currencies[index];
+                                            final isSelected =
+                                                selectedCurrency ==
+                                                    currency['symbol'];
+                                            return GestureDetector(
+                                              onTap: () {
+                                                setState(() {
+                                                  selectedCurrency =
+                                                      currency['symbol']!;
+                                                });
+                                                Navigator.pop(ctx);
+                                              },
+                                              child: AnimatedContainer(
+                                                // Animación suave al cambiar
+                                                duration: const Duration(
+                                                    milliseconds: 200),
+                                                width: 100,
+                                                decoration: BoxDecoration(
+                                                  gradient: isSelected
+                                                      ? const LinearGradient(
+                                                          colors: [
+                                                              Colors.cyan,
+                                                              Colors.blueAccent
+                                                            ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight)
+                                                      : null,
+                                                  color: isSelected
+                                                      ? null
+                                                      : const Color(0xFF1E293B),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  border: Border.all(
+                                                      color: isSelected
+                                                          ? Colors.cyanAccent
+                                                          : Colors.grey[800]!,
+                                                      width: isSelected
+                                                          ? 0
+                                                          : 1), // Sin borde si tiene gradiente o borde sutil
+                                                  boxShadow: isSelected
+                                                      ? [
+                                                          BoxShadow(
+                                                              color: Colors.cyan
+                                                                  .withOpacity(
+                                                                      0.4),
+                                                              blurRadius: 10,
+                                                              spreadRadius: 1)
+                                                        ]
+                                                      : [],
+                                                ),
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      currency['symbol']!,
+                                                      style: const TextStyle(
+                                                        fontSize: 32,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors
+                                                            .white, // Siempre blanco para contraste
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      currency['name']!,
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: isSelected
+                                                            ? FontWeight.bold
+                                                            : FontWeight.normal,
+                                                        color: isSelected
+                                                            ? Colors.white
+                                                                .withOpacity(
+                                                                    0.9)
+                                                            : Colors.grey,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
                                   ],
                                 ),
                               );

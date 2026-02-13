@@ -37,88 +37,122 @@ class _MainPageState extends State<MainPage> {
 
   // --- Voice Logic ---
 
-  Future<void> _startVoiceTransaction(BuildContext context) async {
-    bool available = await _speechService.init();
-    if (!available) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Reconocimiento de voz no disponible/permiso denegado')),
-        );
-      }
-      return;
-    }
+  void _startVoiceTransaction(BuildContext context) {
+    // Variable local para actualizar la UI del sheet sin reconstruir toda la página
+    String currentText = "";
+    // Estado para animación simple (opcional)
+    bool isListening = true;
 
-    String _text = "Te escucho... 🎙️";
-
-    // ignore: use_build_context_synchronously
     showModalBottomSheet(
-        context: context,
-        isDismissible: false,
-        enableDrag: false,
-        backgroundColor: Colors.transparent,
-        builder: (ctx) {
-          return StatefulBuilder(builder: (context, setModalState) {
-            // Start listening if not already
-            if (!_speechService.isListening) {
-              _speechService.listen((text) {
-                setModalState(() {
-                  _text = text;
-                });
-              });
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent, // Para ver bordes redondeados
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            // Iniciamos la escucha solo si es la primera vez (hack simple)
+            // Idealmente esto se maneja fuera, pero para este fix rápido:
+            if (isListening && !_speechService.isListening) {
+              _speechService.listen(
+                (text) {
+                  setSheetState(() => currentText = text);
+                },
+              );
             }
 
             return Container(
-              padding: const EdgeInsets.all(24),
+              height: 350, // Altura fija cómoda
               decoration: const BoxDecoration(
-                color: Color(0xFF1E293B),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                color: Color(0xFF1E1E2C), // Tu color de fondo oscuro
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black45, blurRadius: 10, spreadRadius: 2)
+                ],
               ),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Te escucho... 🎙️",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
+                  // 1. Barra superior pequeña (drag handle)
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2)),
+                  ),
                   const SizedBox(height: 30),
-                  Text(_text,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w300),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        await _speechService.stop();
-                        Navigator.pop(ctx); // Close the bottom sheet
-                        debugPrint("Texto reconocido: $_text");
-                        if (_text.isNotEmpty && _text != "Te escucho... 🎙️") {
-                          // Process with AI
-                          _processVoiceCommand(_text);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.stop, color: Colors.white),
-                      label: const Text("Detener",
-                          style: TextStyle(color: Colors.white, fontSize: 16)),
+                  // 2. Icono Animado (Simulado)
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                  )
+                    child: const Icon(Icons.mic,
+                        size: 40, color: Colors.redAccent),
+                  ),
+                  const SizedBox(height: 20),
+                  // 3. Título de Estado
+                  const Text(
+                    "Te escucho...",
+                    style: TextStyle(
+                        color: Colors.grey, fontSize: 14, letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 10),
+                  // 4. EL TEXTO IMPORTANTE (Sin duplicados)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        currentText.isEmpty
+                            ? "Ej: Gaste 20 soles en taxi"
+                            : currentText,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: currentText.isEmpty ? 22 : 28,
+                          fontWeight: FontWeight.bold,
+                          color: currentText.isEmpty
+                              ? Colors.grey[600]
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 5. Botón de Detener (Más elegante)
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () {
+                      _speechService.stop();
+                      Navigator.pop(context); // Cierra el sheet
+                      if (currentText.isNotEmpty) {
+                        _processVoiceCommand(currentText);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.redAccent.withOpacity(0.4),
+                              blurRadius: 10)
+                        ],
+                      ),
+                      child:
+                          const Icon(Icons.stop, color: Colors.white, size: 30),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                 ],
               ),
             );
-          });
-        }).whenComplete(() {
+          },
+        );
+      },
+    ).whenComplete(() {
+      // Asegurar que se detenga si el usuario cierra deslizando
       _speechService.stop();
     });
   }

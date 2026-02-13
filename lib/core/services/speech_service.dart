@@ -47,8 +47,10 @@ class SpeechService {
         onResult: (result) {
           onResult(result.recognizedWords);
         },
+        // Detecta silencios y corta automáticamente tras 3 segundos
+        pauseFor: const Duration(seconds: 3),
         listenMode: ListenMode.dictation,
-        localeId: "es_ES", // Default to Spanish, or make it dynamic
+        localeId: "es_ES",
       );
     }
   }

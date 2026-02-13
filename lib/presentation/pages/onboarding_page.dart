@@ -441,32 +441,89 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           const SizedBox(height: 16),
 
-          SizedBox(
-            height: 60,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _currencyChip("S/"),
-                _currencyChip("\$"),
-                _currencyChip("€"),
-                _currencyChip("₽"),
-                _currencyChip("£"),
-                _currencyChip("¥"),
-                _currencyChip("R\$"),
-                _currencyChip("MX\$"),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              _getCurrencyName(_selectedCurrency),
-              style: const TextStyle(
-                  color: Color(0xFF00E5FF),
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic),
-            ),
-          )
+          Builder(builder: (context) {
+            final currencies = [
+              {'symbol': 'S/', 'name': 'Sol', 'code': 'PEN'},
+              {'symbol': '\$', 'name': 'Dólar', 'code': 'USD'},
+              {'symbol': '€', 'name': 'Euro', 'code': 'EUR'},
+              {'symbol': 'mx\$', 'name': 'Peso', 'code': 'MXN'},
+              {'symbol': '₽', 'name': 'Rublo', 'code': 'RUB'},
+              {'symbol': '£', 'name': 'Libra', 'code': 'GBP'},
+              {'symbol': '¥', 'name': 'Yen', 'code': 'JPY'},
+              {'symbol': 'R\$', 'name': 'Real', 'code': 'BRL'},
+            ];
+
+            return SizedBox(
+              height: 90,
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                scrollDirection: Axis.horizontal,
+                itemCount: currencies.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final currency = currencies[index];
+                  final isSelected = _selectedCurrency == currency['symbol'];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedCurrency = currency['symbol']!);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 80,
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [Color(0xFF00E5FF), Color(0xFF2979FF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight)
+                            : null,
+                        color: isSelected ? null : const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF00E5FF)
+                                : Colors.grey[800]!,
+                            width: isSelected ? 0 : 1),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color: const Color(0xFF00E5FF)
+                                        .withOpacity(0.4),
+                                    blurRadius: 10,
+                                    spreadRadius: 1)
+                              ]
+                            : [],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            currency['symbol']!,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            currency['name']!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected
+                                  ? Colors.white.withOpacity(0.9)
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -615,20 +672,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         );
       },
     );
-  }
-
-  String _getCurrencyName(String symbol) {
-    const map = {
-      'S/': 'Sol Peruano (Perú)',
-      '\$': 'Dólar (EE.UU. / Internacional)',
-      '€': 'Euro (Unión Europea)',
-      '₽': 'Rublo (Rusia)',
-      '£': 'Libra Esterlina (Reino Unido)',
-      '¥': 'Yen / Yuan (Japón / China)',
-      'R\$': 'Real (Brasil)',
-      'MX\$': 'Peso (México)',
-    };
-    return map[symbol] ?? 'Moneda Personalizada';
   }
 
   double _getBudgetSuggestion(double baseAmountPEN) {
@@ -901,46 +944,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        ),
-      ),
-    );
-  }
-
-  Widget _currencyChip(String symbol) {
-    final theme = Theme.of(context);
-    final isSelected = _selectedCurrency == symbol;
-    final cyanColor = theme.primaryColor;
-    final isDarkMode = theme.brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCurrency = symbol),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(right: 12), // Add margin for scroll
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-            color: isSelected
-                ? cyanColor
-                : Colors.transparent, // Cyan bg when selected
-            border: Border.all(
-                color: isSelected
-                    ? cyanColor
-                    : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                width: 1),
-            borderRadius: BorderRadius.circular(24), // More rounded
-            boxShadow: isSelected
-                ? [BoxShadow(color: cyanColor.withOpacity(0.4), blurRadius: 8)]
-                : []),
-        child: Text(
-          symbol,
-          style: TextStyle(
-              color: isSelected
-                  ? (isDarkMode ? Colors.black : Colors.white)
-                  : (isDarkMode
-                      ? Colors.grey[300]
-                      : Colors.grey[600]), // Adapt text color
-              fontSize: 18,
-              fontWeight: FontWeight.w600),
         ),
       ),
     );

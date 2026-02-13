@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/entities/transaction_entity.dart';
 import 'package:intl/intl.dart';
@@ -11,23 +11,27 @@ class AIService {
   factory AIService() => _instance;
   AIService._internal();
 
-  GenerativeModel? _model;
+  // API Key Management para obtenerla centralizadamente
+  String _getApiKey() {
+    String? key = dotenv.env['GEMINI_API_KEY'];
+    if (key == null || key.isEmpty) {
+      debugPrint("AIService: .env key not found, using fallback.");
+      return 'AIzaSyAn6iyDavno_Pq9OHQkYljPXuxa4KoXedI';
+    }
+    return key;
+  }
 
   void init() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (apiKey != null) {
-      _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+    final key = _getApiKey();
+    if (key.isNotEmpty) {
+      debugPrint("AIService: Ready (HTTP Mode) with key length: ${key.length}");
     } else {
-      debugPrint("AIService: GEMINI_API_KEY not found in .env");
+      debugPrint("AIService: FATAL - No API KEY found.");
     }
   }
 
   Future<Map<String, dynamic>?> analyzeTransaction(
       String text, List<String> categories, List<String> accounts) async {
-    // ... existing implementation ...
-    if (_model == null) init();
-    if (_model == null) return null;
-
     final prompt = """
 Eres un experto contable. Analiza el siguiente texto: '$text'.
 Extrae: monto, moneda (PEN/USD), cuenta, categoría y título.
@@ -48,35 +52,63 @@ Si no encuentras algún dato, usa null o deduce lo más lógico.
 """;
 
     try {
-      final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
+      final apiKey = _getApiKey();
+      // 👇 ASEGURA QUE DIGA 'v1' Y NO 'v1beta'
+      // Usamos gemini-pro (es el más compatible de la historia de Gemini)
+      final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$apiKey');
+      // 👇 Agrega este print justo debajo para que veas en la consola si cambió:
+      print("🔥🔥🔥 ESTOY USANDO LA URL: $url");
 
-      String? responseText = response.text;
-      if (responseText == null) return null;
+      final body = jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {"text": prompt}
+            ]
+          }
+        ]
+      });
 
-      // Limpieza
-      responseText =
-          responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+      debugPrint(
+          "🚀 AIService: Analyzing transaction with Gemini 1.5 Flash (HTTP)...");
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
 
-      // Decodificar
-      try {
-        final Map<String, dynamic> data = jsonDecode(responseText);
-        return data;
-      } catch (e) {
-        debugPrint("AIService JSON Error: $e\nResponse: $responseText");
-        return null; // O intentar reparar JSON
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        String? responseText =
+            jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+
+        if (responseText == null) return null;
+
+        // Limpieza de Markdown si la IA lo pone
+        responseText =
+            responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+
+        try {
+          final Map<String, dynamic> data = jsonDecode(responseText);
+          return data;
+        } catch (e) {
+          debugPrint("AIService JSON Parse Error: $e\nResponse: $responseText");
+          return null;
+        }
+      } else {
+        debugPrint(
+            "❌ AIService HTTP Error: ${response.statusCode} - ${response.body}");
+        return null;
       }
     } catch (e) {
-      debugPrint("AIService Google AI Error: $e");
+      debugPrint("AIService Network Error: $e");
       return null;
     }
   }
 
   Future<String> getFinancialAdvice(
       List<TransactionEntity> transactions, double budgetLimit) async {
-    if (_model == null) init();
-    if (_model == null) return "Error: IA no inicializada.";
-
     // 1. Filter Last 30 Days
     final now = DateTime.now();
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
@@ -101,9 +133,7 @@ Si no encuentras algún dato, usa null o deduce lo más lógico.
         totalExpense += t.amount.abs();
       }
 
-      // Add to summary string (Limit to last 50 transactions to fit context)
       if (buffer.length < 10000) {
-        // Safety limit
         buffer.writeln(
             "- ${DateFormat('dd/MM').format(t.date)}: ${t.description} (${t.amount < 0 ? 'Gasto' : 'Ingreso'} ${t.amount.abs().toStringAsFixed(2)})");
       }
@@ -133,12 +163,41 @@ Responde con formato Markdown (negritas, listas) y usa emojis. Sé breve y motiv
 """;
 
     try {
-      final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
-      return response.text ?? "No pude generar un consejo en este momento.";
+      final apiKey = _getApiKey();
+      final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey');
+
+      final body = jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {"text": prompt}
+            ]
+          }
+        ]
+      });
+
+      debugPrint(
+          "🚀 AIService: Getting financial advice from Gemini 1.5 Flash (HTTP)...");
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        final text =
+            jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        return text ?? "La IA respondió pero sin texto.";
+      } else {
+        debugPrint(
+            "❌ AIService Advice Error: ${response.statusCode} - ${response.body}");
+        return "Hubo un error al consultar tu coach financiero. Intenta más tarde.";
+      }
     } catch (e) {
-      debugPrint("AIService Advice Error: $e");
-      return "Hubo un error al conectar con tu asesor financiero. Intenta más tarde.";
+      debugPrint("❌ AIService Network Error: $e");
+      return "Error de conexión. Verifica tu internet.";
     }
   }
 }
