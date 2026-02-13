@@ -49,6 +49,16 @@ Entiende dónde se va tu dinero con un vistazo.
 *   **Exportación de Datos:** Genera reportes CSV de tus transacciones (Copiar al portapapeles) para análisis externo.
 *   **Offline First:** Todos los datos se guardan localmente en tu dispositivo usando **SQLite**. Cero rastreadores, cero nube.
 
+### 6. 🧠 Coach Financiero con IA (Nuevo)
+Tu asistente personal inteligente para tomar mejores decisiones.
+*   **Análisis Dual:**
+    *   📅 **Semanal (Flash):** Consejos rápidos y accionables para corregir el rumbo inmediato (Rumbo y Corrección).
+    *   🗓️ **Mensual (Profundo):** Reporte detallado de metas, ahorro acumulado y balance general con formato Markdown rico visualmente.
+*   **Interfaz Premium:** Respuestas renderizadas con negritas, emojis y secciones claras para una lectura agradable.
+*   **Cero Costo Innecesario:**
+    *   **Zero-Data State:** Protege la cuota de API bloqueando consultas si eres usuario nuevo (<= 5 transacciones) y te guía con mensajes locales.
+    *   **Persistencia Inteligente:** Guarda tus consejos localmente. Si ya pediste el análisis hoy, te lo muestra al instante sin gastar datos ni tiempo.
+
 ---
 
 ## 🛠️ Stack Tecnológico
@@ -57,6 +67,7 @@ Este proyecto utiliza las mejores prácticas de desarrollo en Flutter:
 
 *   **Frontend:** [Flutter](https://flutter.dev/) (Diseño responsivo y animaciones fluidas).
 *   **Arquitectura:** **Clean Architecture** (Capas separadas: Domain, Data, Presentation).
+*   **Inteligencia Artificial:** **Google Gemini API** (Análisis financiero) + `flutter_markdown_plus`.
 *   **Gestión de Estado:** `Provider` para una gestión reactiva y eficiente.
 *   **Inyección de Dependencias:** `GetIt` para desacoplar componentes y facilitar testing.
 *   **Persistencia de Datos:** `sqflite` (SQLite) + `shared_preferences`.
