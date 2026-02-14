@@ -53,17 +53,17 @@ sequenceDiagram
     participant AI as AIService (HTTP)
     participant DB as SQLite (DatabaseHelper)
     
-    User->>UI: Presiona Micónfono y Habla
+    User->>UI: Presiona Micrófono y Habla
     UI->>STT: Captura Audio
-    STT->>UI: Retorna Texto Transcrito
+    STT->>UI: Retorna "Texto Transcrito"
     
     UI->>AI: analyzeTransaction(texto)
     AI->>AI: Construye Prompt JSON Estricto
     AI->>GoogleGemini: POST /v1beta/models/gemini-pro:generateContent
     GoogleGemini-->>AI: Respuesta JSON Raw
     
-    AI->>AI: Limpieza de Markdown (```json)
-    AI-->>UI: Retorna Map<String, dynamic>
+    AI->>AI: Limpieza de Markdown
+    AI-->>UI: Retorna "Map<String, dynamic>"
     
     UI->>UI: Muestra Modal de Confirmación
     UI->>DB: insertTransaction(transaccion)
