@@ -1,34 +1,33 @@
 # Visión General del Proyecto: Gestor de Gastos
 
 ## 1. Introducción
-**Gestor de Gastos** es una aplicación móvil nativa diseñada para transformar la gestión de gastos personales en Perú. A diferencia de las apps tradicionales, esta aplicación integra un **Coach Financiero** impulsado por Google Gemini que ofrece análisis proactivos, consejos empáticos y categorización inteligente.
+**Gestor de Gastos** es una solución financiera móvil desarrollada en Flutter, diseñada específicamente para el mercado peruano. Su propuesta de valor reside en la integración de un **Coach Financiero (IA)** que opera bajo restricciones severas de conectividad y cuota.
 
-La aplicación opera bajo una filosofía **Local-First**: los datos financieros viven en el dispositivo del usuario (SQLite), garantizando privacidad y velocidad, conectándose a la nube solo para procesar consultas de IA.
+La aplicación sigue una arquitectura **Local-First**: el 100% de los datos transaccionales residen en el dispositivo (SQLite). La nube (**Gemini AI**) se utiliza estrictamente como un motor de razonamiento bajo demanda, no como almacenamiento.
 
-## 2. Características Principales
+## 2. Tech Stack (Tecnologías)
+*   **Frontend:** Flutter (Dart) - Diseño responsivo y Modo Oscuro nativo.
+*   **State Management:** `provider` (Gestión eficiente de reconstrucciones de UI).
+*   **Base de Datos:** `sqflite` (SQLite) - Persistencia relacional local.
+*   **Inteligencia Artificial:** **Google Gemini 2.5 Flash Lite** (vía `google_generative_ai`).
+*   **Voz:** `speech_to_text` (Motor híbrido on-device/cloud).
+*   **Entorno:** Gestión de secretos vía `flutter_dotenv`.
 
-### Registro Multimodal
-*   **Voz Inteligente:** Reconocimiento de lenguaje natural que detecta **Tipo** (Gasto/Ingreso/Transferencia), **Monto** (S/), **Categoría** y **Cuenta** (ej. "Yape", "BCP") en una sola frase.
-*   **Manual:** Interfaz optimizada para registros rápidos.
+## 3. Características Clave y Optimización
 
-### Coach Financiero (Gemini AI)
-*   **Análisis Semanal y Mensual** de patrones de gasto.
-*   **Localización total** a moneda peruana (Nuevos Soles S/).
-*   Sistema de **"Bienvenida Local"** para ahorrar consumo de API en usuarios nuevos.
+### A. Registro Multimodal de Alta Eficiencia
+*   **Motor de Voz:** Implementa un parser semántico que convierte lenguaje natural (*"Yapeé 15 soles a Juan por almuerzo"*) en transacciones estructuradas (JSON), detectando automáticamente:
+    *   **Intención:** Gasto vs. Ingreso vs. Transferencia.
+    *   **Instrumento Financiero:** Mapeo difuso de cuentas (ej. "Yape" -> Cuenta Digital).
+    *   **Categorización Contextual:** Inferencia basada en descripción.
 
-### Gestión de Cuentas Dinámica
-*   Soporte para efectivo, bancos y billeteras digitales personalizables.
+### B. Coach Financiero (Estrategia de Escasez)
+Dado el límite estricto de **20 Requests Per Day (RPD)** de la API en su capa actual, el sistema implementa:
+*   **Gatekeeper Logic:** Bloqueo de solicitudes si no hay suficientes datos nuevos para analizar.
+*   **Bienvenida "Fake":** La primera interacción es generada localmente para no consumir cuota durante el onboarding.
+*   **Timers de Enfriamiento:** Restricción de análisis semanal (7 días) y mensual (30 días) para forzar el ahorro de tokens y maximizar el valor de cada llamada.
 
-## 3. Roadmap: Hacia la Play Store (El Futuro del Coach)
-Para el despliegue en producción (Google Play Store), **Gestor de Gastos** tiene una hoja de ruta técnica clara:
-
-### A. Estrategia de Costos y Cuotas
-*   **Fase Actual (Beta):** Uso del *Free Tier* de Gemini (modelos Flash 1.5/2.5) que permite hasta 1,500 peticiones diarias gratuitas. Ideal para <100 usuarios activos.
-*   **Fase Producción (Escalado):** Migración al modelo *Pay-as-you-go*. Dado el bajo costo de los modelos Flash (~$0.075 por millón de tokens de entrada), se estima que mantener a 1,000 usuarios activos costaría menos de $5 USD/mes.
-
-### B. Seguridad de la API (Backend Proxy)
-*   **Actualmente:** La `API_KEY` reside en el cliente (segura mediante ofuscación en Android).
-*   **Futuro:** Para máxima seguridad, las peticiones al Coach pasarán a través de **Firebase Cloud Functions** o **Vertex AI**. Esto ocultará la llave API real del lado del cliente y permitirá implementar límites de uso por usuario (*Rate Limiting*) para evitar abusos.
-
-### C. Memoria a Largo Plazo
-*   Se implementará un sistema de **Resumen Incremental**: en lugar de enviar todo el historial de transacciones cada vez, el Coach guardará un "perfil financiero" comprimido del usuario que se actualiza mes a mes, reduciendo costos y mejorando la precisión.
+## 4. Estado del Proyecto
+*   **Versión:** Beta 1.0.
+*   **Plataforma Objetivo:** Android (APK Release).
+*   **Localización:** Perú (Moneda: PEN / S/).
