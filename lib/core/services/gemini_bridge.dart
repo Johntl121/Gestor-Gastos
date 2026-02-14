@@ -8,9 +8,8 @@ class GeminiBridge {
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
   Future<String> askGemini(String prompt) async {
-    // Recuperar clave. Fallback hardcoded para pruebas.
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ??
-        'AIzaSyAn6iyDavno_Pq9OHQkYljPXuxa4KoXedI';
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) return "Error: API KEY no configurada.";
 
     // Construir URL con la key
     final url = Uri.parse("$_baseUrl?key=$apiKey");

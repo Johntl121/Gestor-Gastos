@@ -13,8 +13,8 @@ class GeminiClient {
     required String periodType,
     bool isNewUser = false,
   }) async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ??
-        'AIzaSyAn6iyDavno_Pq9OHQkYljPXuxa4KoXedI';
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) return "Error: API KEY no configurada en .env";
 
     String instruction;
     if (isNewUser) {
