@@ -33,22 +33,35 @@ class AIService {
   Future<Map<String, dynamic>?> analyzeTransaction(
       String text, List<String> categories, List<String> accounts) async {
     final prompt = """
-Eres un experto contable. Analiza el siguiente texto: '$text'.
-Extrae: monto, moneda (PEN/USD), cuenta, categoría y título.
-Usa ESTAS categorías disponibles: ${categories.join(', ')}.
-Usa ESTAS cuentas disponibles: ${accounts.join(', ')}.
+Eres un asistente financiero. Analiza la frase: '$text'.
+Tu objetivo es estructurar la transacción en JSON.
 
-Responde SOLAMENTE con un JSON válido (sin markdown ```json) con este formato:
+TIPO DE TRANSACCIÓN:
+"gasto": (gasté, compré, pagué, salida, costo).
+"ingreso": (cobré, recibí, ingreso, ganancia, me pagaron).
+"transferencia": (moví, pasé, transferí, envié).
+
+CUENTA / MÉTODO DE PAGO (Dinámico):
+Detecta si el usuario menciona explícitamente el origen del dinero.
+Busca patrones como: "con [Nombre]", "desde [Nombre]", "por [Nombre]", "en [Nombre]".
+Ejemplos: "con BCP", "por Yape", "de mi Ahorro", "en efectivo".
+EXTRAE EL NOMBRE EXACTO que dijo el usuario (ej: "BCP", "Visa", "Efectivo").
+Si NO menciona cuenta, devuelve null. NO adivines.
+
+CATEGORÍA:
+Deduce la categoría según el contexto (Comida, Transporte, Servicios, etc.).
+Si no estás seguro, usa "Otros".
+
+SALIDA JSON (Strict):
 {
-  "amount": 0.0,
-  "currency": "PEN",
-  "category": "NombreExacto",
-  "account": "NombreExacto",
-  "title": "Descripción corta",
-  "type": "expense" (o "income" o "transfer")
+"tipo": "gasto" | "ingreso" | "transferencia",
+"monto": 0.00,
+"moneda": "S/" (default) | "\$",
+"categoria": "String",
+"descripcion": "String",
+"cuenta_origen_detectada": "String" | null,
+"cuenta_destino_detectada": "String" | null
 }
-Si es un gasto, 'type' es 'expense'. Si es ingreso, 'income'. Si es transferencia, 'transfer'.
-Si no encuentras algún dato, usa null o deduce lo más lógico.
 """;
 
     try {
@@ -86,8 +99,11 @@ Si no encuentras algún dato, usa null o deduce lo más lógico.
         if (responseText == null) return null;
 
         // Limpieza de Markdown si la IA lo pone
-        responseText =
-            responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+        responseText = responseText
+            .replaceAll('```json', '')
+            .replaceAll('```JSON', '')
+            .replaceAll('```', '')
+            .trim();
 
         try {
           final Map<String, dynamic> data = jsonDecode(responseText);

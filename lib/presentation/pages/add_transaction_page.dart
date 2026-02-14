@@ -400,7 +400,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding:
+                  const EdgeInsets.only(left: 24.0, right: 24.0, bottom: 20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [

@@ -576,18 +576,22 @@ class SettingsPage extends StatelessWidget {
           backgroundColor: backgroundColor,
           title:
               Text("Editar Límite Mensual", style: TextStyle(color: textColor)),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(color: textColor),
-            decoration: InputDecoration(
-              prefixText: '${provider.currencySymbol} ',
-              prefixStyle: const TextStyle(color: Colors.cyan),
-              enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(
-                      color: isDarkMode ? Colors.grey : Colors.grey.shade400)),
-              focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.cyan)),
+          content: SingleChildScrollView(
+            child: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: textColor),
+              decoration: InputDecoration(
+                prefixText: '${provider.currencySymbol} ',
+                prefixStyle: const TextStyle(color: Colors.cyan),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(
+                        color:
+                            isDarkMode ? Colors.grey : Colors.grey.shade400)),
+                focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.cyan)),
+              ),
             ),
           ),
           actions: [

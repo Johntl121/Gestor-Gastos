@@ -104,17 +104,23 @@ class _MainPageState extends State<MainPage> {
                   // 4. EL TEXTO IMPORTANTE (Sin duplicados)
                   Expanded(
                     child: Center(
-                      child: Text(
-                        currentText.isEmpty
-                            ? "Ej: Gaste 20 soles en taxi"
-                            : currentText,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: currentText.isEmpty ? 22 : 28,
-                          fontWeight: FontWeight.bold,
-                          color: currentText.isEmpty
-                              ? Colors.grey[600]
-                              : Colors.white,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                            maxHeight: 200), // Height limit for long text
+                        child: SingleChildScrollView(
+                          child: Text(
+                            currentText.isEmpty
+                                ? "Ej: Gaste 20 soles en taxi"
+                                : currentText,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: currentText.isEmpty ? 22 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: currentText.isEmpty
+                                  ? Colors.grey[600]
+                                  : Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -159,6 +165,7 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _processVoiceCommand(String text) async {
     if (text.isEmpty) return;
+    final provider = Provider.of<DashboardProvider>(context, listen: false);
 
     // Show Loading
     showDialog(
@@ -181,7 +188,7 @@ class _MainPageState extends State<MainPage> {
                   )),
             ));
 
-    // Available Lists (Hardcoded or from Provider)
+    // Available Data
     final categories = [
       "Comida",
       "Transporte",
@@ -194,43 +201,75 @@ class _MainPageState extends State<MainPage> {
       "Ingreso",
       "Transferencia"
     ];
-    final accounts = ["Efectivo", "Banco", "Ahorros"];
+    // Dynamic Accounts List for AI context (Names only)
+    final accountNames = provider.accounts.map((a) => a.name).toList();
 
     // AI Analysis
     final result =
-        await AIService().analyzeTransaction(text, categories, accounts);
+        await AIService().analyzeTransaction(text, categories, accountNames);
 
     // Close Loading
     Navigator.pop(context);
 
     if (result != null) {
-      // Parse Result
-      final double amount = (result['amount'] is int)
-          ? (result['amount'] as int).toDouble()
-          : (result['amount'] as double? ?? 0.0);
+      // 1. Parse Basic Data
+      final double amount = (result['monto'] is int)
+          ? (result['monto'] as int).toDouble()
+          : (result['monto'] as double? ?? 0.0);
 
-      final String categoryName = result['category'] ?? "Otros";
-      final String accountName = result['account'] ?? "Efectivo";
-      final String title = result['title'] ?? categoryName;
-      final String typeStr = result['type'] ?? "expense";
+      final String categoryName = result['categoria'] ?? "Otros";
+      final String description = result['descripcion'] ?? categoryName;
+      final String typeStr = result['tipo'] ?? "gasto";
+      final String? detectedAccount = result['cuenta_origen_detectada'];
 
       TransactionType type = TransactionType.expense;
-      if (typeStr == "income") type = TransactionType.income;
-      if (typeStr == "transfer") type = TransactionType.transfer;
+      if (typeStr == "ingreso") type = TransactionType.income;
+      if (typeStr == "transferencia") type = TransactionType.transfer;
 
-      // Map IDs (simple mapping)
-      int categoryId = 11; // Otros
-      if (categoryName == "Comida") categoryId = 1;
-      if (categoryName == "Transporte") categoryId = 2;
-      if (categoryName == "Compras") categoryId = 3;
-      if (categoryName == "Ocio") categoryId = 4;
-      if (categoryName == "Salud") categoryId = 5;
-      if (categoryName == "Hogar") categoryId = 6;
-      if (categoryName == "Educación") categoryId = 7;
+      // 2. Map Category ID (Hardcoded for now, ideal: map inside Provider)
+      int categoryId = 11; // Default "Otros"
+      // Simple switch/map
+      switch (categoryName) {
+        case "Comida":
+          categoryId = 1;
+          break;
+        case "Transporte":
+          categoryId = 2;
+          break;
+        case "Compras":
+          categoryId = 3;
+          break;
+        case "Ocio":
+          categoryId = 4;
+          break;
+        case "Salud":
+          categoryId = 5;
+          break;
+        case "Hogar":
+          categoryId = 6;
+          break;
+        case "Educación":
+          categoryId = 7;
+          break;
+      }
 
-      int accountId = 1; // Efectivo
-      if (accountName == "Banco") accountId = 2;
-      if (accountName == "Ahorros") accountId = 3;
+      // 3. Map Account ID (Fuzzy Match / Literal Match)
+      // Default to first account (usually 'Efectivo') if available, or 1.
+      int accountId =
+          provider.accounts.isNotEmpty ? provider.accounts.first.id : 1;
+
+      if (detectedAccount != null) {
+        try {
+          // Buscamos si alguna cuenta del usuario CONTIENE el nombre detectado (Case Insensitive)
+          final match = provider.accounts.firstWhere((acc) =>
+              acc.name.toLowerCase().contains(detectedAccount.toLowerCase()));
+          accountId = match.id;
+        } catch (e) {
+          // No match found - Keep default to force manual selection or use default.
+          debugPrint(
+              "VoiceAI: Cuenta '$detectedAccount' no encontrada. Usando default.");
+        }
+      }
 
       // Create Draft
       final draft = TransactionEntity(
@@ -238,12 +277,13 @@ class _MainPageState extends State<MainPage> {
         categoryId: categoryId,
         amount: type == TransactionType.expense ? -amount.abs() : amount.abs(),
         date: DateTime.now(),
-        description: title,
-        note: "IA: $text", // Keep original text as note or metadata
+        description: description,
+        note: "Voz: $text",
         type: type,
+        destinationAccountId: null, // Logic for transfer could be added here
       );
 
-      // Navigate to Edit Page (AddTransactionPage)
+      // Navigate to Edit Page
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -251,8 +291,7 @@ class _MainPageState extends State<MainPage> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("No pude entender la transacción 😕")),
-      );
+          const SnackBar(content: Text("No pude entender la transacción 😕")));
     }
   }
 

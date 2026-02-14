@@ -53,6 +53,8 @@ ${isNewUser ? "" : "1. Resalta cantidades de dinero en negritas (ej: **\$50.00**
 ${isNewUser ? "" : "2. Usa emojis al inicio de cada sección importante 🚀."}
 ${isNewUser ? "" : "3. Estructura la respuesta de forma clara."}
 
+IMPORTANTE: El usuario se encuentra en Perú. Todos los montos monetarios deben formatearse estrictamente usando el símbolo de Nuevos Soles 'S/'. Nunca uses el símbolo '\$' a menos que se especifique lo contrario.
+
 Datos para analizar (Moneda local):
 $contextData
 """;
