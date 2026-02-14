@@ -1,7 +1,7 @@
-# Arquitectura Técnica de FinIA
+# Arquitectura Técnica
 
 ## 1. Visión General de la Arquitectura
-FinIA sigue una arquitectura modular inspirada en los principios de **Clean Architecture**, aunque pragmatizada para una aplicación rápida y eficiente en Flutter. Esta estructura garantiza una separación clara de responsabilidades, facilitando el prueba (testing) y el mantenimiento.
+El proyecto sigue una arquitectura modular inspirada en los principios de **Clean Architecture**, aunque pragmatizada para una aplicación rápida y eficiente en Flutter. Esta estructura garantiza una separación clara de responsabilidades, facilitando el prueba (testing) y el mantenimiento.
 
 La aplicación consta de tres capas principales:
 
@@ -30,7 +30,7 @@ El código fuente se organiza de la siguiente manera:
     *   `widgets/`: Widgets específicos de las pantallas.
 
 ## 3. Modelo de Datos (Esquema BD)
-FinIA utiliza **SQLite** como motor de persistencia relacional local. Las tablas clave son:
+La aplicación utiliza **SQLite** como motor de persistencia relacional local. Las tablas clave son:
 
 ### Diagrama ER Simplificado
 `Accounts` (1) ----< `Transactions` (N) >---- (1) `Categories` (Lógico)

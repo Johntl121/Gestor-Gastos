@@ -1,4 +1,4 @@
-# Inteligencia Artificial en FinIA (AI Core)
+# Inteligencia Artificial (AI Core)
 
 ## 1. Módulo de Procesamiento de Voz (VoiceInput)
 El módulo de voz transforma comandos verbales en transacciones estructuradas. Es el componente central de la experiencia "multimodal".

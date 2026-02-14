@@ -1,12 +1,12 @@
-# Visión General del Proyecto: FinIA
+# Visión General del Proyecto: Gestor de Gastos
 
 ## 1. Introducción
-**FinIA** es una aplicación móvil de gestión financiera personal de última generación, diseñada para empoderar a los usuarios en la toma de decisiones económicas diarias. Construida sobre la robustez de **Flutter** y potenciada por la inteligencia artificial de **Google Gemini**, FinIA no solo registra gastos, sino que actúa como un verdadero **Coach Financiero** proactivo.
+**Gestor_Gastos** es una aplicación móvil de gestión financiera personal de última generación, diseñada para empoderar a los usuarios en la toma de decisiones económicas diarias. Construida sobre la robustez de **Flutter** y potenciada por la inteligencia artificial de **Google Gemini**, la App no solo registra gastos, sino que actúa como un verdadero **Coach Financiero** proactivo.
 
-El enfoque principal de FinIA es la **localización y relevancia cultural** para el mercado peruano, priorizando la moneda local (Nuevos Soles - S/) y entendiendo los contextos de gasto habituales en la región. Además, FinIA adopta una filosofía **Local-First**, garantizando que los datos financieros sensibles del usuario permanezcan seguros en su dispositivo, utilizando la nube solo para el procesamiento anonimizado de IA.
+El enfoque principal de Gestor de Gastos es la **localización y relevancia cultural** para el mercado peruano, priorizando la moneda local (Nuevos Soles - S/) y entendiendo los contextos de gasto habituales en la región. Además, la aplicación adopta una filosofía **Local-First**, garantizando que los datos financieros sensibles del usuario permanezcan seguros en su dispositivo, utilizando la nube solo para el procesamiento anonimizado de IA.
 
 ## 2. Descripción Técnica
-FinIA combina una interfaz de usuario moderna y fluida con un backend lógico potente. La aplicación permite el registro de transacciones de forma **multimodal**: mediante entrada manual tradicional para precisión, y mediante **comandos de voz naturales** para rapidez y conveniencia.
+Gestor de Gastos combina una interfaz de usuario moderna y fluida con un backend lógico potente. La aplicación permite el registro de transacciones de forma **multimodal**: mediante entrada manual tradicional para precisión, y mediante **comandos de voz naturales** para rapidez y conveniencia.
 
 ### Características Clave
 *   **Registro Multimodal:**

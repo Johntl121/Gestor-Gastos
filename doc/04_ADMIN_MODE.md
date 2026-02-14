@@ -1,7 +1,7 @@
 # Modo Administrador (Dev Tools)
 
 ## 1. Acceso al Modo Administrador
-Para facilitar el desarrollo, pruebas y depuración en vivo, FinIA incorpora un **Panel de Administrador (Developer Panel)** oculto. Este panel permite acceder a herramientas avanzadas sin compilar una nueva versión de la app.
+Para facilitar el desarrollo, pruebas y depuración en vivo, la aplicación incorpora un **Panel de Administrador (Developer Panel)** oculto. Este panel permite acceder a herramientas avanzadas sin compilar una nueva versión de la app.
 
 ### Cómo Activar
 1.  En la pantalla principal (`HomePage`), localiza el **Botón Flotante (FAB) de Agregar** o un área de título específica.
