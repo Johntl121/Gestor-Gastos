@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:provider/provider.dart';
 import '../../domain/entities/transaction_entity.dart';
@@ -94,6 +95,7 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => const SettingsPage()),
                           );
                         },
+                        onLongPress: () => _showDeveloperPanel(context),
                         child: Row(
                           children: [
                             Container(
@@ -697,6 +699,79 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.bold, fontSize: 16, color: color),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDevButton(
+      BuildContext context, String label, Color color, VoidCallback onTap) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+            backgroundColor: color.withOpacity(0.2),
+            foregroundColor: color, // Text color
+            side: BorderSide(color: color),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10))),
+        onPressed: onTap,
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  void _showDeveloperPanel(BuildContext context) {
+    if (!kDebugMode) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E2A32), // Dark Slate
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("🛠️ Panel de Desarrollador",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _buildDevButton(
+                ctx, "🔥 Factory Reset (Borrar Todo)", Colors.redAccent,
+                () async {
+              final provider =
+                  Provider.of<DashboardProvider>(context, listen: false);
+              await provider.resetAllData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("App reiniciada. Cierra y abre la app.")));
+                Navigator.pop(ctx);
+              }
+            }),
+            const SizedBox(height: 10),
+            _buildDevButton(ctx, "🤖 Reset Coach (Timers)", Colors.orangeAccent,
+                () async {
+              final provider =
+                  Provider.of<DashboardProvider>(context, listen: false);
+              await provider.resetCoachTimers();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("Timers del Coach reseteados.")));
+                Navigator.pop(ctx);
+              }
+            }),
+            const SizedBox(height: 10),
+            _buildDevButton(ctx, "🧪 Sembrar Datos (Test)", Colors.blueAccent,
+                () async {
+              final provider =
+                  Provider.of<DashboardProvider>(context, listen: false);
+              await provider.seedTestData();
+              if (mounted) Navigator.pop(ctx);
+            }),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

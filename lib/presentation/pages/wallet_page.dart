@@ -673,7 +673,7 @@ class _WalletPageState extends State<WalletPage> {
               // Include in Total Switch
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                activeColor: Colors.cyan,
+                activeThumbColor: Colors.cyan,
                 title: Text("Incluir en Saldo Disponible",
                     style: TextStyle(color: textColor)),
                 subtitle: const Text(
@@ -816,7 +816,7 @@ class _WalletPageState extends State<WalletPage> {
                         return DropdownButtonFormField<int>(
                           isExpanded:
                               true, // IMPORTANT: Fixes Right Overflow and Flex errors
-                          value: selectedSource,
+                          initialValue: selectedSource,
                           dropdownColor: Theme.of(context).cardColor,
                           style: TextStyle(
                               color:
@@ -973,7 +973,7 @@ class _WalletPageState extends State<WalletPage> {
                         else
                           DropdownButtonFormField<int>(
                             isExpanded: true,
-                            value: selectedRefundAccount,
+                            initialValue: selectedRefundAccount,
                             items: provider.accounts.map((acc) {
                               return DropdownMenuItem<int>(
                                 value: acc.id,
@@ -1032,7 +1032,7 @@ class _WalletPageState extends State<WalletPage> {
                               refundAccountId: selectedRefundAccount);
                           Navigator.pop(ctx);
                           Navigator.pop(context); // Close Detail Sheet
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                               content: Text(
                                   "Meta eliminada y dinero devuelto a la cuenta seleccionada"),
                               backgroundColor: Colors.green));
@@ -1689,7 +1689,7 @@ class _WalletPageState extends State<WalletPage> {
             // Motivational Text
             // Motivational Text
             if (isCompleted)
-              Text(
+              const Text(
                 "¡Felicidades! Meta Alcanzada 🎉",
                 style: TextStyle(
                     color: Colors.amber,
@@ -2223,14 +2223,14 @@ class _WalletPageState extends State<WalletPage> {
                               "Banco",
                               2,
                               selectedAccount == 2,
-                              Color(0xFF64B5F6), // Light Blue 300
+                              const Color(0xFF64B5F6), // Light Blue 300
                               Colors.black,
                               (val) => setState(() => selectedAccount = val)),
                           _sourceChipStyled(
                               "Ahorros",
                               3,
                               selectedAccount == 3,
-                              Color(
+                              const Color(
                                   0xFFE040FB), // Purple Accent 100/200 equivalent
                               Colors.black,
                               (val) => setState(() => selectedAccount = val)),

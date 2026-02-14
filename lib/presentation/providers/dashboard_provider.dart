@@ -254,7 +254,6 @@ class DashboardProvider extends ChangeNotifier {
     notifyListeners();
     // TODO: En una app real, deberíamos persistir este valor aquí (SharedPrefs)
     // For now we simulate persistence
-    // sl<TransactionLocalDataSource>().saveMonthlyBudget(newLimit);
   }
 
   Future<void> setUserName(String name) async {
@@ -309,6 +308,73 @@ class DashboardProvider extends ChangeNotifier {
     _isLoading = false;
   }
 
+  Future<void> resetCoachTimers() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_weekly_analysis_date');
+    await prefs.remove('last_monthly_analysis_date');
+    await prefs.remove('weekly_advice_content');
+    await prefs.remove('monthly_advice_content');
+
+    // Reset memory state variables related to coach logic
+    _lastWeeklyAnalysis = null;
+    _lastMonthlyAnalysis = null;
+    _weeklyAdvice = null;
+    _monthlyAdvice = null;
+    _financialAdvice = null;
+
+    notifyListeners();
+  }
+
+  Future<void> seedTestData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    // Insert 1 Income
+    await addTransaction(
+        TransactionEntity(
+            id: DateTime.now().millisecondsSinceEpoch,
+            accountId: 1, // Efectivo
+            categoryId: 11, // Otros/Ingreso
+            amount: 2000.0,
+            date: DateTime.now(),
+            description: "Sueldo Dev",
+            type: TransactionType.income),
+        updateBalance: false);
+
+    // Insert 3 Expenses
+    await addTransaction(
+        TransactionEntity(
+            id: DateTime.now().millisecondsSinceEpoch + 1,
+            accountId: 1,
+            categoryId: 1, // Comida
+            amount: -50.0,
+            date: DateTime.now(),
+            description: "Pizza Test",
+            type: TransactionType.expense),
+        updateBalance: false);
+
+    await addTransaction(
+        TransactionEntity(
+            id: DateTime.now().millisecondsSinceEpoch + 2,
+            accountId: 1,
+            categoryId: 2, // Transporte
+            amount: -20.0,
+            date: DateTime.now(),
+            description: "Uber Test",
+            type: TransactionType.expense),
+        updateBalance: false);
+
+    await addTransaction(TransactionEntity(
+        id: DateTime.now().millisecondsSinceEpoch + 3,
+        accountId: 1,
+        categoryId: 3, // Compras
+        amount: -150.0,
+        date: DateTime.now().subtract(const Duration(days: 1)),
+        description: "Ropa Test",
+        type: TransactionType
+            .expense)); // Last one updates balance triggering loadData
+  }
+
   void setStatsMonth(DateTime date) {
     _currentStatsDate = date;
     notifyListeners();
@@ -338,8 +404,9 @@ class DashboardProvider extends ChangeNotifier {
         if (t.amount <= 0) return false; // Solo ingresos (positivos)
       }
 
-      if (t.type == TransactionType.transfer)
+      if (t.type == TransactionType.transfer) {
         return false; // Ignorar transferencias
+      }
       // ... rest of date filtering ...
 
       if (period == PeriodType.week) {
@@ -720,9 +787,8 @@ class DashboardProvider extends ChangeNotifier {
         note: "Compra realizada con éxito 🏆",
         type: TransactionType.expense);
 
-    await addTransaction(transaction);
+    await addTransaction(transaction); // Call once
 
-    await addTransaction(transaction);
     _goals.removeAt(index);
     notifyListeners();
   }
@@ -765,7 +831,7 @@ class DashboardProvider extends ChangeNotifier {
   }
 
   // --- Account Deletion Logic ---
-  List<AccountEntity> _deletedAccounts = [];
+  final List<AccountEntity> _deletedAccounts = [];
 
   void softDeleteAccount(AccountEntity account) {
     _deletedAccounts.add(account);

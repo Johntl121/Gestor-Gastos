@@ -678,7 +678,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
     // Use account color
     final Color chipColor = Color(account.colorValue);
-    final Color contentColor = Colors
+    const Color contentColor = Colors
         .white; // Or evaluate contrast: ThemeData.estimateBrightnessForColor(chipColor) == Brightness.dark ? Colors.white : Colors.black;
 
     return GestureDetector(

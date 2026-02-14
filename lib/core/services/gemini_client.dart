@@ -3,11 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiClient {
-  // Usamos la versión estable v1, NO la v1beta
-  // Modelos 2026: Usamos gemini-2.5-flash por estabilidad.
-  // Alternativa (si falla): gemini-3-flash-preview
+  // Model: Gemini 2.5 Flash Lite (v1beta)
+  // Fallback: gemini-1.5-flash
   static const String _urlOficial =
-      "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
   Future<String> obtenerConsejo({
     required String contextData,
@@ -20,28 +19,33 @@ class GeminiClient {
     String instruction;
     if (isNewUser) {
       instruction = """
-Eres un Coach Financiero. Es la primera vez que el usuario abre la app.
-Dale una bienvenida cálida, breve (máximo 2 frases) y anímalo a registrar su primer gasto para empezar a trabajar juntos.
-No des cifras, solo motivación y cercanía.
+Es la primera vez que el usuario abre la app.
+Dale una bienvenida cálida, breve (máximo 2 frases) y anímalo a registrar su primer gasto.
+No des cifras, solo motivación.
 """;
     } else if (periodType == 'weekly') {
       instruction = """
-Actúa como un Coach Financiero en modo 'Flash'.
-Sé extremadamente breve. Máximo 60 palabras.
-Dame 3 puntos bala rápidos sobre correcciones inmediatas o felicitaciones cortas.
-Estilo directo y accionable.
+TU MISIÓN: Dar un consejo 'FLASH' ULTRA-RÁPIDO.
+REGLAS:
+- Máximo 60 palabras en TOTAL.
+- Solo 3 puntos clave (bullets).
+- Directo al grano: Felicita o corrige sin rodeos.
+NO uses saludos largos ni introducciones.
 """;
     } else {
       instruction = """
-Actúa como un Coach Financiero experto. Realiza un 'Balance Mensual de Metas'.
-1. Analiza el ahorro acumulado vs la meta.
-2. Compara ingresos totales vs gastos totales.
-3. Felicita por los logros y ajusta las metas del próximo mes.
-Usa el formato detallado con Markdown, negritas y análisis profundo.
+TU MISIÓN: Generar un 'REPORTE MENSUAL DETALLADO'.
+REGLAS:
+- Analiza a fondo: Ahorro vs Meta, Ingresos vs Gastos.
+- Usa Markdown rico: Negritas para cifras (**\$100**), emojis 📊 y listas.
+- Estructura clara: 1. Resumen Global, 2. Análisis por Categoría, 3. Próximos pasos.
+- Extiéndete lo necesario para dar valor real.
 """;
     }
 
     final fullPrompt = """
+Eres un Coach Financiero experto.
+
 $instruction
 
 ${isNewUser ? "" : "Tus respuestas deben ser visualmente atractivas usando formato Markdown:"}

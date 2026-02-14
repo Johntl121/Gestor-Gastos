@@ -510,9 +510,6 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  /* Future<void> _pickMonth(
-      BuildContext context, DashboardProvider provider) async { ... } */
-
   void _navigateDate(DashboardProvider provider, bool isNext) {
     DateTime newDate = provider.currentStatsDate;
     final period = provider.currentStatsPeriod;
@@ -610,7 +607,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
       // Zero-Data State Check (relaxed for barely active users)
       if (provider.transactions.length <= 5) {
         provider.setFinancialAdvice(
-            "¡Bienvenido a tu Coach Financiero! 🚀 Estoy listo para ayudarte a cumplir tus metas. Por favor, registra tu primer Ingreso o Gasto para que pueda analizar tus números y desbloquear las herramientas.");
+            "👋 ¡Bienvenido a tu Coach! Para empezar a recibir consejos inteligentes, necesito datos. Registra tu primer gasto hoy mismo.");
       } else {
         // Por defecto mostramos el último análisis semanal si existe
         provider.showCachedAdvice('weekly');
@@ -731,7 +728,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     // Bloqueo de seguridad: Si tiene pocas transacciones (< 6), no usar API
     if (provider.transactions.length <= 5) {
       provider.setFinancialAdvice(
-          "¡Bienvenido! Sigue registrando movimientos. Necesitamos al menos 6 para aconsejarte mejor. 🚀");
+          "👋 ¡Bienvenido a tu Coach! Para empezar a recibir consejos inteligentes, necesito datos. Registra tu primer gasto hoy mismo.");
       return;
     }
 

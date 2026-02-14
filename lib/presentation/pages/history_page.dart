@@ -464,10 +464,10 @@ class _HistoryPageState extends State<HistoryPage> {
                                             }
 
                                             Color accountColor = Colors.grey;
-                                            if (t.accountId == 1)
+                                            if (t.accountId == 1) {
                                               accountColor =
                                                   Colors.amber; // Cash
-                                            else if (t.accountId == 2)
+                                            } else if (t.accountId == 2)
                                               accountColor =
                                                   Colors.blueAccent; // Bank
                                             else if (t.accountId == 3)
@@ -873,9 +873,9 @@ class _HistoryPageState extends State<HistoryPage> {
                             }
 
                             Color accountColor = Colors.grey;
-                            if (t.accountId == 1)
+                            if (t.accountId == 1) {
                               accountColor = Colors.amber;
-                            else if (t.accountId == 2)
+                            } else if (t.accountId == 2)
                               accountColor = Colors.blue;
                             else if (t.accountId == 3)
                               accountColor = Colors.purpleAccent;

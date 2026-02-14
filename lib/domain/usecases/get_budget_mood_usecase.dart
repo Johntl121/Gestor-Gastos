@@ -19,8 +19,9 @@ class GetBudgetMoodUseCase implements UseCase<BudgetMood, NoParams> {
       (expenses) => budgetResult.fold(
         (failure) => Left(failure),
         (budget) {
-          if (budget == 0)
+          if (budget == 0) {
             return const Right(BudgetMood.neutral); // Evitar división por cero
+          }
 
           final absExpenses = expenses.abs();
           final percentage = absExpenses / budget;

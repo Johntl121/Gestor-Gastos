@@ -246,9 +246,10 @@ class SettingsPage extends StatelessWidget {
                       textColor,
                       isDarkMode, (val) {
                     provider.toggleNotifications(val);
-                    if (val)
+                    if (val) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                           content: Text("🔔 Notificaciones Activas")));
+                    }
                   }),
                   _buildPreferenceSwitch(
                       "Face ID / Touch ID",
@@ -258,9 +259,10 @@ class SettingsPage extends StatelessWidget {
                       textColor,
                       isDarkMode, (val) {
                     provider.toggleBiometrics(val);
-                    if (val)
+                    if (val) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                           content: Text("👆 Biometría Vinculada (Simulado)")));
+                    }
                   }),
                 ],
               ),
@@ -307,7 +309,7 @@ class SettingsPage extends StatelessWidget {
               const SizedBox(height: 40),
 
               // 7. DANGER ZONE
-              Align(
+              const Align(
                   alignment: Alignment.centerLeft,
                   child: Text("ZONA DE PELIGRO",
                       style: TextStyle(
@@ -370,7 +372,7 @@ class SettingsPage extends StatelessWidget {
       child: SwitchListTile(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.cyan,
+        activeThumbColor: Colors.cyan,
         title: Text(title, style: TextStyle(color: textColor, fontSize: 14)),
         secondary:
             Icon(icon, color: isDarkMode ? Colors.grey : Colors.grey[600]),
