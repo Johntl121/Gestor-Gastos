@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../providers/dashboard_provider.dart';
 import '../../domain/entities/transaction_entity.dart';
-import '../delegates/transaction_search_delegate.dart';
+import 'transaction_search_delegate.dart';
 import '../../presentation/pages/add_transaction_page.dart';
 
 class HistoryPage extends StatefulWidget {

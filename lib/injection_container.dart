@@ -2,8 +2,8 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Fuentes de Datos
-import 'data/datasources/local_database.dart';
-import 'data/datasources/transaction_local_data_source.dart';
+import 'core/services/database_helper.dart';
+import 'data/repositories/transaction_data_source.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';

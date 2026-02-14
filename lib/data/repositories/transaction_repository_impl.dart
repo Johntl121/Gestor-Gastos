@@ -4,8 +4,8 @@ import '../../domain/entities/account_entity.dart';
 import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
-import '../datasources/local_database.dart';
-import '../datasources/transaction_local_data_source.dart';
+import '../../core/services/database_helper.dart';
+import 'transaction_data_source.dart';
 import '../models/transaction_model.dart';
 import '../models/account_model.dart';
 

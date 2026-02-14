@@ -6,7 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'data/datasources/transaction_local_data_source.dart';
+import 'data/repositories/transaction_data_source.dart';
 import 'presentation/pages/main_page.dart';
 import 'presentation/pages/intro_page.dart';
 import 'presentation/providers/dashboard_provider.dart';
