@@ -80,22 +80,72 @@ Este proyecto utiliza las mejores prácticas de desarrollo en Flutter:
 
 El código está organizado siguiendo estrictamente Clean Architecture para garantizar escalabilidad:
 
-```text
+```
 lib/
-├── core/                   # Bloques construcción base (Failures, Usecases, Utils)
-├── data/                   # Capa de Datos
-│   ├── datasources/        # Fuentes locales (SQLite, SharedPreferences)
-│   ├── models/             # Modelos de datos (parseo JSON/Map)
-│   └── repositories/       # Implementación concreta de repositorios
-├── domain/                 # Capa de Dominio (Pura Dart)
-│   ├── entities/           # Reglas de negocio y objetos fundamentales
-│   ├── repositories/       # Contratos (Interfaces abstractas)
-│   └── usecases/           # Casos de uso específicos (AddTransaction, GetBalance...)
-├── presentation/           # Capa de UI
-│   ├── pages/              # Pantallas (Home, Stats, Settings, AddTransaction)
-│   ├── providers/          # ViewModels / State Management
-│   └── widgets/            # Componentes reutilizables
-└── main.dart               # Punto de entrada e inicialización (Dependency Injection)
+├── core/                                   # Capa de Infraestructura y Utilidades Compartidas
+│   ├── constants/                          # Constantes globales (si aplica)
+│   ├── errors/                             # Definición de Errores y Excepciones
+│   │   └── failure.dart                    # Clases base para manejo de fallos (ServerFailure, CacheFailure)
+│   ├── services/                           # Servicios Externos e Implementaciones Técnicas
+│   │   ├── database_helper.dart            # Gestión de Base de Datos Local (SQLite)
+│   │   ├── gemini_client.dart              # Cliente para IA (Gemini): Análisis de voz y Consejos Financieros
+│   │   ├── notification_service.dart       # Gestión de Notificaciones Locales
+│   │   └── speech_service.dart             # Servicio de Reconocimiento de Voz (Speech-to-Text)
+│   └── usecases/                           # Definiciones Base para Casos de Uso
+│       └── usecase.dart                    # Interfaz abstracta para Casos de Uso
+│
+├── data/                                   # Capa de Datos (Implementación de Repositorios)
+│   ├── models/                             # Modelos de Datos (Mapeo JSON/DB <-> Entidades)
+│   │   ├── account_model.dart              # Modelo de Cuenta Financiera
+│   │   ├── category_model.dart             # Modelo de Categoría de Gasto
+│   │   ├── subscription.dart               # Modelo de Suscripción Recurrente
+│   │   └── transaction_model.dart          # Modelo de Transacción (Ingreso/Gasto)
+│   └── repositories/                       # Implementación concreta de los Repositorios del Dominio
+│       ├── transaction_data_source.dart    # Fuente de Datos Local (DAO)
+│       └── transaction_repository_impl.dart # Lógica de Acceso a Datos (Coordina DB local y lógica)
+│
+├── domain/                                 # Capa de Dominio (Reglas de Negocio Puras)
+│   ├── entities/                           # Entidades de Negocio
+│   │   ├── account_entity.dart             # Entidad Cuenta (Efectivo, Banco, Ahorro)
+│   │   ├── balance_breakdown.dart          # Entidad para desglose de balance
+│   │   ├── budget_mood.dart                # Enum/Entidad para Estado de Ánimo Financiero
+│   │   ├── category_entity.dart            # Entidad Categoría
+│   │   ├── goal_entity.dart                # Entidad Meta de Ahorro
+│   │   └── transaction_entity.dart         # Entidad Transacción Principal
+│   ├── repositories/                       # Contratos (Interfaces) de Repositorios
+│   │   └── transaction_repository.dart     # Interfaz del Repositorio de Transacciones
+│   └── usecases/                           # Casos de Uso (Lógica de Aplicación)
+│       ├── account_usecases.dart           # Crear/Leer Cuentas
+│       ├── add_transaction_usecase.dart    # Agregar Transacción
+│       ├── delete_account_usecase.dart     # Eliminar Cuenta
+│       ├── delete_transaction_usecase.dart # Eliminar Transacción
+│       ├── get_account_balance_usecase.dart # Obtener Balance
+│       ├── get_budget_mood_usecase.dart    # Calcular Estado de Ánimo
+│       ├── get_monthly_budget_usecase.dart # Obtener Presupuesto Mensual
+│       ├── get_transactions_usecase.dart   # Obtener Historial de Transacciones
+│       ├── update_account_usecase.dart     # Actualizar Cuenta
+│       └── update_transaction_usecase.dart # Actualizar Transacción
+│
+├── presentation/                           # Capa de Presentación (UI y Estado)
+│   ├── pages/                              # Pantallas de la Aplicación
+│   │   ├── add_transaction_page.dart       # Formulario para Agregar/Editar Transacción
+│   │   ├── history_page.dart               # Historial Completo con Filtros y Calendario
+│   │   ├── home_page.dart                  # Pantalla Principal (Dashboard)
+│   │   ├── intro_page.dart                 # Pantalla de Introducción
+│   │   ├── lock_screen.dart                # Pantalla de Bloqueo por PIN
+│   │   ├── main_page.dart                  # Contenedor Principal (BottomNavigationBar + Navegación)
+│   │   ├── onboarding_page.dart            # Flujo de Bienvenida
+│   │   ├── settings_page.dart              # Configuración (Tema, Reset, Perfil)
+│   │   ├── stats_page.dart                 # Estadísticas Gríficas y Coach Financiero
+│   │   ├── transaction_search_delegate.dart # Lógica de Búsqueda
+│   │   └── wallet_page.dart                # Gestión de Cuentas y Metas
+│   ├── providers/                          # Gestión de Estado (Provider)
+│   │   └── dashboard_provider.dart         # Provider Principal (ViewModel para toda la app)
+│   └── widgets/                            # Widgets Reutilizables
+│       └── budget_mood_widget.dart         # Widget indicador de salud financiera
+│
+├── injection_container.dart                # Inyección de Dependencias (Service Locator - GetIt)
+└── main.dart                               # Punto de Entrada de la Aplicación
 ```
 
 ---

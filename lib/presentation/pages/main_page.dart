@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../domain/entities/transaction_entity.dart';
-import '../../core/services/ai_service.dart';
+import '../../core/services/gemini_client.dart';
 import '../providers/dashboard_provider.dart';
 import 'home_page.dart';
 import '../../core/services/speech_service.dart';
@@ -206,7 +206,7 @@ class _MainPageState extends State<MainPage> {
 
     // AI Analysis
     final result =
-        await AIService().analyzeTransaction(text, categories, accountNames);
+        await GeminiClient().analyzeTransaction(text, categories, accountNames);
 
     // Close Loading
     Navigator.pop(context);

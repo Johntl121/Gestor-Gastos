@@ -98,4 +98,97 @@ $contextData
       return "Fallo de conexión: $e";
     }
   }
+
+  Future<Map<String, dynamic>?> analyzeTransaction(
+      String text, List<String> categories, List<String> accounts) async {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    if (apiKey.isEmpty) {
+      print("GeminiClient: FATAL - .env key not found.");
+      return null;
+    }
+
+    final prompt = """
+Eres un asistente financiero. Analiza la frase: '$text'.
+Tu objetivo es estructurar la transacción en JSON.
+
+TIPO DE TRANSACCIÓN:
+"gasto": (gasté, compré, pagué, salida, costo).
+"ingreso": (cobré, recibí, ingreso, ganancia, me pagaron).
+"transferencia": (moví, pasé, transferí, envié).
+
+CUENTA / MÉTODO DE PAGO (Dinámico):
+Detecta si el usuario menciona explícitamente el origen del dinero.
+Busca patrones como: "con [Nombre]", "desde [Nombre]", "por [Nombre]", "en [Nombre]".
+Ejemplos: "con BCP", "por Yape", "de mi Ahorro", "en efectivo".
+EXTRAE EL NOMBRE EXACTO que dijo el usuario (ej: "BCP", "Visa", "Efectivo").
+Si NO menciona cuenta, devuelve null. NO adivines.
+
+CATEGORÍA:
+Deduce la categoría según el contexto (Comida, Transporte, Servicios, etc.).
+Las categorías disponibles son: ${categories.join(', ')}.
+Si no estás seguro, usa "Otros".
+
+SALIDA JSON (Strict):
+{
+"tipo": "gasto" | "ingreso" | "transferencia",
+"monto": 0.00,
+"moneda": "S/" (default) | "\$",
+"categoria": "String",
+"descripcion": "String",
+"cuenta_origen_detectada": "String" | null,
+"cuenta_destino_detectada": "String" | null
+}
+""";
+
+    final uri = Uri.parse("$_urlOficial?key=$apiKey");
+
+    try {
+      final body = jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {"text": prompt}
+            ]
+          }
+        ]
+      });
+
+      print("🚀 GeminiClient: Analyzing transaction...");
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        String? responseText =
+            jsonResponse['candidates']?[0]?['content']?['parts']?[0]?['text'];
+
+        if (responseText == null) return null;
+
+        // Limpieza de Markdown si la IA lo pone
+        responseText = responseText
+            .replaceAll('```json', '')
+            .replaceAll('```JSON', '')
+            .replaceAll('```', '')
+            .trim();
+
+        try {
+          final Map<String, dynamic> data = jsonDecode(responseText);
+          return data;
+        } catch (e) {
+          print("GeminiClient JSON Parse Error: $e\nResponse: $responseText");
+          return null;
+        }
+      } else {
+        print(
+            "❌ GeminiClient HTTP Error: ${response.statusCode} - ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      print("GeminiClient Network Error: $e");
+      return null;
+    }
+  }
 }
