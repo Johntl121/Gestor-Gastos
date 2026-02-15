@@ -11,12 +11,13 @@ class AIService {
   factory AIService() => _instance;
   AIService._internal();
 
-  // API Key Management para obtenerla centralizadamente
   String _getApiKey() {
     String? key = dotenv.env['GEMINI_API_KEY'];
+
     if (key == null || key.isEmpty) {
-      debugPrint("AIService: .env key not found, using fallback.");
-      return 'AIzaSyAn6iyDavno_Pq9OHQkYljPXuxa4KoXedI';
+      debugPrint("AIService: FATAL - .env key not found.");
+      // Mejor lanza un error para saber que algo anda mal con tu config.
+      return '';
     }
     return key;
   }
