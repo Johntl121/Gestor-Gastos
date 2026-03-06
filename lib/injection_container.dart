@@ -21,7 +21,11 @@ import 'domain/usecases/account_usecases.dart';
 import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
 
-import 'presentation/providers/dashboard_provider.dart';
+// Providers (New)
+import 'presentation/providers/ui_provider.dart';
+import 'presentation/providers/transaction_provider.dart';
+import 'presentation/providers/wallet_provider.dart';
+import 'presentation/providers/stats_provider.dart';
 
 final sl = GetIt.instance;
 
@@ -30,7 +34,7 @@ Future<void> init() async {
   final sharedPreferences = await SharedPreferences.getInstance();
   sl.registerLazySingleton(() => sharedPreferences);
 
-  // Singleton de Base de Datos Local (Ya implementado como singleton, pero bueno tener acceso vía sl)
+  // Singleton de Base de Datos Local
   sl.registerLazySingleton<LocalDatabase>(() => LocalDatabase());
 
   //! Fuentes de Datos
@@ -59,20 +63,39 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
 
-  //! Proveedores
+  //! Proveedores (Refactored)
+
+  // 1. UI Provider
+  sl.registerFactory(() => UiProvider());
+
+  // 2. Wallet Provider
   sl.registerFactory(
-    () => DashboardProvider(
+    () => WalletProvider(
       getAccountBalance: sl(),
-      getBudgetMood: sl(),
-      addTransactionUseCase: sl(),
-      getTransactionsUseCase: sl(),
-      getMonthlyBudgetUseCase: sl(),
-      updateTransactionUseCase: sl(),
-      deleteTransactionUseCase: sl(),
       getAccountsUseCase: sl(),
       createAccountUseCase: sl(),
       updateAccountUseCase: sl(),
       deleteAccountUseCase: sl(),
+      getMonthlyBudgetUseCase: sl(),
+      addTransactionUseCase: sl(),
+      localDataSource: sl(),
+    ),
+  );
+
+  // 3. Transaction Provider
+  sl.registerFactory(
+    () => TransactionProvider(
+      getTransactionsUseCase: sl(),
+      addTransactionUseCase: sl(),
+      updateTransactionUseCase: sl(),
+      deleteTransactionUseCase: sl(),
+    ),
+  );
+
+  // 4. Stats Provider
+  sl.registerFactory(
+    () => StatsProvider(
+      getBudgetMood: sl(),
     ),
   );
 }

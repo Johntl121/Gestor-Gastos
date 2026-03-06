@@ -1,0 +1,763 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+import '../../../domain/entities/transaction_entity.dart'; // Ensure this path is correct
+// New Providers
+import '../../providers/ui_provider.dart';
+import '../../providers/wallet_provider.dart';
+import '../../providers/transaction_provider.dart'; // For transactions list
+import '../../providers/stats_provider.dart'; // For Mood
+import '../../../injection_container.dart' as sl;
+import '../../../data/repositories/transaction_data_source.dart';
+
+import '../settings/settings_page.dart';
+import '../auth/onboarding_page.dart';
+
+class HomePage extends StatefulWidget {
+  final VoidCallback? onSeeAllPressed;
+
+  const HomePage({super.key, this.onSeeAllPressed});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // Helper to check notifications
+  bool _hasPendingNotifications(TransactionProvider txProvider) {
+    final now = DateTime.now();
+    for (var sub in txProvider.subscriptions) {
+      if (sub.isPaid) continue;
+
+      // Check if due date is close (within 3 days) or today
+      final due = sub.nextDueDate;
+      final diff = due.difference(now).inDays;
+
+      // If diff is negative, it means it's past due (if nextDueDate logic didn't jump yet, or time part issue)
+      // If diff is 0..3, it's coming up.
+      // Logic: Show notification if it's close.
+      if (diff <= 3) return true;
+    }
+    return false;
+  }
+
+  void _showNotificationSheet(BuildContext context) {
+    final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+    final subs = txProvider.subscriptions.where((s) => !s.isPaid).toList();
+
+    showModalBottomSheet(
+        context: context,
+        backgroundColor: const Color(0xFF1E2A32),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (context) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Notificaciones",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                if (subs.isEmpty)
+                  const Text("¡Todo al día! No tienes pagos pendientes.",
+                      style: TextStyle(color: Colors.grey))
+                else
+                  ...subs.map((s) => ListTile(
+                        leading: const Icon(Icons.warning_amber_rounded,
+                            color: Colors.orangeAccent),
+                        title: Text("Pago próximo: ${s.name}",
+                            style: const TextStyle(color: Colors.white)),
+                        subtitle: Text(
+                            "Vence el ${s.nextDueDate.day}/${s.nextDueDate.month}",
+                            style: const TextStyle(color: Colors.grey)),
+                        trailing: Text("S/ ${s.amount}",
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
+                      ))
+              ],
+            ),
+          );
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Access Providers using Consumer or filtering
+    // We used to use Consumer<DashboardProvider>, now we need data from multiple sources.
+    // The cleanest way in a build method without excessive nesting is using Provider.of or context.watch.
+
+    final uiProvider = Provider.of<UiProvider>(context);
+    final walletProvider = Provider.of<WalletProvider>(context);
+    final txProvider = Provider.of<TransactionProvider>(context);
+    final statsProvider = Provider.of<StatsProvider>(
+        context); // StatsProvider handles Mood? Yes. But wait, DashboardProvider calculated Mood locally or via UseCase. StatsProvider does it now.
+
+    // 1. Calculate Summary Data locally based on Transactions (or move to Provider)
+    // To match original logic:
+    double todayIncome = 0;
+    double todayExpense = 0;
+    double monthSpent = 0;
+    final now = DateTime.now();
+
+    for (var t in txProvider.transactions) {
+      if (t.type == TransactionType.transfer) continue;
+
+      final isToday = t.date.year == now.year &&
+          t.date.month == now.month &&
+          t.date.day == now.day;
+
+      final isSameMonth = t.date.year == now.year && t.date.month == now.month;
+
+      if (isToday) {
+        if (t.amount > 0) {
+          todayIncome += t.amount;
+        } else {
+          todayExpense += t.amount.abs();
+        }
+      }
+
+      if (isSameMonth && t.amount < 0) {
+        monthSpent += t.amount.abs();
+      }
+    }
+
+    final balance = walletProvider.totalBalance;
+    final budgetLimit =
+        walletProvider.budgetLimit; // WalletProvider has budget limit
+    final currency = walletProvider.currencySymbol;
+
+    // Theme
+    final isDarkMode = uiProvider.isDarkMode;
+    final theme = Theme.of(context);
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // --- Header ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SettingsPage()),
+                      );
+                    },
+                    onLongPress: () => _showDeveloperPanel(context),
+                    child: Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.cyanAccent,
+                              width: 2,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.transparent,
+                            backgroundImage: uiProvider.profileImagePath != null
+                                ? FileImage(File(uiProvider.profileImagePath!))
+                                : null,
+                            child: uiProvider.profileImagePath == null
+                                ? Text(uiProvider.userAvatar,
+                                    style: const TextStyle(fontSize: 28))
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Bienvenido,",
+                                style: TextStyle(
+                                    color: Colors.teal, fontSize: 12)),
+                            Text(uiProvider.userName,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: textColor)),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+
+                  // Notification Bell
+                  GestureDetector(
+                    onTap: () => _showNotificationSheet(context),
+                    child: Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.notifications_none,
+                              color:
+                                  isDarkMode ? Colors.white : Colors.black54),
+                        ),
+                        if (_hasPendingNotifications(txProvider))
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                      ],
+                    ),
+                  )
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              // Mood Indicator
+              _buildMoodIndicator(budgetLimit, monthSpent, isDarkMode),
+
+              const SizedBox(height: 10),
+
+              Text("SALDO DISPONIBLE",
+                  style: TextStyle(
+                      color: subTextColor,
+                      fontSize: 12,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 5),
+              Text(
+                "$currency ${balance.toStringAsFixed(2)}",
+                style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: textColor),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                _getMoodQuote(budgetLimit, monthSpent),
+                style: TextStyle(
+                    color: Colors.cyanAccent.withOpacity(0.8),
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                "⚠️ Totales estimados en S/",
+                style: TextStyle(color: Colors.orangeAccent, fontSize: 10),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Budget Card
+              _buildBudgetCard(context, budgetLimit, monthSpent, currency),
+
+              const SizedBox(height: 20),
+
+              // Summary
+              Row(
+                children: [
+                  Expanded(
+                      child: _buildSummaryCard(
+                          icon: Icons.arrow_upward,
+                          iconColor:
+                              isDarkMode ? Colors.greenAccent : Colors.green,
+                          backgroundColor: isDarkMode
+                              ? Colors.greenAccent.withOpacity(0.1)
+                              : const Color(0xFFE0F2F1),
+                          amount:
+                              "+$currency ${todayIncome.toStringAsFixed(2)}",
+                          label: "Ingresos Hoy",
+                          context: context)),
+                  const SizedBox(width: 15),
+                  Expanded(
+                      child: _buildSummaryCard(
+                          icon: Icons.arrow_downward,
+                          iconColor: Colors.redAccent,
+                          backgroundColor: isDarkMode
+                              ? Colors.redAccent.withOpacity(0.1)
+                              : const Color(0xFFFFEBEE),
+                          amount:
+                              "-$currency ${todayExpense.toStringAsFixed(2)}",
+                          label: "Gastos Hoy",
+                          context: context)),
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              // Recent Activity Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Actividad Reciente",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: textColor)),
+                  GestureDetector(
+                    onTap: widget.onSeeAllPressed,
+                    child: const Text("Ver todo",
+                        style: TextStyle(
+                            color: Colors.tealAccent,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 15),
+
+              // Recent List
+              txProvider.transactions.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text("No hay transacciones recientes",
+                          style: TextStyle(color: subTextColor)),
+                    )
+                  : ListView.separated(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: txProvider.transactions.take(3).length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final transaction = txProvider.transactions[index];
+                        return Dismissible(
+                          key: Key(transaction.id.toString()),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (_) {
+                            final deleted = transaction;
+                            if (transaction.id != null) {
+                              // Optimistic remove for UI is handled by Provider usually, but here we call delete.
+                              txProvider.deleteTransaction(transaction.id!);
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: const Text(
+                                    'Transacción eliminada de recientes'),
+                                action: SnackBarAction(
+                                  label: 'DESHACER',
+                                  textColor: Colors.cyanAccent,
+                                  onPressed: () {
+                                    txProvider.addTransaction(deleted);
+                                  },
+                                ),
+                                duration: const Duration(seconds: 4),
+                              ));
+                            }
+                          },
+                          child: _buildTransactionItem(
+                              transaction,
+                              walletProvider,
+                              context), // Pass WalletProvider for account names
+                        );
+                      },
+                    ),
+
+              const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Widgets ---
+
+  Widget _buildMoodIndicator(double limit, double spent, bool isDarkMode) {
+    // 1. Calculate Health Percentage
+    final remaining = (limit - spent).clamp(0, limit);
+    final percent = (limit > 0) ? (remaining / limit) : 0.0;
+
+    IconData icon;
+    Color color;
+
+    if (percent > 0.50) {
+      icon = Icons.sentiment_very_satisfied_rounded;
+      color = Colors.greenAccent.shade700;
+    } else if (percent > 0.20) {
+      icon = Icons.sentiment_neutral_rounded;
+      color = Colors.amber.shade300;
+    } else {
+      icon = Icons.sentiment_very_dissatisfied_rounded;
+      color = Colors.redAccent;
+    }
+
+    return Stack(
+      alignment: Alignment.bottomRight,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Colors.cyan.withOpacity(0.1)
+                : Colors.cyan.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 60, color: color),
+        ),
+      ],
+    );
+  }
+
+  String _getMoodQuote(double limit, double spent) {
+    if (limit == 0) return "Define un presupuesto.";
+    final percent = (limit - spent) / limit;
+
+    if (percent > 0.50) return "\"¡Estás en la cima! Sigue así.\"";
+    if (percent > 0.20) return "\"Todo en orden, pero mantente atento.\"";
+    return "\"¡Alerta roja! Presupuesto excedido.\"";
+  }
+
+  Widget _buildBudgetCard(
+      BuildContext context, double limit, double spent, String currency) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    final progress = (limit > 0) ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: isDarkMode ? Colors.black45 : Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("PRESUPUESTO MENSUAL",
+              style: TextStyle(
+                  color: subTextColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              RichText(
+                text: TextSpan(children: [
+                  TextSpan(
+                      text: "$currency ${spent.toStringAsFixed(2)}",
+                      style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+                  TextSpan(
+                      text: " / $currency ${limit.toStringAsFixed(2)}",
+                      style: TextStyle(color: subTextColor, fontSize: 14)),
+                ]),
+              ),
+              Text("${((1 - progress) * 100).toInt()}% restante",
+                  style: const TextStyle(
+                      color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 15),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor:
+                  isDarkMode ? Colors.white10 : Colors.grey.shade200,
+              color: progress > 0.9 ? Colors.redAccent : Colors.cyan,
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 15),
+          const Row(
+            children: [
+              Icon(Icons.access_time_filled,
+                  size: 14, color: Colors.tealAccent),
+              SizedBox(width: 5),
+              Text("Calculado al día de hoy",
+                  style: TextStyle(color: Colors.tealAccent, fontSize: 12))
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(
+      {required IconData icon,
+      required Color iconColor,
+      required Color backgroundColor,
+      required String amount,
+      required String label,
+      required BuildContext context}) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: isDarkMode
+              ? Border.all(color: Colors.white10)
+              : Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+                color: isDarkMode ? Colors.black45 : Colors.black12,
+                blurRadius: 5,
+                offset: const Offset(0, 2))
+          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(amount,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: subTextColor, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem(TransactionEntity t,
+      WalletProvider walletProvider, BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    bool isTransfer = t.type == TransactionType.transfer ||
+        t.description.toLowerCase().contains('transferencia');
+
+    String title = t.description;
+    String subtitle = DateFormat('h:mm a').format(t.date);
+    String symbol = walletProvider.currencySymbol;
+    String absAmount = t.amount.abs().toStringAsFixed(2);
+
+    String amountFormatted;
+    Color color;
+    IconData icon;
+    bool isIncome = t.amount > 0;
+
+    final cardColor = theme.cardColor;
+    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
+    final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
+
+    if (isTransfer) {
+      final source = walletProvider.getAccountName(t.accountId);
+      final dest = t.destinationAccountId != null
+          ? walletProvider.getAccountName(t.destinationAccountId!)
+          : 'Destino';
+
+      title = t.description.isNotEmpty ? t.description : "Transferencia";
+      subtitle = "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+      amountFormatted = "⇄ $symbol $absAmount";
+      color = isDarkMode ? Colors.white70 : const Color(0xFF64B5F6);
+      icon = Icons.swap_horiz;
+    } else {
+      amountFormatted = "${isIncome ? '+' : '-'} $symbol $absAmount";
+      color = isIncome
+          ? (isDarkMode ? Colors.greenAccent : Colors.green)
+          : Colors.redAccent;
+      icon = isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
+
+      if (t.note != null && t.note!.isNotEmpty) {
+        subtitle += " • ${t.note!}";
+      } else {
+        subtitle += " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isDarkMode
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    offset: const Offset(0, 4),
+                    blurRadius: 10,
+                  )
+                ]),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: (isIncome && !isTransfer)
+                  ? (isDarkMode
+                      ? Colors.greenAccent.withOpacity(0.15)
+                      : Colors.greenAccent.withOpacity(0.15))
+                  : color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon,
+                color: (isIncome && !isTransfer)
+                    ? (isDarkMode ? Colors.greenAccent : Colors.green)
+                    : color,
+                size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: textColor),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: subTextColor, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Text(
+            amountFormatted,
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 16, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDevButton(
+      BuildContext context, String label, Color color, VoidCallback onTap) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+            backgroundColor: color.withOpacity(0.2),
+            foregroundColor: color,
+            side: BorderSide(color: color),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10))),
+        onPressed: onTap,
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  void _showDeveloperPanel(BuildContext context) {
+    if (!kDebugMode) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E2A32),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("🛠️ Panel de Desarrollador",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _buildDevButton(
+                ctx, "⚠️ Reset App Data (Development)", Colors.redAccent,
+                () async {
+              Navigator.pop(ctx);
+              // Invoke Clear All Data directly
+              await sl.sl<TransactionLocalDataSource>().clearAllData();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                      builder: (context) => const OnboardingPage()),
+                  (route) => false,
+                );
+              }
+            }),
+            const SizedBox(height: 10),
+            _buildDevButton(ctx, "🌱 Seed Fake Data", Colors.greenAccent,
+                () async {
+              Navigator.pop(ctx);
+              await Provider.of<TransactionProvider>(ctx, listen: false)
+                  .generateFakeData();
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Fake data seeded!')),
+                );
+              }
+            }),
+            const SizedBox(height: 10),
+            _buildDevButton(ctx, "🤖 Reset Coach Timer", Colors.blueAccent,
+                () async {
+              Navigator.pop(ctx);
+              await Provider.of<StatsProvider>(ctx, listen: false)
+                  .resetCoachCooldown();
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Coach timers reset!')),
+                );
+              }
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}

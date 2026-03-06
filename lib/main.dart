@@ -7,10 +7,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'data/repositories/transaction_data_source.dart';
-import 'presentation/pages/main_page.dart';
-import 'presentation/pages/intro_page.dart';
-import 'presentation/providers/dashboard_provider.dart';
-import 'presentation/pages/lock_screen.dart';
+import 'presentation/features/dashboard/main_page.dart';
+import 'presentation/features/auth/intro_page.dart';
+import 'presentation/features/auth/lock_screen.dart';
+
+// Providers
+import 'presentation/providers/ui_provider.dart';
+import 'presentation/providers/transaction_provider.dart';
+import 'presentation/providers/wallet_provider.dart';
+import 'presentation/providers/stats_provider.dart';
 
 import 'core/services/notification_service.dart';
 
@@ -80,10 +85,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => di.sl<DashboardProvider>()),
+        ChangeNotifierProvider(create: (_) => di.sl<UiProvider>()),
+        ChangeNotifierProvider(create: (_) => di.sl<WalletProvider>()),
+        ChangeNotifierProvider(create: (_) => di.sl<TransactionProvider>()),
+        ChangeNotifierProvider(create: (_) => di.sl<StatsProvider>()),
       ],
-      child: Consumer<DashboardProvider>(
-        builder: (context, provider, _) {
+      child: Consumer<UiProvider>(
+        builder: (context, uiProvider, _) {
           // Light Theme
           final lightTheme = ThemeData(
             brightness: Brightness.light,
@@ -155,7 +163,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             supportedLocales: const [
               Locale('es', 'ES'),
             ],
-            themeMode: provider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            themeMode: uiProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             theme: lightTheme,
             darkTheme: darkTheme,
             home: _isLocked

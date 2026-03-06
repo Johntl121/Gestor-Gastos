@@ -1,350 +1,357 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/dashboard_provider.dart';
+// Providers
+import '../../providers/ui_provider.dart';
+import '../../providers/wallet_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../../data/repositories/transaction_data_source.dart';
+import '../../../injection_container.dart' as sl;
 
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'onboarding_page.dart';
+import '../auth/onboarding_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<DashboardProvider>(builder: (context, provider, child) {
-      final isDarkMode = provider.isDarkMode;
-      final backgroundColor =
-          isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
-      final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
-      final textColor = isDarkMode ? Colors.white : Colors.black;
-      final subTextColor = isDarkMode ? Colors.grey : Colors.blueGrey;
-      const cyanColor = Color(0xFF00E5FF);
+    // Consume Providers
+    final uiProvider = Provider.of<UiProvider>(context);
+    final walletProvider = Provider.of<WalletProvider>(context);
+    // Transaction Provider is needed for export, but we can listen: false usually?
+    // Actually for export we just access the list.
+    final transactionProvider =
+        Provider.of<TransactionProvider>(context, listen: false);
 
-      return Scaffold(
-        backgroundColor: backgroundColor,
-        appBar: AppBar(
-          title: Text("Configuración",
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: IconThemeData(color: textColor),
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: Column(
-            children: [
-              // 2. HEADER
-              const SizedBox(height: 10),
-              Container(
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: cyanColor, width: 2)),
-                child: GestureDetector(
-                  onTap: () => _showAvatarSelectionSheet(context),
-                  child: Stack(
-                    alignment: Alignment.bottomRight,
+    final isDarkMode = uiProvider.isDarkMode;
+    final backgroundColor =
+        isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
+    final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final subTextColor = isDarkMode ? Colors.grey : Colors.blueGrey;
+    const cyanColor = Color(0xFF00E5FF);
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: Text("Configuración",
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Column(
+          children: [
+            // 2. HEADER
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: cyanColor, width: 2)),
+              child: GestureDetector(
+                onTap: () => _showAvatarSelectionSheet(context),
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.transparent,
+                      backgroundImage: uiProvider.profileImagePath != null
+                          ? FileImage(File(uiProvider.profileImagePath!))
+                          : null,
+                      child: uiProvider.profileImagePath == null
+                          ? Text(uiProvider.userAvatar,
+                              style: const TextStyle(fontSize: 70))
+                          : null,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                          color: Colors.cyanAccent, shape: BoxShape.circle),
+                      child: const Icon(Icons.camera_alt,
+                          size: 18, color: Colors.black),
+                    )
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(uiProvider.userName,
+                style: TextStyle(
+                    color: textColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text("Estado: Balanceado",
+                style: TextStyle(color: subTextColor, fontSize: 14)),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: () => _showEditProfileDialog(context),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                    color: isDarkMode ? Colors.grey : Colors.grey.shade400),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                foregroundColor: textColor,
+              ),
+              child: const Text("Editar Perfil"),
+            ),
+
+            const SizedBox(height: 30),
+
+            // 3. BUDGET CONFIGURATION
+            Align(
+                alignment: Alignment.centerLeft,
+                child: Text("Configuración de Presupuesto",
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold))),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: isDarkMode
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            offset: const Offset(0, 4),
+                            blurRadius: 10,
+                          )
+                        ]),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: provider.profileImagePath != null
-                            ? FileImage(File(provider.profileImagePath!))
-                            : null,
-                        child: provider.profileImagePath == null
-                            ? Text(provider.userAvatar,
-                                style: const TextStyle(fontSize: 70))
-                            : null,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                            color: Colors.cyanAccent, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt,
-                            size: 18, color: Colors.black),
-                      )
+                      Text("LÍMITE MENSUAL",
+                          style: TextStyle(
+                              color: subTextColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                      GestureDetector(
+                          onTap: () => _showEditBudgetDialog(context),
+                          child: const Icon(Icons.edit,
+                              color: Colors.blueAccent, size: 20)),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(provider.userName,
-                  style: TextStyle(
-                      color: textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text("Estado: Balanceado",
-                  style: TextStyle(color: subTextColor, fontSize: 14)),
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: () => _showEditProfileDialog(context),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                      color: isDarkMode ? Colors.grey : Colors.grey.shade400),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20)),
-                  foregroundColor: textColor,
-                ),
-                child: const Text("Editar Perfil"),
-              ),
-
-              const SizedBox(height: 30),
-
-              // 3. BUDGET CONFIGURATION
-              Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("Configuración de Presupuesto",
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold))),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: isDarkMode
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              offset: const Offset(0, 4),
-                              blurRadius: 10,
-                            )
-                          ]),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("LÍMITE MENSUAL",
-                            style: TextStyle(
-                                color: subTextColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600)),
-                        GestureDetector(
-                            onTap: () => _showEditBudgetDialog(context),
-                            child: const Icon(Icons.edit,
-                                color: Colors.blueAccent, size: 20)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "${provider.currencySymbol} ${provider.budgetLimit.toStringAsFixed(2)}",
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Tu estado emocional se actualiza en base a este límite.",
-                      style: TextStyle(
-                          color: isDarkMode ? Colors.white30 : Colors.grey,
-                          fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              const SizedBox(height: 30),
-
-              // 5. APP PREFERENCES
-              Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("Preferencias de App",
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold))),
-              const SizedBox(height: 12),
-              Column(
-                children: [
-                  _buildPreferenceSwitch(
-                      "Modo Oscuro",
-                      provider.isDarkMode,
-                      Icons.dark_mode,
-                      cardColor,
-                      textColor,
-                      isDarkMode,
-                      (val) => provider.toggleTheme(
-                          val)), // Toggle passes boolean, which provider uses to switch
-
-                  // PIN Lock Switch
-                  _buildPreferenceSwitch(
-                      "Bloqueo con PIN",
-                      provider.isPinEnabled,
-                      Icons.lock,
-                      cardColor,
-                      textColor,
-                      isDarkMode, (val) {
-                    if (val) {
-                      // ON: Create PIN
-                      _showPinDialog(context, isCreating: true,
-                          onConfirmed: (pin) {
-                        provider.setPin(pin);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("PIN Establecido ✅")));
-                      });
-                    } else {
-                      // OFF: Verify to Disable
-                      if (provider.isPinEnabled) {
-                        _showPinDialog(context, isCreating: false,
-                            onConfirmed: (pin) {
-                          if (provider.verifyPin(pin)) {
-                            provider.removePin();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text("PIN Eliminado 🔓")));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text("PIN Incorrecto ❌"),
-                                    backgroundColor: Colors.red));
-                          }
-                        });
-                      }
-                    }
-                  }),
-
-                  if (provider.isPinEnabled)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16, bottom: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          icon: Icon(Icons.lock_reset,
-                              size: 16, color: subTextColor),
-                          label: Text("Cambiar PIN",
-                              style: TextStyle(color: subTextColor)),
-                          onPressed: () {
-                            _showPinDialog(context, isCreating: true,
-                                onConfirmed: (pin) {
-                              provider.setPin(pin);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text("PIN Actualizado")));
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-
-                  _buildPreferenceSwitch(
-                      "Notificaciones",
-                      provider.enableNotifications,
-                      Icons.notifications,
-                      cardColor,
-                      textColor,
-                      isDarkMode, (val) {
-                    provider.toggleNotifications(val);
-                    if (val) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("🔔 Notificaciones Activas")));
-                    }
-                  }),
-                  _buildPreferenceSwitch(
-                      "Face ID / Touch ID",
-                      provider.enableBiometrics,
-                      Icons.fingerprint,
-                      cardColor,
-                      textColor,
-                      isDarkMode, (val) {
-                    provider.toggleBiometrics(val);
-                    if (val) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("👆 Biometría Vinculada (Simulado)")));
-                    }
-                  }),
+                  const SizedBox(height: 10),
+                  Text(
+                    "${walletProvider.currencySymbol} ${walletProvider.budgetLimit.toStringAsFixed(2)}",
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Tu estado emocional se actualiza en base a este límite.",
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white30 : Colors.grey,
+                        fontSize: 11),
+                  ),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 30),
+            const SizedBox(height: 30),
 
-              // 6. DATA & SECURITY
-              Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("Datos y Seguridad",
-                      style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold))),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: isDarkMode
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              offset: const Offset(0, 4),
-                              blurRadius: 10,
-                            )
-                          ]),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.file_download,
-                          color: Colors.tealAccent),
-                      title: Text("Exportar Datos (CSV)",
-                          style: TextStyle(color: textColor)),
-                      subtitle: Text("Copia tus gastos al portapapeles",
-                          style: TextStyle(color: subTextColor, fontSize: 12)),
-                      onTap: () => _exportData(context),
+            // 5. APP PREFERENCES
+            Align(
+                alignment: Alignment.centerLeft,
+                child: Text("Preferencias de App",
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold))),
+            const SizedBox(height: 12),
+            Column(
+              children: [
+                _buildPreferenceSwitch(
+                    "Modo Oscuro",
+                    uiProvider.isDarkMode,
+                    Icons.dark_mode,
+                    cardColor,
+                    textColor,
+                    isDarkMode,
+                    (val) =>
+                        uiProvider.toggleTheme(val)), // Toggle passes boolean
+
+                // PIN Lock Switch
+                _buildPreferenceSwitch(
+                    "Bloqueo con PIN",
+                    uiProvider.isPinEnabled,
+                    Icons.lock,
+                    cardColor,
+                    textColor,
+                    isDarkMode, (val) {
+                  if (val) {
+                    // ON: Create PIN
+                    _showPinDialog(context, isCreating: true,
+                        onConfirmed: (pin) {
+                      uiProvider.setPin(pin);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("PIN Establecido ✅")));
+                    });
+                  } else {
+                    // OFF: Verify to Disable
+                    if (uiProvider.isPinEnabled) {
+                      _showPinDialog(context, isCreating: false,
+                          onConfirmed: (pin) {
+                        if (uiProvider.verifyPin(pin)) {
+                          uiProvider.removePin();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("PIN Eliminado 🔓")));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text("PIN Incorrecto ❌"),
+                                  backgroundColor: Colors.red));
+                        }
+                      });
+                    }
+                  }
+                }),
+
+                if (uiProvider.isPinEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, bottom: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        icon: Icon(Icons.lock_reset,
+                            size: 16, color: subTextColor),
+                        label: Text("Cambiar PIN",
+                            style: TextStyle(color: subTextColor)),
+                        onPressed: () {
+                          _showPinDialog(context, isCreating: true,
+                              onConfirmed: (pin) {
+                            uiProvider.setPin(pin);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text("PIN Actualizado")));
+                          });
+                        },
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+
+                _buildPreferenceSwitch(
+                    "Notificaciones",
+                    uiProvider.enableNotifications,
+                    Icons.notifications,
+                    cardColor,
+                    textColor,
+                    isDarkMode, (val) {
+                  uiProvider.toggleNotifications(val);
+                  if (val) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("🔔 Notificaciones Activas")));
+                  }
+                }),
+                _buildPreferenceSwitch(
+                    "Face ID / Touch ID",
+                    uiProvider.enableBiometrics,
+                    Icons.fingerprint,
+                    cardColor,
+                    textColor,
+                    isDarkMode, (val) {
+                  uiProvider.toggleBiometrics(val);
+                  if (val) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("👆 Biometría Vinculada (Simulado)")));
+                  }
+                }),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+
+            // 6. DATA & SECURITY
+            Align(
+                alignment: Alignment.centerLeft,
+                child: Text("Datos y Seguridad",
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold))),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: isDarkMode
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            offset: const Offset(0, 4),
+                            blurRadius: 10,
+                          )
+                        ]),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.file_download,
+                        color: Colors.tealAccent),
+                    title: Text("Exportar Datos (CSV)",
+                        style: TextStyle(color: textColor)),
+                    subtitle: Text("Copia tus gastos al portapapeles",
+                        style: TextStyle(color: subTextColor, fontSize: 12)),
+                    onTap: () => _exportData(context),
+                  ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 40),
+            const SizedBox(height: 40),
 
-              // 7. DANGER ZONE
-              const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text("ZONA DE PELIGRO",
-                      style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2))),
-              const SizedBox(height: 12),
-              Container(
-                decoration: BoxDecoration(
-                    color: Colors.redAccent.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: Colors.redAccent.withOpacity(0.3))),
-                child: ListTile(
-                  leading: const Icon(Icons.delete_forever, color: Colors.red),
-                  title: const Text("Restablecer Datos de Fábrica",
-                      style: TextStyle(
-                          color: Colors.red, fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                      "Borrar transacciones, cuentas y reiniciar app.",
-                      style: TextStyle(color: Colors.red[300], fontSize: 11)),
-                  onTap: () => _confirmReset(context),
-                ),
+            // 7. DANGER ZONE
+            const Align(
+                alignment: Alignment.centerLeft,
+                child: Text("ZONA DE PELIGRO",
+                    style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2))),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                  color: Colors.redAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.3))),
+              child: ListTile(
+                leading: const Icon(Icons.delete_forever, color: Colors.red),
+                title: const Text("Restablecer Datos de Fábrica",
+                    style: TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.bold)),
+                subtitle: Text("Borrar transacciones, cuentas y reiniciar app.",
+                    style: TextStyle(color: Colors.red[300], fontSize: 11)),
+                onTap: () => _confirmReset(context),
               ),
+            ),
 
-              const SizedBox(height: 40),
-              Text("Versión de App 1.1.0",
-                  style: TextStyle(color: subTextColor, fontSize: 12)),
-              const SizedBox(height: 20),
-            ],
-          ),
+            const SizedBox(height: 40),
+            Text("Versión de App 1.1.0",
+                style: TextStyle(color: subTextColor, fontSize: 12)),
+            const SizedBox(height: 20),
+          ],
         ),
-      );
-    });
+      ),
+    );
   }
 
   Widget _buildPreferenceSwitch(
@@ -383,13 +390,13 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _showEditProfileDialog(BuildContext context) {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-    final isDarkMode = provider.isDarkMode;
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final hintColor = isDarkMode ? Colors.grey : Colors.grey[600];
 
-    final controller = TextEditingController(text: provider.userName);
+    final controller = TextEditingController(text: uiProvider.userName);
 
     showDialog(
       context: context,
@@ -417,7 +424,7 @@ class SettingsPage extends StatelessWidget {
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
-                provider.setUserName(controller.text.trim());
+                uiProvider.setUserName(controller.text.trim());
               }
               Navigator.pop(ctx);
             },
@@ -430,8 +437,8 @@ class SettingsPage extends StatelessWidget {
 
   void _showPinDialog(BuildContext context,
       {required bool isCreating, Function(String)? onConfirmed}) {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-    final isDarkMode = provider.isDarkMode;
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black;
 
@@ -534,7 +541,7 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _exportData(BuildContext context) async {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
+    final provider = Provider.of<TransactionProvider>(context, listen: false);
     final transactions = provider.transactions;
 
     // Build CSV
@@ -559,14 +566,15 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _showEditBudgetDialog(BuildContext context) {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-    final isDarkMode = provider.isDarkMode;
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final hintColor = isDarkMode ? Colors.grey : Colors.grey[600];
 
     final TextEditingController controller = TextEditingController(
-      text: provider.budgetLimit.toString(),
+      text: walletProvider.budgetLimit.toString(),
     );
 
     showDialog(
@@ -583,7 +591,7 @@ class SettingsPage extends StatelessWidget {
                   const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(color: textColor),
               decoration: InputDecoration(
-                prefixText: '${provider.currencySymbol} ',
+                prefixText: '${walletProvider.currencySymbol} ',
                 prefixStyle: const TextStyle(color: Colors.cyan),
                 enabledBorder: UnderlineInputBorder(
                     borderSide: BorderSide(
@@ -603,7 +611,7 @@ class SettingsPage extends StatelessWidget {
               onPressed: () {
                 final newLimit = double.tryParse(controller.text);
                 if (newLimit != null && newLimit > 0) {
-                  provider.setBudgetLimit(newLimit);
+                  walletProvider.setBudgetLimit(newLimit);
                 }
                 Navigator.of(ctx).pop();
               },
@@ -625,7 +633,7 @@ class SettingsPage extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (context) {
-        final provider = Provider.of<DashboardProvider>(context, listen: false);
+        final uiProvider = Provider.of<UiProvider>(context, listen: false);
         return Container(
           padding: const EdgeInsets.all(30),
           height: MediaQuery.of(context).size.height * 0.6,
@@ -689,7 +697,7 @@ class SettingsPage extends StatelessWidget {
                   ]
                       .map((emoji) => GestureDetector(
                             onTap: () {
-                              provider
+                              uiProvider
                                   .setUserAvatar(emoji); // Update immediately
                               Navigator.pop(context);
                             },
@@ -751,9 +759,36 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: source,
+        imageQuality: 60,
+      );
+
+      if (pickedFile != null) {
+        final directory = await getApplicationDocumentsDirectory();
+        final String fileName =
+            'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final String savedPath = path.join(directory.path, fileName);
+        await File(pickedFile.path).copy(savedPath);
+
+        // Update via Provider
+        if (context.mounted) {
+          await uiProvider.setProfileImagePath(savedPath);
+          Navigator.pop(context); // Close Sheet
+        }
+      }
+    } catch (e) {
+      debugPrint("Image Pick Error: $e");
+    }
+  }
+
   void _confirmReset(BuildContext context) {
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-    final isDarkMode = provider.isDarkMode;
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black;
     final subTextColor = isDarkMode ? Colors.white70 : Colors.black54;
@@ -779,9 +814,8 @@ class SettingsPage extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx); // Close Dialog
 
-              final provider =
-                  Provider.of<DashboardProvider>(context, listen: false);
-              await provider.resetAllData();
+              // Clear All Data via UseCase or DataSource
+              await sl.sl<TransactionLocalDataSource>().clearAllData();
 
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
@@ -798,31 +832,5 @@ class SettingsPage extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _pickImage(BuildContext context, ImageSource source) async {
-    final picker = ImagePicker();
-    try {
-      final XFile? pickedFile = await picker.pickImage(
-        source: source,
-        imageQuality: 60, // Optimize size
-      );
-
-      if (pickedFile != null && context.mounted) {
-        final directory = await getApplicationDocumentsDirectory();
-        final String fileName =
-            'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final String savedPath = path.join(directory.path, fileName);
-
-        await File(pickedFile.path).copy(savedPath);
-
-        final provider = Provider.of<DashboardProvider>(context, listen: false);
-        await provider.setProfileImagePath(savedPath);
-
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      debugPrint("Error picking image: $e");
-    }
   }
 }

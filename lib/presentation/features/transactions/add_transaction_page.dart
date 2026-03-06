@@ -5,9 +5,15 @@ import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../domain/entities/transaction_entity.dart';
-import '../../domain/entities/account_entity.dart';
-import '../providers/dashboard_provider.dart';
+
+// Domain Entities
+import '../../../domain/entities/transaction_entity.dart';
+import '../../../domain/entities/account_entity.dart';
+
+// Providers
+import '../../providers/wallet_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/ui_provider.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final TransactionEntity? transactionToEdit;
@@ -48,7 +54,13 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   @override
   void initState() {
     super.initState();
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  void _initializeData() {
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
 
     if (widget.transactionToEdit != null) {
       _editingTransaction = widget.transactionToEdit!;
@@ -75,7 +87,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       if (_editingTransaction!.imagePath != null) {
         final file = File(_editingTransaction!.imagePath!);
         if (file.existsSync()) {
-          _selectedImage = file;
+          setState(() {
+            _selectedImage = file;
+          });
         }
       }
     } else if (widget.draftTransaction != null) {
@@ -87,15 +101,17 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       _selectedDestAccountId = t.destinationAccountId;
       _noteController.text = t.note ?? '';
     } else {
-      if (provider.accounts.isNotEmpty) {
-        _selectedSourceAccountId = provider.accounts.first.id;
-        if (provider.accounts.length > 1) {
-          _selectedDestAccountId = provider.accounts[1].id;
-        }
+      if (walletProvider.accounts.isNotEmpty) {
+        setState(() {
+          _selectedSourceAccountId = walletProvider.accounts.first.id;
+          if (walletProvider.accounts.length > 1) {
+            _selectedDestAccountId = walletProvider.accounts[1].id;
+          }
+        });
       }
     }
 
-    _updateCurrencySymbol(provider);
+    _updateCurrencySymbol(walletProvider);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -131,34 +147,42 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     });
   }
 
-  void _updateCurrencySymbol(DashboardProvider provider) {
+  void _updateCurrencySymbol(WalletProvider provider) {
     if (_selectedSourceAccountId != null) {
-      final account = provider.accounts.firstWhere(
-          (a) => a.id == _selectedSourceAccountId,
-          orElse: () => provider.accounts.first);
-      setState(() {
-        _activeCurrencySymbol = account.currencySymbol;
-      });
+      try {
+        final account = provider.accounts.firstWhere(
+            (a) => a.id == _selectedSourceAccountId,
+            orElse: () => provider.accounts.first);
+        setState(() {
+          _activeCurrencySymbol = account.currencySymbol;
+        });
+      } catch (e) {
+        // Fallback if no accounts
+      }
     }
 
     if (_transactionType == TransactionType.transfer &&
         _selectedDestAccountId != null &&
         _selectedSourceAccountId != null) {
-      final source =
-          provider.accounts.firstWhere((a) => a.id == _selectedSourceAccountId);
-      final dest =
-          provider.accounts.firstWhere((a) => a.id == _selectedDestAccountId);
+      try {
+        final source = provider.accounts
+            .firstWhere((a) => a.id == _selectedSourceAccountId);
+        final dest =
+            provider.accounts.firstWhere((a) => a.id == _selectedDestAccountId);
 
-      if (source.currencySymbol != dest.currencySymbol) {
-        setState(() {
-          _hasCurrencyMismatch = true;
-          _mismatchSourceSymbol = source.currencySymbol;
-          _mismatchDestSymbol = dest.currencySymbol;
-        });
-      } else {
-        setState(() {
-          _hasCurrencyMismatch = false;
-        });
+        if (source.currencySymbol != dest.currencySymbol) {
+          setState(() {
+            _hasCurrencyMismatch = true;
+            _mismatchSourceSymbol = source.currencySymbol;
+            _mismatchDestSymbol = dest.currencySymbol;
+          });
+        } else {
+          setState(() {
+            _hasCurrencyMismatch = false;
+          });
+        }
+      } catch (e) {
+        // Accounts might not exist
       }
     } else {
       setState(() {
@@ -168,8 +192,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   }
 
   // Data definitions
-  // Removed static maps _sourceNames and _sourceIcons in favor of dynamic accounts
-
   final Map<int, Map<String, dynamic>> _expenseCategories = {
     // Alimentación
     1: {'name': 'Comida', 'icon': Icons.restaurant, 'color': Colors.orange},
@@ -268,7 +290,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     super.dispose();
   }
 
-  void _saveTransaction() {
+  Future<void> _saveTransaction() async {
     final amountText = _amountController.text;
     if (amountText.isEmpty) return;
 
@@ -290,8 +312,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       return;
     }
 
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
-
     // Block Currency Mismatch
     if (_hasCurrencyMismatch) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -299,73 +319,94 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       return;
     }
 
+    final transactionProvider =
+        Provider.of<TransactionProvider>(context, listen: false);
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+
     final note = _noteController.text.trim();
 
-    if (_transactionType == TransactionType.transfer) {
-      // Handle Transfer Logic
-      if (_selectedSourceAccountId != null && _selectedDestAccountId != null) {
-        provider.addTransfer(
-          amount: amount,
-          sourceAccountId: _selectedSourceAccountId!,
-          destinationAccountId: _selectedDestAccountId!,
-          note: note.isNotEmpty ? note : null,
-        );
-      }
-    } else {
-      // Handle Expense/Income logic
-      if (_transactionType == TransactionType.expense) {
-        amount = amount * -1;
-      }
-
-      // Ensure Account ID is valid
-      if (_selectedSourceAccountId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Selecciona una cuenta")));
-        return;
-      }
-
-      final activeMap = _transactionType == TransactionType.income
-          ? _incomeCategories
-          : _expenseCategories;
-      final catName = activeMap[_selectedCategoryId]?['name'] ?? 'Transacción';
-
-      if (widget.transactionToEdit != null) {
-        // Update Mode
-        final updatedTransaction = TransactionEntity(
-          id: widget.transactionToEdit!.id,
-          accountId: _selectedSourceAccountId!,
-          categoryId: _selectedCategoryId,
-          amount: amount,
-          date: widget.transactionToEdit!.date,
-          description: catName,
-          note: note.isNotEmpty ? note : null,
-          type: _transactionType, // Explicit type update
-          imagePath: _selectedImage?.path,
-        );
-        provider.updateTransaction(updatedTransaction);
+    try {
+      if (_transactionType == TransactionType.transfer) {
+        // Handle Transfer Logic
+        if (_selectedSourceAccountId != null &&
+            _selectedDestAccountId != null) {
+          await transactionProvider.addTransfer(
+            amount: amount,
+            sourceAccountId: _selectedSourceAccountId!,
+            destinationAccountId: _selectedDestAccountId!,
+            note: note.isNotEmpty ? note : null,
+          );
+        }
       } else {
-        // Add Mode
-        final transaction = TransactionEntity(
-          accountId: _selectedSourceAccountId!,
-          categoryId: _selectedCategoryId,
-          amount: amount,
-          date: DateTime.now(),
-          description: catName,
-          note: note.isNotEmpty ? note : null,
-          type: _transactionType, // Explicit type
-          imagePath: _selectedImage?.path,
-        );
-        provider.addTransaction(transaction);
+        // Handle Expense/Income logic
+        if (_transactionType == TransactionType.expense) {
+          amount = amount * -1;
+        }
+
+        // Ensure Account ID is valid
+        if (_selectedSourceAccountId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Selecciona una cuenta")));
+          return;
+        }
+
+        final activeMap = _transactionType == TransactionType.income
+            ? _incomeCategories
+            : _expenseCategories;
+        final catName =
+            activeMap[_selectedCategoryId]?['name'] ?? 'Transacción';
+
+        if (widget.transactionToEdit != null) {
+          // Update Mode
+          final updatedTransaction = TransactionEntity(
+            id: widget.transactionToEdit!.id,
+            accountId: _selectedSourceAccountId!,
+            categoryId: _selectedCategoryId,
+            amount: amount,
+            date: widget.transactionToEdit!.date,
+            description: catName,
+            note: note.isNotEmpty ? note : null,
+            type: _transactionType, // Explicit type update
+            imagePath: _selectedImage?.path,
+          );
+          await transactionProvider.updateTransaction(updatedTransaction);
+        } else {
+          // Add Mode
+          final transaction = TransactionEntity(
+            accountId: _selectedSourceAccountId!,
+            categoryId: _selectedCategoryId,
+            amount: amount,
+            date: DateTime.now(),
+            description: catName,
+            note: note.isNotEmpty ? note : null,
+            type: _transactionType, // Explicit type
+            imagePath: _selectedImage?.path,
+          );
+          await transactionProvider.addTransaction(transaction);
+        }
+      }
+
+      // Refresh Wallet Data to reflect balance changes
+      await walletProvider.loadWalletData();
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Error al guardar: $e")));
       }
     }
-
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<DashboardProvider>(context);
-    final isDarkMode = provider.isDarkMode;
+    // Uses UiProvider for Theme
+    final uiProvider = Provider.of<UiProvider>(context);
+    final walletProvider = Provider.of<WalletProvider>(context);
+
+    final isDarkMode = uiProvider.isDarkMode;
 
     // Theme Colors
     final backgroundColor =
@@ -433,7 +474,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   const SizedBox(height: 30),
 
                   // 2. AMOUNT HERO
-                  // 2. AMOUNT HERO
                   _buildHeroInput(_activeCurrencySymbol, isDarkMode),
 
                   const SizedBox(height: 20),
@@ -451,7 +491,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    _buildAccountSelector(provider.accounts,
+                    _buildAccountSelector(walletProvider.accounts,
                         isSource: true, isDarkMode: isDarkMode),
 
                     const SizedBox(height: 24),
@@ -467,7 +507,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    _buildAccountSelector(provider.accounts,
+                    _buildAccountSelector(walletProvider.accounts,
                         isSource: false, isDarkMode: isDarkMode),
 
                     if (_hasCurrencyMismatch)
@@ -502,7 +542,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                               letterSpacing: 1.1)),
                     ),
                     const SizedBox(height: 12),
-                    _buildAccountSelector(provider.accounts,
+                    _buildAccountSelector(walletProvider.accounts,
                         isSource: true, isDarkMode: isDarkMode),
                     const SizedBox(height: 30),
 
@@ -587,15 +627,16 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   void _onTypeChanged(TransactionType type) {
     if (_transactionType != type) {
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
       setState(() {
         _transactionType = type;
-        // Reset category to the first one in the new list to avoid invalid ID
-        // Or set to null if preferred, but let's default to first for valid UI
         if (type == TransactionType.income) {
           _selectedCategoryId = _incomeCategories.keys.first;
         } else {
           _selectedCategoryId = _expenseCategories.keys.first;
         }
+        _updateCurrencySymbol(walletProvider);
       });
     }
   }
@@ -690,8 +731,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
           } else {
             _selectedDestAccountId = account.id;
           }
-          final provider =
-              Provider.of<DashboardProvider>(context, listen: false);
+          final provider = Provider.of<WalletProvider>(context, listen: false);
           _updateCurrencySymbol(provider);
         });
       },
@@ -800,12 +840,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   alignment: Alignment.topRight,
                   children: [
                     Container(
-                      width: 70,
-                      height: 70,
-                      margin: const EdgeInsets.only(top: 8, right: 8),
+                      margin: const EdgeInsets.only(right: 12),
+                      height: 50,
+                      width: 50,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade500),
                         image: DecorationImage(
                           image: FileImage(_selectedImage!),
                           fit: BoxFit.cover,
@@ -815,59 +854,49 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     GestureDetector(
                       onTap: _removeImage,
                       child: Container(
+                        padding: const EdgeInsets.all(2),
                         decoration: const BoxDecoration(
-                            color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.cancel,
-                            color: Colors.red, size: 24),
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            size: 14, color: Colors.white),
                       ),
                     )
                   ],
-                )
-              else
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.camera_alt,
-                          color: Colors.grey, size: 28),
-                      onPressed: () => _pickImage(ImageSource.camera),
-                      tooltip: "Tomar Foto",
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.photo_library,
-                          color: Colors.grey, size: 28),
-                      onPressed: () => _pickImage(ImageSource.gallery),
-                      tooltip: "Galería",
-                    ),
-                    Text(
-                      "Adjuntar comprobante",
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    )
-                  ],
                 ),
+              ElevatedButton.icon(
+                onPressed: () => _pickImage(ImageSource.gallery),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: inputFillColor,
+                  foregroundColor: isDarkMode ? Colors.white : Colors.black87,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                icon: const Icon(Icons.image_outlined, size: 20),
+                label: const Text("Foto"),
+              ),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: _saveTransaction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _activeColor,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25)),
+                  elevation: 5,
+                  shadowColor: _activeColor.withOpacity(0.5),
+                ),
+                child: const Text("Guardar",
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
             ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 55,
-            child: ElevatedButton(
-              onPressed: _hasCurrencyMismatch ? null : _saveTransaction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _activeColor,
-                disabledBackgroundColor:
-                    isDarkMode ? Colors.white10 : Colors.grey[300],
-                disabledForegroundColor: Colors.grey,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Guardar Transacción',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
           ),
         ],
       ),

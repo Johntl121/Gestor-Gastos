@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/subscription.dart';
+import '../models/goal_model.dart';
 
 const String CACHED_TRANSACTIONS_KEY = 'CACHED_TRANSACTIONS';
 const String CACHED_SUBSCRIPTIONS_KEY = 'CACHED_SUBSCRIPTIONS';
+const String CACHED_GOALS_KEY = 'CACHED_GOALS';
 const String KEY_FIRST_TIME = 'FIRST_TIME';
 const String KEY_USER_NAME = 'USER_NAME';
 const String KEY_CURRENCY = 'CURRENCY';
@@ -12,6 +14,7 @@ const String KEY_BUDGET_LIMIT = 'BUDGET_LIMIT';
 const String KEY_SECURITY_PIN = 'SECURITY_PIN';
 const String KEY_USER_AVATAR = 'USER_AVATAR';
 const String KEY_PROFILE_IMAGE_PATH = 'PROFILE_IMAGE_PATH';
+const String KEY_THEME_MODE = 'THEME_MODE';
 
 abstract class TransactionLocalDataSource {
   Future<List<TransactionModel>> getTransactions();
@@ -19,6 +22,9 @@ abstract class TransactionLocalDataSource {
 
   Future<List<Subscription>> getSubscriptions();
   Future<void> cacheSubscriptions(List<Subscription> subscriptions);
+
+  Future<List<GoalModel>> getGoals();
+  Future<void> cacheGoals(List<GoalModel> goals);
 
   bool isFirstTime();
   Future<void> setFirstTime(bool value);
@@ -34,6 +40,8 @@ abstract class TransactionLocalDataSource {
   String getUserAvatar();
   Future<void> saveProfileImagePath(String? path);
   String? getProfileImagePath();
+  Future<void> saveThemeMode(bool isDark);
+  bool getThemeMode();
   Future<void> clearAllData();
 }
 
@@ -81,6 +89,22 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
         subscriptions.map((s) => s.toJson()).toList();
     return sharedPreferences.setString(
         CACHED_SUBSCRIPTIONS_KEY, json.encode(jsonList));
+  }
+
+  @override
+  Future<List<GoalModel>> getGoals() {
+    final jsonString = sharedPreferences.getString(CACHED_GOALS_KEY);
+    if (jsonString != null) {
+      List<dynamic> jsonList = json.decode(jsonString);
+      return Future.value(jsonList.map((j) => GoalModel.fromJson(j)).toList());
+    }
+    return Future.value([]);
+  }
+
+  @override
+  Future<void> cacheGoals(List<GoalModel> goals) {
+    List<Map<String, dynamic>> jsonList = goals.map((g) => g.toJson()).toList();
+    return sharedPreferences.setString(CACHED_GOALS_KEY, json.encode(jsonList));
   }
 
   @override
@@ -160,7 +184,21 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   }
 
   @override
+  Future<void> saveThemeMode(bool isDark) {
+    return sharedPreferences.setBool(KEY_THEME_MODE, isDark);
+  }
+
+  @override
+  bool getThemeMode() {
+    return sharedPreferences.getBool(KEY_THEME_MODE) ?? true; // Default dark
+  }
+
+  @override
   Future<void> clearAllData() async {
+    // We should preserve the theme even if data is cleared, or maybe not.
+    // We will clear all to be safe, but they might want theme preserved.
+    final currentTheme = getThemeMode();
     await sharedPreferences.clear();
+    await saveThemeMode(currentTheme); // Restore theme after wipe
   }
 }

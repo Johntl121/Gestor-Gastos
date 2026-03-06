@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -59,9 +60,6 @@ class NotificationService {
   }
 
   /// Schedules a monthly notification.
-  /// If the [dayOfMonth] has already passed for the current month (or time),
-  /// it schedules for the next month.
-  /// Handles "Magic Hour" and short months automatically via logic.
   Future<void> scheduleMonthlyNotification({
     required int id,
     required String title,
@@ -69,49 +67,176 @@ class NotificationService {
     required int dayOfMonth,
     required TimeOfDay time,
   }) async {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      _nextInstanceOfMonthlyTime(dayOfMonth, time),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'fixed_expenses_channel',
-          'Gastos Fijos',
-          channelDescription: 'Recordatorios de pagos mensuales',
-          importance: Importance.max,
-          priority: Priority.high,
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id,
+        title,
+        body,
+        _nextInstanceOfMonthlyTime(dayOfMonth, time),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'fixed_expenses_channel',
+            'Gastos Fijos',
+            channelDescription: 'Recordatorios de pagos mensuales',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        debugPrint(
+            'Exact alarms not permitted, falling back to inexact notification for ID $id');
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          id,
+          title,
+          body,
+          _nextInstanceOfMonthlyTime(dayOfMonth, time),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'fixed_expenses_channel',
+              'Gastos Fijos',
+              channelDescription: 'Recordatorios de pagos mensuales',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// Schedules a yearly notification.
+  Future<void> scheduleYearlyNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int month,
+    required int day,
+    required TimeOfDay time,
+  }) async {
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id,
+        title,
+        body,
+        _nextInstanceOfYearlyTime(month, day, time),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'fixed_expenses_yearly_channel',
+            'Gastos Anuales',
+            channelDescription: 'Recordatorios de pagos anuales',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        debugPrint(
+            'Exact alarms not permitted, falling back to inexact notification for ID $id');
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          id,
+          title,
+          body,
+          _nextInstanceOfYearlyTime(month, day, time),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'fixed_expenses_yearly_channel',
+              'Gastos Anuales',
+              channelDescription: 'Recordatorios de pagos anuales',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  tz.TZDateTime _nextInstanceOfYearlyTime(int month, int day, TimeOfDay time) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+
+    // Attempt to schedule for this year
+    tz.TZDateTime scheduledDate = _createDate(now.year, month, day, time);
+
+    // If passed, next year
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = _createDate(now.year + 1, month, day, time);
+    }
+    return scheduledDate;
   }
 
   /// Schedules a test notification in [seconds] seconds.
   Future<void> scheduleTestNotification({int seconds = 5}) async {
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      99999, // Unique Test ID
-      'Prueba de Notificación 🔔',
-      'Si ves esto, las notificaciones funcionan correctamente.',
-      tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'test_channel',
-          'Pruebas',
-          channelDescription: 'Canal para pruebas de notificaciones',
-          importance: Importance.max,
-          priority: Priority.high,
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        99999, // Unique Test ID
+        'Prueba de Notificación 🔔',
+        'Si ves esto, las notificaciones funcionan correctamente.',
+        tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'test_channel',
+            'Pruebas',
+            channelDescription: 'Canal para pruebas de notificaciones',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
         ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'exact_alarms_not_permitted') {
+        debugPrint('Exact alarms not permitted, falling back to inexact test');
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          99999,
+          'Prueba de Notificación 🔔',
+          'Si ves esto, las notificaciones funcionan correctamente (Modo Inexacto).',
+          tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'test_channel',
+              'Pruebas',
+              channelDescription: 'Canal para pruebas de notificaciones',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(),
+          ),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } else {
+        rethrow;
+      }
+    }
   }
 
   tz.TZDateTime _nextInstanceOfMonthlyTime(int day, TimeOfDay time) {

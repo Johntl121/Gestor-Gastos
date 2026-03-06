@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../providers/dashboard_provider.dart';
+import '../../providers/ui_provider.dart';
+import '../../../data/repositories/transaction_data_source.dart';
+import '../../../injection_container.dart' as sl;
 
 /// LockScreen: Bloquea el acceso a la app hasta validar el PIN.
 class LockScreen extends StatefulWidget {
@@ -46,14 +48,18 @@ class _LockScreenState extends State<LockScreen> {
 
   void _validatePin() {
     if (!mounted) return;
-    final provider = Provider.of<DashboardProvider>(context, listen: false);
+
+    // Get stored PIN directly from DataSource
+    final dataSource = sl.sl<TransactionLocalDataSource>();
+    final storedPin = dataSource.getSecurityPin();
 
     // Verify
-    if (provider.verifyPin(_inputPin)) {
+    if (storedPin == _inputPin) {
       widget.onUnlocked();
     } else {
       HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(
+        // Using ScaffoldMessenger instead of Get or similar
         const SnackBar(
           content: Text("PIN Incorrecto"),
           backgroundColor: Colors.redAccent,
@@ -68,8 +74,10 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode =
-        Provider.of<DashboardProvider>(context, listen: false).isDarkMode;
+    // Use UiProvider for theme
+    final uiProvider = Provider.of<UiProvider>(context);
+    final isDarkMode = uiProvider.isDarkMode;
+
     final backgroundColor =
         isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
     final textColor = isDarkMode ? Colors.white : Colors.black;
@@ -141,30 +149,32 @@ class _LockScreenState extends State<LockScreen> {
   Widget _buildRow(List<String> keys, Color textColor, bool isDarkMode) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: keys.map((key) {
-        if (key.isEmpty) return const SizedBox(width: 70, height: 70);
-
-        return SizedBox(
-          width: 70,
-          height: 70,
-          child: TextButton(
-            onPressed: () => _onKeyPress(key),
-            style: TextButton.styleFrom(
-              shape: const CircleBorder(),
-              backgroundColor:
-                  isDarkMode ? Colors.white.withOpacity(0.05) : Colors.white,
-              elevation: 0,
-            ),
-            child: key == 'DEL'
-                ? Icon(Icons.backspace_outlined, color: textColor)
-                : Text(key,
-                    style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: textColor)),
-          ),
-        );
-      }).toList(),
+      children: [
+        for (var key in keys)
+          SizedBox(
+            width: 70,
+            height: 70,
+            child: key.isEmpty
+                ? const SizedBox()
+                : TextButton(
+                    onPressed: () => _onKeyPress(key),
+                    style: TextButton.styleFrom(
+                      shape: const CircleBorder(),
+                      backgroundColor: isDarkMode
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.white,
+                      elevation: 0,
+                    ),
+                    child: key == 'DEL'
+                        ? Icon(Icons.backspace_outlined, color: textColor)
+                        : Text(key,
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w600,
+                                color: textColor)),
+                  ),
+          )
+      ],
     );
   }
 }

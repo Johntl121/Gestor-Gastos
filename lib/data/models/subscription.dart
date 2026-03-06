@@ -1,9 +1,12 @@
+enum ExpenseFrequency { monthly, yearly }
+
 class Subscription {
   final String id;
   final String name;
   final double amount;
-  final int renewalDay;
-  final bool isPaidThisMonth;
+  final DateTime paymentDate;
+  final ExpenseFrequency frequency;
+  final bool isPaid;
   final int iconCode;
   final int colorValue;
   final int accountToCharge; // 1: Cash, 2: Bank, 3: Savings
@@ -12,20 +15,61 @@ class Subscription {
     required this.id,
     required this.name,
     required this.amount,
-    required this.renewalDay,
-    this.isPaidThisMonth = false,
+    required this.paymentDate,
+    required this.frequency,
+    this.isPaid = false,
     this.iconCode = 0xe57f, // Icons.subscriptions default
     this.colorValue = 0xFF9E9E9E, // Colors.grey default
     this.accountToCharge = 2, // Default to Bank
   });
+
+  // Getter inteligente: nextDueDate
+  DateTime get nextDueDate {
+    final now = DateTime.now();
+
+    if (frequency == ExpenseFrequency.monthly) {
+      // Caso Mensual
+      // Si el día de pago ya pasó este mes (ej. hoy 20, pago 15), es el próximo mes.
+      // Si hoy es 15, vence hoy (o ya venció si consideramos horas, pero simplifiquemos a fecha).
+
+      final paymentDay = paymentDate.day;
+
+      // Creamos la fecha de vencimiento para ESTE mes
+      final thisMonthDue = DateTime(now.year, now.month, paymentDay);
+
+      // Comparamos solo partes de fecha (ignorando horas) para seguridad
+      final nowDate = DateTime(now.year, now.month, now.day);
+
+      if (nowDate.isAfter(thisMonthDue)) {
+        // Ya pasó el día de este mes, pasamos al siguiente
+        // Manejo de desbordamiento de mes (diciembre -> enero) lo hace DateTime auto
+        return DateTime(now.year, now.month + 1, paymentDay);
+      } else {
+        return thisMonthDue;
+      }
+    } else {
+      // Caso Anual
+      // Si la fecha (mes/dia) ya pasó este año, es el próximo.
+      final thisYearDue =
+          DateTime(now.year, paymentDate.month, paymentDate.day);
+      final nowDate = DateTime(now.year, now.month, now.day);
+
+      if (nowDate.isAfter(thisYearDue)) {
+        return DateTime(now.year + 1, paymentDate.month, paymentDate.day);
+      } else {
+        return thisYearDue;
+      }
+    }
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'amount': amount,
-      'renewalDay': renewalDay,
-      'isPaidThisMonth': isPaidThisMonth,
+      'paymentDate': paymentDate.toIso8601String(),
+      'frequency': frequency.index, // Store as int index
+      'isPaid': isPaid,
       'iconCode': iconCode,
       'colorValue': colorValue,
       'accountToCharge': accountToCharge,
@@ -37,8 +81,10 @@ class Subscription {
       id: json['id'],
       name: json['name'],
       amount: json['amount'],
-      renewalDay: json['renewalDay'],
-      isPaidThisMonth: json['isPaidThisMonth'] ?? false,
+      paymentDate: DateTime.parse(json['paymentDate']),
+      frequency: ExpenseFrequency.values[json['frequency'] ?? 0],
+      isPaid: json['isPaid'] ??
+          false, // Mapped from old isPaidThisMonth key if needed? No, purely new.
       iconCode: json['iconCode'] ?? 0xe57f,
       colorValue: json['colorValue'] ?? 0xFF9E9E9E,
       accountToCharge: json['accountToCharge'] ?? 2,
@@ -49,8 +95,9 @@ class Subscription {
     String? id,
     String? name,
     double? amount,
-    int? renewalDay,
-    bool? isPaidThisMonth,
+    DateTime? paymentDate,
+    ExpenseFrequency? frequency,
+    bool? isPaid,
     int? iconCode,
     int? colorValue,
     int? accountToCharge,
@@ -59,8 +106,9 @@ class Subscription {
       id: id ?? this.id,
       name: name ?? this.name,
       amount: amount ?? this.amount,
-      renewalDay: renewalDay ?? this.renewalDay,
-      isPaidThisMonth: isPaidThisMonth ?? this.isPaidThisMonth,
+      paymentDate: paymentDate ?? this.paymentDate,
+      frequency: frequency ?? this.frequency,
+      isPaid: isPaid ?? this.isPaid,
       iconCode: iconCode ?? this.iconCode,
       colorValue: colorValue ?? this.colorValue,
       accountToCharge: accountToCharge ?? this.accountToCharge,

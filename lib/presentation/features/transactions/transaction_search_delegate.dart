@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../domain/entities/transaction_entity.dart';
+import '../../../domain/entities/transaction_entity.dart';
 
 class TransactionSearchDelegate extends SearchDelegate {
   final List<TransactionEntity> transactions;

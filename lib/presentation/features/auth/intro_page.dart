@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'onboarding_page.dart';
+import '../../providers/ui_provider.dart';
 
 class IntroPage extends StatefulWidget {
   const IntroPage({super.key});
@@ -50,7 +52,9 @@ class _IntroPageState extends State<IntroPage> {
 
   @override
   Widget build(BuildContext context) {
-    const backgroundColor = Color(0xFF0F172A);
+    final theme = Theme.of(context);
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final textColor = theme.colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -104,8 +108,8 @@ class _IntroPageState extends State<IntroPage> {
                       Text(
                         slide["title"],
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: textColor,
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                             height: 1.2),
@@ -115,7 +119,9 @@ class _IntroPageState extends State<IntroPage> {
                         slide["subtitle"],
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            color: Colors.grey[400], fontSize: 16, height: 1.5),
+                            color: textColor.withValues(alpha: 0.6),
+                            fontSize: 16,
+                            height: 1.5),
                       ),
                     ],
                   ),
@@ -123,14 +129,36 @@ class _IntroPageState extends State<IntroPage> {
               },
             ),
 
-            // Skip Button
+            // Skip and Theme Buttons
             Positioned(
-              top: 20,
-              right: 20,
-              child: TextButton(
-                onPressed: _onSkip,
-                child: Text("Saltar",
-                    style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+              top: 10,
+              left: 10,
+              right: 10,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Consumer<UiProvider>(
+                    builder: (context, uiProvider, child) {
+                      return IconButton(
+                        icon: Icon(uiProvider.isDarkMode
+                            ? Icons.light_mode
+                            : Icons.dark_mode),
+                        color: uiProvider.isDarkMode
+                            ? Colors.yellow.shade700
+                            : const Color(0xFF1E293B),
+                        onPressed: () =>
+                            uiProvider.toggleTheme(!uiProvider.isDarkMode),
+                      );
+                    },
+                  ),
+                  TextButton(
+                    onPressed: _onSkip,
+                    child: Text("Saltar",
+                        style: TextStyle(
+                            color: textColor.withValues(alpha: 0.5),
+                            fontSize: 16)),
+                  ),
+                ],
               ),
             ),
 
