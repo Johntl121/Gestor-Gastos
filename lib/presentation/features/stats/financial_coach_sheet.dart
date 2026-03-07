@@ -171,12 +171,12 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     final activeColor = type == 'weekly' ? Colors.cyan : Colors.teal;
 
     final buttonColor = !hasData
-        ? Colors.grey.withOpacity(0.1)
-        : (isSelected ? activeColor.withOpacity(0.2) : Colors.transparent);
+        ? Colors.grey.withValues(alpha: 0.1)
+        : (isSelected ? activeColor.withValues(alpha: 0.2) : Colors.transparent);
 
     final borderColor = !hasData
-        ? Colors.grey.withOpacity(0.2)
-        : (isSelected ? baseColor : Colors.grey.withOpacity(0.3));
+        ? Colors.grey.withValues(alpha: 0.2)
+        : (isSelected ? baseColor : Colors.grey.withValues(alpha: 0.3));
 
     return Expanded(
       child: GestureDetector(

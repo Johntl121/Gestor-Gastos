@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 class GeminiClient {
   // Model: Gemini 2.5 Flash Lite (v1beta)
@@ -103,7 +104,7 @@ $contextData
       String text, List<String> categories, List<String> accounts) async {
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
     if (apiKey.isEmpty) {
-      print("GeminiClient: FATAL - .env key not found.");
+      debugPrint("GeminiClient: FATAL - .env key not found.");
       return null;
     }
 
@@ -153,7 +154,7 @@ SALIDA JSON (Strict):
         ]
       });
 
-      print("🚀 GeminiClient: Analyzing transaction...");
+      debugPrint("🚀 GeminiClient: Analyzing transaction...");
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
@@ -178,16 +179,17 @@ SALIDA JSON (Strict):
           final Map<String, dynamic> data = jsonDecode(responseText);
           return data;
         } catch (e) {
-          print("GeminiClient JSON Parse Error: $e\nResponse: $responseText");
+          debugPrint(
+              "GeminiClient JSON Parse Error: $e\nResponse: $responseText");
           return null;
         }
       } else {
-        print(
+        debugPrint(
             "❌ GeminiClient HTTP Error: ${response.statusCode} - ${response.body}");
         return null;
       }
     } catch (e) {
-      print("GeminiClient Network Error: $e");
+      debugPrint("GeminiClient Network Error: $e");
       return null;
     }
   }

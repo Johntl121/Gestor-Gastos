@@ -1,0 +1,7 @@
+refactor(ui & core): rediseño premium de onboarding, modales unificados y zero-warnings
+
+- Unificación visual y de UX en los BottomSheets (Nueva Cuenta, Gasto Fijo).
+- Rediseño radical del Onboarding (Dark/Light mode, selectores interactivos).
+- Animación de respiración fluida del Smart Coach.
+- Limpieza total de deuda técnica (linter a 0, corrección de constantes, actualización a .toARGB32() y protección de contextos asíncronos).
+- Actualización del README con la arquitectura actual.

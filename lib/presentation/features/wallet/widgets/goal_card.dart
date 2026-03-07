@@ -37,7 +37,7 @@ class GoalCard extends StatelessWidget {
     const baseColor = Color(0xFF1E2435);
     // Subtle tint mix
     final tintColor =
-        Color.alphaBlend(displayColor.withOpacity(0.08), baseColor);
+        Color.alphaBlend(displayColor.withValues(alpha: 0.08), baseColor);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -49,7 +49,7 @@ class GoalCard extends StatelessWidget {
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -78,7 +78,7 @@ class GoalCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: displayColor.withOpacity(0.1),
+                            color: displayColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(

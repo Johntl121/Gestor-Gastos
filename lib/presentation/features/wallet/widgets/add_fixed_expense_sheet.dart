@@ -177,7 +177,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                               height: 40,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? _selectedColor.withOpacity(0.2)
+                                    ? _selectedColor.withValues(alpha: 0.2)
                                     : cardColor,
                                 shape: BoxShape.circle,
                                 border: isSelected
@@ -230,7 +230,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                                 boxShadow: isSelected
                                     ? [
                                         BoxShadow(
-                                            color: color.withOpacity(0.4),
+                                            color: color.withValues(alpha: 0.4),
                                             blurRadius: 6,
                                             offset: const Offset(0, 2))
                                       ]
@@ -361,13 +361,17 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
 
                         Color getAccountColor(String name) {
                           final n = name.toLowerCase();
-                          if (n.contains("efectivo") || n.contains("cash"))
+                          if (n.contains("efectivo") || n.contains("cash")) {
                             return const Color(0xFFFFC107);
+                          }
                           if (n.contains("banco") ||
                               n.contains("bbl") ||
-                              n.contains("bcp")) return const Color(0xFF2196F3);
-                          if (n.contains("ahorro"))
+                              n.contains("bcp")) {
+                            return const Color(0xFF2196F3);
+                          }
+                          if (n.contains("ahorro")) {
                             return const Color(0xFF9C27B0);
+                          }
                           return const Color(0xFF00E5FF);
                         }
 
@@ -395,7 +399,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                                   boxShadow: isSelected
                                       ? [
                                           BoxShadow(
-                                            color: brandColor.withOpacity(0.4),
+                                            color: brandColor.withValues(alpha: 0.4),
                                             blurRadius: 6,
                                             offset: const Offset(0, 3),
                                           )
@@ -436,7 +440,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                     borderRadius: BorderRadius.circular(15),
                   ),
                   elevation: 4,
-                  shadowColor: const Color(0xFF00E5FF).withOpacity(0.4),
+                  shadowColor: const Color(0xFF00E5FF).withValues(alpha: 0.4),
                 ),
                 child: const Text(
                   "Guardar",
@@ -580,7 +584,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
         frequency: _selectedFrequency,
         accountToCharge: accountId,
         iconCode: _selectedIcon.codePoint,
-        colorValue: _selectedColor.value,
+        colorValue: _selectedColor.toARGB32(),
       );
 
       provider.addSubscription(newSub);

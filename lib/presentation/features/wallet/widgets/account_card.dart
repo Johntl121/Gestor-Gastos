@@ -33,14 +33,14 @@ class AccountCard extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              color.withOpacity(0.8),
-              color.withOpacity(
+              color.withValues(alpha: 0.8),
+              color.withValues(alpha: 
                   0.4), // Ajustado para que no sea totalmente transparente y pierda cuerpo
             ],
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.4),
+              color: color.withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -55,7 +55,7 @@ class AccountCard extends StatelessWidget {
               padding:
                   const EdgeInsets.all(10), // Tamaño del contenedor del icono
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -72,7 +72,7 @@ class AccountCard extends StatelessWidget {
                 Text(
                   name,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),

@@ -73,14 +73,14 @@ class FixedExpenseCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: gradient,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-              color: Colors.black26, blurRadius: 15, offset: const Offset(0, 8))
+              color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))
         ],
         border: isPaid
             ? Border.all(
-                color: const Color(0xFF00E676).withOpacity(0.3), width: 1.0)
-            : Border.all(color: Colors.white.withOpacity(0.05), width: 0.5),
+                color: const Color(0xFF00E676).withValues(alpha: 0.3), width: 1.0)
+            : Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
       ),
       child: Material(
         color: Colors.transparent,
@@ -100,7 +100,7 @@ class FixedExpenseCard extends StatelessWidget {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: itemColor.withOpacity(0.15),
+                        color: itemColor.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         // No border in this new clean style unless needed
                       ),

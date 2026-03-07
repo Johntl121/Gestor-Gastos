@@ -28,7 +28,7 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
         text: widget.goalToEdit?.targetAmount.toStringAsFixed(0) ?? '');
 
     _selectedIconCode = widget.goalToEdit?.iconCode ?? Icons.star.codePoint;
-    _selectedColorValue = widget.goalToEdit?.colorValue ?? Colors.cyan.value;
+    _selectedColorValue = widget.goalToEdit?.colorValue ?? Colors.cyan.toARGB32();
   }
 
   @override
@@ -149,7 +149,7 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                         color: isSelected
-                            ? Color(_selectedColorValue).withOpacity(0.2)
+                            ? Color(_selectedColorValue).withValues(alpha: 0.2)
                             : unselectedIconBg,
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -173,10 +173,10 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: colors.map((color) {
-                final isSelected = color.value == _selectedColorValue;
+                final isSelected = color.toARGB32() == _selectedColorValue;
                 return GestureDetector(
                   onTap: () =>
-                      setState(() => _selectedColorValue = color.value),
+                      setState(() => _selectedColorValue = color.toARGB32()),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -188,7 +188,7 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                             : null,
                         boxShadow: [
                           BoxShadow(
-                              color: color.withOpacity(0.4), blurRadius: 8)
+                              color: color.withValues(alpha: 0.4), blurRadius: 8)
                         ]),
                     child: isSelected
                         ? const Icon(Icons.check, size: 16, color: Colors.white)

@@ -49,7 +49,7 @@ class SpeechService {
         },
         // Detecta silencios y corta automáticamente tras 3 segundos
         pauseFor: const Duration(seconds: 3),
-        listenMode: ListenMode.dictation,
+        listenOptions: SpeechListenOptions(listenMode: ListenMode.dictation),
         localeId: "es_ES",
       );
     }

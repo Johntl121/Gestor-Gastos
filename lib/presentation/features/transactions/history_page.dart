@@ -231,8 +231,8 @@ class _HistoryPageState extends State<HistoryPage> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isDarkMode
-                  ? Colors.white.withOpacity(0.05)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.05),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -477,12 +477,13 @@ class _HistoryPageState extends State<HistoryPage> {
                                         Color accountColor = Colors.grey;
                                         if (t.accountId == 1) {
                                           accountColor = Colors.amber; // Cash
-                                        } else if (t.accountId == 2)
+                                        } else if (t.accountId == 2) {
                                           accountColor =
                                               Colors.blueAccent; // Bank
-                                        else if (t.accountId == 3)
+                                        } else if (t.accountId == 3) {
                                           accountColor =
                                               Colors.purpleAccent; // Savings
+                                        }
 
                                         String accountName = walletProvider
                                             .getAccountName(t.accountId);
@@ -525,14 +526,15 @@ class _HistoryPageState extends State<HistoryPage> {
         color: isSelected
             ? activeColor
             : (isDarkMode
-                ? Colors.white.withOpacity(0.05)
-                : Colors.black.withOpacity(0.05)),
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(20),
         border: isSelected
             ? Border.all(color: Colors.transparent)
             : Border.all(
-                color:
-                    isDarkMode ? activeColor.withOpacity(0.5) : Colors.black12),
+                color: isDarkMode
+                    ? activeColor.withValues(alpha: 0.5)
+                    : Colors.black12),
       ),
       child: Row(
         children: [
@@ -600,7 +602,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ? []
             : [
                 BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 5,
                     offset: const Offset(0, 2))
               ],
@@ -611,9 +613,9 @@ class _HistoryPageState extends State<HistoryPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withOpacity(0.1)),
+              border: Border.all(color: color.withValues(alpha: 0.1)),
             ),
             child: Icon(icon, color: color, size: 24),
           ),
@@ -668,7 +670,7 @@ class _HistoryPageState extends State<HistoryPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: accountColor.withOpacity(0.1),
+                  color: accountColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -729,8 +731,8 @@ class _HistoryPageState extends State<HistoryPage> {
                 TextStyle(color: isDarkMode ? Colors.white24 : Colors.black26),
             todayDecoration: BoxDecoration(
               color: isDarkMode
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.05),
+                  ? Colors.white.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.05),
               shape: BoxShape.circle,
             ),
             selectedDecoration: const BoxDecoration(
@@ -887,7 +889,7 @@ class _HistoryPageState extends State<HistoryPage> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               if (!isDarkMode)
-                BoxShadow(
+                const BoxShadow(
                     color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
             ]),
         child: Row(children: [
@@ -902,7 +904,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         color: isDarkMode ? Colors.white : Colors.black,
                         fontWeight: FontWeight.bold)),
                 Text(subtitle,
-                    style: TextStyle(color: Colors.grey, fontSize: 12))
+                    style: const TextStyle(color: Colors.grey, fontSize: 12))
               ])),
           Text(amountString,
               style: TextStyle(color: color, fontWeight: FontWeight.bold))
@@ -973,8 +975,8 @@ class _HistoryPageState extends State<HistoryPage> {
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               color: t.amount > 0
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.redAccent.withOpacity(0.1),
+                                  ? Colors.green.withValues(alpha: 0.1)
+                                  : Colors.redAccent.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -1016,12 +1018,11 @@ class _HistoryPageState extends State<HistoryPage> {
                         isDarkMode),
                     _buildDetailRow(Icons.account_balance, "Cuenta",
                         walletProvider.getAccountName(t.accountId), isDarkMode),
-                    if (t.categoryId != null)
-                      _buildDetailRow(
-                          Icons.category,
-                          "Categoría",
-                          t.description, // Often the description is the category name in this simple app
-                          isDarkMode),
+                    _buildDetailRow(
+                        Icons.category,
+                        "Categoría",
+                        t.description, // Often the description is the category name in this simple app
+                        isDarkMode),
                     if (t.note != null && t.note!.isNotEmpty)
                       _buildDetailRow(Icons.notes, "Nota", t.note!, isDarkMode),
 
@@ -1052,7 +1053,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(
-                              color: Colors.redAccent.withOpacity(0.5)),
+                              color: Colors.redAccent.withValues(alpha: 0.5)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16))),
                       onPressed: () {

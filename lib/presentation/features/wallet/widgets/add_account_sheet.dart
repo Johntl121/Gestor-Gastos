@@ -31,7 +31,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
     _selectedIconCode =
         widget.accountToEdit?.iconCode ?? Icons.account_balance.codePoint;
     _selectedColorValue =
-        widget.accountToEdit?.colorValue ?? Colors.blueAccent.value;
+        widget.accountToEdit?.colorValue ?? Colors.blueAccent.toARGB32();
 
     // We need context to get default currency, but initState doesn't have it easily without listen: false in build or post frame.
     // We'll initialize selectedCurrency in didChangeDependencies or just use a default and update if needed,
@@ -192,7 +192,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                   Container(
                       width: 1,
                       height: 24,
-                      color: Colors.grey.withOpacity(0.3)),
+                      color: Colors.grey.withValues(alpha: 0.3)),
                   Expanded(
                     child: TextField(
                       controller: _balanceController,
@@ -233,7 +233,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Colors.cyan.withOpacity(0.2)
+                            ? Colors.cyan.withValues(alpha: 0.2)
                             : Colors.transparent,
                         shape: BoxShape.circle,
                         border:
@@ -255,10 +255,10 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: colors.map((color) {
-                final isSelected = color.value == _selectedColorValue;
+                final isSelected = color.toARGB32() == _selectedColorValue;
                 return GestureDetector(
                   onTap: () =>
-                      setState(() => _selectedColorValue = color.value),
+                      setState(() => _selectedColorValue = color.toARGB32()),
                   child: Container(
                     width: 30,
                     height: 30,
@@ -403,7 +403,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: isSelected
-                                      ? Colors.white.withOpacity(0.9)
+                                      ? Colors.white.withValues(alpha: 0.9)
                                       : Colors.grey,
                                 ),
                               ),

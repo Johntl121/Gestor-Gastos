@@ -90,11 +90,11 @@ class _IntroPageState extends State<IntroPage> {
                               decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: (slide["color"] as Color)
-                                      .withOpacity(0.1),
+                                      .withValues(alpha: 0.1),
                                   boxShadow: [
                                     BoxShadow(
                                         color: (slide["color"] as Color)
-                                            .withOpacity(0.2),
+                                            .withValues(alpha: 0.2),
                                         blurRadius: 40,
                                         spreadRadius: 10)
                                   ]),
@@ -205,7 +205,7 @@ class _IntroPageState extends State<IntroPage> {
                             borderRadius: BorderRadius.circular(30),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.cyanAccent.withOpacity(0.4),
+                                  color: Colors.cyanAccent.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                   offset: const Offset(0, 5))
                             ]),

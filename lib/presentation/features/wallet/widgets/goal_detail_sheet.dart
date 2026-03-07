@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../domain/entities/goal_entity.dart';
@@ -19,7 +18,6 @@ class GoalDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
 
     final progress = (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
     final isCompleted = progress >= 1.0;
@@ -87,7 +85,7 @@ class GoalDetailSheet extends StatelessWidget {
                       boxShadow: isCompleted
                           ? [
                               BoxShadow(
-                                  color: Colors.amber.withOpacity(0.6),
+                                  color: Colors.amber.withValues(alpha: 0.6),
                                   blurRadius: 10)
                             ]
                           : null)),
@@ -117,7 +115,7 @@ class GoalDetailSheet extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                     elevation: 10,
-                    shadowColor: Colors.amber.withOpacity(0.5)),
+                    shadowColor: Colors.amber.withValues(alpha: 0.5)),
                 child: const Text("¡COMPRAR AHORA!",
                     style: TextStyle(
                         color: Colors.black,
@@ -252,7 +250,7 @@ class GoalDetailSheet extends StatelessWidget {
                         else
                           DropdownButtonFormField<int>(
                             isExpanded: true,
-                            value: selectedRefundAccount,
+                            initialValue: selectedRefundAccount,
                             dropdownColor: Theme.of(context).cardColor,
                             items: provider.accounts.map((acc) {
                               return DropdownMenuItem<int>(
@@ -308,10 +306,10 @@ class GoalDetailSheet extends StatelessWidget {
                           await provider.deleteGoal(goal.id.toString(),
                               refund: true,
                               refundAccountId: selectedRefundAccount);
+                          if (!ctx.mounted) return;
                           Navigator.pop(ctx);
-                          if (context.mounted) {
-                            Navigator.pop(context); // Close Detail Sheet
-                          }
+                          if (!context.mounted) return;
+                          Navigator.pop(context); // Close Detail Sheet
                           // The `context` in StatefulBuilder is the builder context.
                           // To close Sheet, we need the parent context passed to _confirmDeleteGoal or finding it.
                           // Actually, passed `context` to _confirmDeleteGoal is Sheet's context.

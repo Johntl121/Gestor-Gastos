@@ -4,17 +4,17 @@ import '../models/transaction_model.dart';
 import '../models/subscription.dart';
 import '../models/goal_model.dart';
 
-const String CACHED_TRANSACTIONS_KEY = 'CACHED_TRANSACTIONS';
-const String CACHED_SUBSCRIPTIONS_KEY = 'CACHED_SUBSCRIPTIONS';
-const String CACHED_GOALS_KEY = 'CACHED_GOALS';
-const String KEY_FIRST_TIME = 'FIRST_TIME';
-const String KEY_USER_NAME = 'USER_NAME';
-const String KEY_CURRENCY = 'CURRENCY';
-const String KEY_BUDGET_LIMIT = 'BUDGET_LIMIT';
-const String KEY_SECURITY_PIN = 'SECURITY_PIN';
-const String KEY_USER_AVATAR = 'USER_AVATAR';
-const String KEY_PROFILE_IMAGE_PATH = 'PROFILE_IMAGE_PATH';
-const String KEY_THEME_MODE = 'THEME_MODE';
+const String cachedTransactionsKey = 'CACHED_TRANSACTIONS';
+const String cachedSubscriptionsKey = 'CACHED_SUBSCRIPTIONS';
+const String cachedGoalsKey = 'CACHED_GOALS';
+const String keyFirstTime = 'FIRST_TIME';
+const String keyUserName = 'USER_NAME';
+const String keyCurrency = 'CURRENCY';
+const String keyBudgetLimit = 'BUDGET_LIMIT';
+const String keySecurityPin = 'SECURITY_PIN';
+const String keyUserAvatar = 'USER_AVATAR';
+const String keyProfileImagePath = 'PROFILE_IMAGE_PATH';
+const String keyThemeMode = 'THEME_MODE';
 
 abstract class TransactionLocalDataSource {
   Future<List<TransactionModel>> getTransactions();
@@ -52,7 +52,7 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
 
   @override
   Future<List<TransactionModel>> getTransactions() {
-    final jsonString = sharedPreferences.getString(CACHED_TRANSACTIONS_KEY);
+    final jsonString = sharedPreferences.getString(cachedTransactionsKey);
     if (jsonString != null) {
       List<dynamic> jsonList = json.decode(jsonString);
       List<TransactionModel> transactions = jsonList
@@ -69,12 +69,12 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
     List<Map<String, dynamic>> jsonList =
         transactions.map((transaction) => transaction.toJson()).toList();
     final String jsonString = json.encode(jsonList);
-    return sharedPreferences.setString(CACHED_TRANSACTIONS_KEY, jsonString);
+    return sharedPreferences.setString(cachedTransactionsKey, jsonString);
   }
 
   @override
   Future<List<Subscription>> getSubscriptions() {
-    final jsonString = sharedPreferences.getString(CACHED_SUBSCRIPTIONS_KEY);
+    final jsonString = sharedPreferences.getString(cachedSubscriptionsKey);
     if (jsonString != null) {
       List<dynamic> jsonList = json.decode(jsonString);
       return Future.value(
@@ -88,12 +88,12 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
     List<Map<String, dynamic>> jsonList =
         subscriptions.map((s) => s.toJson()).toList();
     return sharedPreferences.setString(
-        CACHED_SUBSCRIPTIONS_KEY, json.encode(jsonList));
+        cachedSubscriptionsKey, json.encode(jsonList));
   }
 
   @override
   Future<List<GoalModel>> getGoals() {
-    final jsonString = sharedPreferences.getString(CACHED_GOALS_KEY);
+    final jsonString = sharedPreferences.getString(cachedGoalsKey);
     if (jsonString != null) {
       List<dynamic> jsonList = json.decode(jsonString);
       return Future.value(jsonList.map((j) => GoalModel.fromJson(j)).toList());
@@ -104,93 +104,93 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   @override
   Future<void> cacheGoals(List<GoalModel> goals) {
     List<Map<String, dynamic>> jsonList = goals.map((g) => g.toJson()).toList();
-    return sharedPreferences.setString(CACHED_GOALS_KEY, json.encode(jsonList));
+    return sharedPreferences.setString(cachedGoalsKey, json.encode(jsonList));
   }
 
   @override
   bool isFirstTime() {
-    return sharedPreferences.getBool(KEY_FIRST_TIME) ?? true;
+    return sharedPreferences.getBool(keyFirstTime) ?? true;
   }
 
   @override
   Future<void> setFirstTime(bool value) {
-    return sharedPreferences.setBool(KEY_FIRST_TIME, value);
+    return sharedPreferences.setBool(keyFirstTime, value);
   }
 
   @override
   Future<void> saveUserName(String name) {
-    return sharedPreferences.setString(KEY_USER_NAME, name);
+    return sharedPreferences.setString(keyUserName, name);
   }
 
   @override
   String? getUserName() {
-    return sharedPreferences.getString(KEY_USER_NAME);
+    return sharedPreferences.getString(keyUserName);
   }
 
   @override
   Future<void> saveBudgetLimit(double amount) {
-    return sharedPreferences.setDouble(KEY_BUDGET_LIMIT, amount);
+    return sharedPreferences.setDouble(keyBudgetLimit, amount);
   }
 
   @override
   double getBudgetLimit() {
-    return sharedPreferences.getDouble(KEY_BUDGET_LIMIT) ?? 2400.00; // Default
+    return sharedPreferences.getDouble(keyBudgetLimit) ?? 2400.00; // Default
   }
 
   @override
   Future<void> saveCurrency(String symbol) {
-    return sharedPreferences.setString(KEY_CURRENCY, symbol);
+    return sharedPreferences.setString(keyCurrency, symbol);
   }
 
   @override
   String getCurrency() {
-    return sharedPreferences.getString(KEY_CURRENCY) ?? 'S/';
+    return sharedPreferences.getString(keyCurrency) ?? 'S/';
   }
 
   @override
   Future<void> saveSecurityPin(String? pin) {
     if (pin == null) {
-      return sharedPreferences.remove(KEY_SECURITY_PIN);
+      return sharedPreferences.remove(keySecurityPin);
     }
-    return sharedPreferences.setString(KEY_SECURITY_PIN, pin);
+    return sharedPreferences.setString(keySecurityPin, pin);
   }
 
   @override
   String? getSecurityPin() {
-    return sharedPreferences.getString(KEY_SECURITY_PIN);
+    return sharedPreferences.getString(keySecurityPin);
   }
 
   @override
   Future<void> saveUserAvatar(String avatar) {
-    return sharedPreferences.setString(KEY_USER_AVATAR, avatar);
+    return sharedPreferences.setString(keyUserAvatar, avatar);
   }
 
   @override
   String getUserAvatar() {
-    return sharedPreferences.getString(KEY_USER_AVATAR) ?? '😎';
+    return sharedPreferences.getString(keyUserAvatar) ?? '😎';
   }
 
   @override
   Future<void> saveProfileImagePath(String? path) {
     if (path == null) {
-      return sharedPreferences.remove(KEY_PROFILE_IMAGE_PATH);
+      return sharedPreferences.remove(keyProfileImagePath);
     }
-    return sharedPreferences.setString(KEY_PROFILE_IMAGE_PATH, path);
+    return sharedPreferences.setString(keyProfileImagePath, path);
   }
 
   @override
   String? getProfileImagePath() {
-    return sharedPreferences.getString(KEY_PROFILE_IMAGE_PATH);
+    return sharedPreferences.getString(keyProfileImagePath);
   }
 
   @override
   Future<void> saveThemeMode(bool isDark) {
-    return sharedPreferences.setBool(KEY_THEME_MODE, isDark);
+    return sharedPreferences.setBool(keyThemeMode, isDark);
   }
 
   @override
   bool getThemeMode() {
-    return sharedPreferences.getBool(KEY_THEME_MODE) ?? true; // Default dark
+    return sharedPreferences.getBool(keyThemeMode) ?? true; // Default dark
   }
 
   @override

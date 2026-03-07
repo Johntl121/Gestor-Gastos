@@ -107,7 +107,7 @@ class _MainPageState extends State<MainPage> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withOpacity(0.1),
+                      color: Colors.redAccent.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.mic,
@@ -158,7 +158,7 @@ class _MainPageState extends State<MainPage> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.redAccent.withOpacity(0.4),
+                              color: Colors.redAccent.withValues(alpha: 0.4),
                               blurRadius: 10)
                         ],
                       ),
@@ -320,7 +320,7 @@ class _MainPageState extends State<MainPage> {
               child: GestureDetector(
                 onTap: () => setState(() => _isSpeedDialOpen = false),
                 child: Container(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -419,8 +419,8 @@ class _MainPageState extends State<MainPage> {
                     boxShadow: [
                       BoxShadow(
                         color: _isSpeedDialOpen
-                            ? Colors.redAccent.withOpacity(0.3)
-                            : Colors.cyan.withOpacity(0.3),
+                            ? Colors.redAccent.withValues(alpha: 0.3)
+                            : Colors.cyan.withValues(alpha: 0.3),
                         blurRadius: 15,
                         offset: const Offset(0, 4),
                       ),
@@ -474,7 +474,7 @@ class _MainPageState extends State<MainPage> {
               color: color,
               boxShadow: [
                 BoxShadow(
-                    color: color.withOpacity(0.5),
+                    color: color.withValues(alpha: 0.5),
                     blurRadius: 8,
                     offset: const Offset(0, 4))
               ],
@@ -495,7 +495,7 @@ class _MainPageState extends State<MainPage> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isSelected
-              ? Colors.cyanAccent.withOpacity(0.1)
+              ? Colors.cyanAccent.withValues(alpha: 0.1)
               : Colors.transparent,
         ),
         child: Icon(

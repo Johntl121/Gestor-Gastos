@@ -158,7 +158,7 @@ class TransactionSearchDelegate extends SearchDelegate {
       decoration: BoxDecoration(
         color: Colors.transparent,
         border:
-            Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05))),
+            Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: Row(
         children: [
@@ -208,9 +208,9 @@ class TransactionSearchDelegate extends SearchDelegate {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                    color: accountColor.withOpacity(0.15),
+                    color: accountColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: accountColor.withOpacity(0.3))),
+                    border: Border.all(color: accountColor.withValues(alpha: 0.3))),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

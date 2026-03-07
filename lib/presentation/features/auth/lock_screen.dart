@@ -117,7 +117,7 @@ class _LockScreenState extends State<LockScreen> {
                       border: Border.all(
                           color: index < _inputPin.length
                               ? Colors.transparent
-                              : Colors.grey.withOpacity(0.5))),
+                              : Colors.grey.withValues(alpha: 0.5))),
                 );
               }),
             ),
@@ -161,7 +161,7 @@ class _LockScreenState extends State<LockScreen> {
                     style: TextButton.styleFrom(
                       shape: const CircleBorder(),
                       backgroundColor: isDarkMode
-                          ? Colors.white.withOpacity(0.05)
+                          ? Colors.white.withValues(alpha: 0.05)
                           : Colors.white,
                       elevation: 0,
                     ),

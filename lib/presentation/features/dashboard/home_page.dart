@@ -98,8 +98,6 @@ class _HomePageState extends State<HomePage> {
     final uiProvider = Provider.of<UiProvider>(context);
     final walletProvider = Provider.of<WalletProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
-    final statsProvider = Provider.of<StatsProvider>(
-        context); // StatsProvider handles Mood? Yes. But wait, DashboardProvider calculated Mood locally or via UseCase. StatsProvider does it now.
 
     // 1. Calculate Summary Data locally based on Transactions (or move to Provider)
     // To match original logic:
@@ -214,7 +212,7 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: isDarkMode
-                                ? Colors.white.withOpacity(0.1)
+                                ? Colors.white.withValues(alpha: 0.1)
                                 : Colors.white,
                             shape: BoxShape.circle,
                           ),
@@ -262,7 +260,7 @@ class _HomePageState extends State<HomePage> {
               Text(
                 _getMoodQuote(budgetLimit, monthSpent),
                 style: TextStyle(
-                    color: Colors.cyanAccent.withOpacity(0.8),
+                    color: Colors.cyanAccent.withValues(alpha: 0.8),
                     fontStyle: FontStyle.italic,
                     fontSize: 13),
               ),
@@ -288,7 +286,7 @@ class _HomePageState extends State<HomePage> {
                           iconColor:
                               isDarkMode ? Colors.greenAccent : Colors.green,
                           backgroundColor: isDarkMode
-                              ? Colors.greenAccent.withOpacity(0.1)
+                              ? Colors.greenAccent.withValues(alpha: 0.1)
                               : const Color(0xFFE0F2F1),
                           amount:
                               "+$currency ${todayIncome.toStringAsFixed(2)}",
@@ -300,7 +298,7 @@ class _HomePageState extends State<HomePage> {
                           icon: Icons.arrow_downward,
                           iconColor: Colors.redAccent,
                           backgroundColor: isDarkMode
-                              ? Colors.redAccent.withOpacity(0.1)
+                              ? Colors.redAccent.withValues(alpha: 0.1)
                               : const Color(0xFFFFEBEE),
                           amount:
                               "-$currency ${todayExpense.toStringAsFixed(2)}",
@@ -424,8 +422,8 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: isDarkMode
-                ? Colors.cyan.withOpacity(0.1)
-                : Colors.cyan.withOpacity(0.1),
+                ? Colors.cyan.withValues(alpha: 0.1)
+                : Colors.cyan.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 60, color: color),
@@ -460,7 +458,9 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: isDarkMode ? Colors.black45 : Colors.black.withOpacity(0.05),
+            color: isDarkMode
+                ? Colors.black45
+                : Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, 4),
             blurRadius: 10,
           )
@@ -628,7 +628,7 @@ class _HomePageState extends State<HomePage> {
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
+                    color: Colors.black.withValues(alpha: 0.03),
                     offset: const Offset(0, 4),
                     blurRadius: 10,
                   )
@@ -640,9 +640,9 @@ class _HomePageState extends State<HomePage> {
             decoration: BoxDecoration(
               color: (isIncome && !isTransfer)
                   ? (isDarkMode
-                      ? Colors.greenAccent.withOpacity(0.15)
-                      : Colors.greenAccent.withOpacity(0.15))
-                  : color.withOpacity(0.15),
+                      ? Colors.greenAccent.withValues(alpha: 0.15)
+                      : Colors.greenAccent.withValues(alpha: 0.15))
+                  : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon,
@@ -689,7 +689,7 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-            backgroundColor: color.withOpacity(0.2),
+            backgroundColor: color.withValues(alpha: 0.2),
             foregroundColor: color,
             side: BorderSide(color: color),
             shape: RoundedRectangleBorder(

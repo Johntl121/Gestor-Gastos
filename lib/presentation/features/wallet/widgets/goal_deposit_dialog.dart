@@ -92,7 +92,7 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
 
                 return DropdownButtonFormField<int>(
                   isExpanded: true,
-                  value: _selectedSourceId,
+                  initialValue: _selectedSourceId,
                   dropdownColor: Theme.of(context).cardColor,
                   style: TextStyle(
                       color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -104,7 +104,7 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
                         color: Colors.cyan),
                     filled: true,
                     fillColor: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withOpacity(0.05)
+                        ? Colors.white.withValues(alpha: 0.05)
                         : Colors.grey[100],
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),

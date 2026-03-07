@@ -3,7 +3,6 @@ import '../../domain/usecases/get_budget_mood_usecase.dart';
 import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../core/usecases/usecase.dart';
-import '../../core/services/gemini_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Enums for Stats

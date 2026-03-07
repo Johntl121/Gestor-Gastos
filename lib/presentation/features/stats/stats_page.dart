@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
-import '../../../domain/entities/transaction_entity.dart';
 
 // Providers
 import '../../providers/stats_provider.dart';
@@ -253,7 +252,7 @@ class _StatsPageState extends State<StatsPage>
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: isDarkMode
-                    ? Colors.white.withOpacity(0.05)
+                    ? Colors.white.withValues(alpha: 0.05)
                     : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -484,7 +483,7 @@ class _StatsPageState extends State<StatsPage>
               ? []
               : [
                   BoxShadow(
-                      color: Colors.grey.withOpacity(0.05),
+                      color: Colors.grey.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 5))
                 ]),
@@ -493,7 +492,7 @@ class _StatsPageState extends State<StatsPage>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: iconBgColor.withOpacity(0.2),
+                color: iconBgColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(16)),
             child: Icon(icon,
                 color: isDarkMode ? Colors.white70 : Colors.black54, size: 24),
@@ -614,7 +613,7 @@ class _StatsPageState extends State<StatsPage>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.2) : Colors.transparent,
+          color: isSelected ? activeColor.withValues(alpha: 0.2) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: isSelected ? activeColor : Colors.transparent, width: 1),

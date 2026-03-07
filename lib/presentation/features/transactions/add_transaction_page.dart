@@ -135,6 +135,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al seleccionar imagen: $e')),
       );
@@ -515,10 +516,11 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                         margin: const EdgeInsets.only(top: 20),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.1),
+                            color: Colors.redAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: Colors.redAccent.withOpacity(0.3))),
+                                color:
+                                    Colors.redAccent.withValues(alpha: 0.3))),
                         child: Row(children: [
                           const Icon(Icons.error_outline,
                               color: Colors.redAccent),
@@ -778,7 +780,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? color.withOpacity(0.2) : inactiveBgColor,
+              color:
+                  isSelected ? color.withValues(alpha: 0.2) : inactiveBgColor,
               shape: BoxShape.circle,
               border: isSelected ? Border.all(color: color, width: 2) : null,
             ),
@@ -890,7 +893,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25)),
                   elevation: 5,
-                  shadowColor: _activeColor.withOpacity(0.5),
+                  shadowColor: _activeColor.withValues(alpha: 0.5),
                 ),
                 child: const Text("Guardar",
                     style:

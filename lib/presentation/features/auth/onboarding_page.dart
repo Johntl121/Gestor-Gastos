@@ -104,6 +104,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       }
     } catch (e) {
       debugPrint("Error picking image: $e");
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al seleccionar imagen: $e')),
       );
@@ -194,7 +195,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         initialBalance: 0, // Start with 0
         currentBalance: 0,
         iconCode: Icons.money.codePoint, // Billete
-        colorValue: Colors.amber.value,
+        colorValue: Colors.amber.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
       ));
@@ -206,7 +207,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         initialBalance: 0,
         currentBalance: 0,
         iconCode: Icons.account_balance.codePoint, // Banco
-        colorValue: Colors.blueAccent.value,
+        colorValue: Colors.blueAccent.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
       ));
@@ -218,7 +219,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         initialBalance: 0,
         currentBalance: 0, // Initialize with same amount
         iconCode: Icons.savings.codePoint, // Chanchito
-        colorValue: Colors.purpleAccent.value,
+        colorValue: Colors.purpleAccent.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
       ));
@@ -316,7 +317,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       begin: 0, end: (_currentPage + 1) / 4), // 4 Steps
                   builder: (context, value, _) => LinearProgressIndicator(
                     value: value,
-                    backgroundColor: Colors.grey.withOpacity(0.2),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.2),
                     valueColor: AlwaysStoppedAnimation(cyanColor),
                     minHeight: 6,
                   ),
@@ -354,8 +355,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    backgroundColor.withOpacity(0),
-                    backgroundColor.withOpacity(0.8),
+                    backgroundColor.withValues(alpha: 0),
+                    backgroundColor.withValues(alpha: 0.8),
                     backgroundColor,
                   ],
                 ),
@@ -525,7 +526,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             },
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
+                                color: Colors.white.withValues(alpha: 0.05),
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                     color: _selectedAvatar == emoji
@@ -929,7 +930,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     prefixIcon: Padding(
                       padding: const EdgeInsets.only(right: 12.0),
                       child: Text(
-                        '$_selectedCurrency',
+                        _selectedCurrency,
                         style: TextStyle(
                           fontSize: 48,
                           fontWeight: FontWeight.w800,

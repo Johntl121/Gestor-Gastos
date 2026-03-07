@@ -22,10 +22,6 @@ class SettingsPage extends StatelessWidget {
     // Consume Providers
     final uiProvider = Provider.of<UiProvider>(context);
     final walletProvider = Provider.of<WalletProvider>(context);
-    // Transaction Provider is needed for export, but we can listen: false usually?
-    // Actually for export we just access the list.
-    final transactionProvider =
-        Provider.of<TransactionProvider>(context, listen: false);
 
     final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor =
@@ -124,7 +120,7 @@ class SettingsPage extends StatelessWidget {
                       ? []
                       : [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             offset: const Offset(0, 4),
                             blurRadius: 10,
                           )
@@ -296,7 +292,7 @@ class SettingsPage extends StatelessWidget {
                       ? []
                       : [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             offset: const Offset(0, 4),
                             blurRadius: 10,
                           )
@@ -330,9 +326,10 @@ class SettingsPage extends StatelessWidget {
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
-                  color: Colors.redAccent.withOpacity(0.1),
+                  color: Colors.redAccent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.3))),
+                  border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.3))),
               child: ListTile(
                 leading: const Icon(Icons.delete_forever, color: Colors.red),
                 title: const Text("Restablecer Datos de Fábrica",
@@ -371,7 +368,7 @@ class SettingsPage extends StatelessWidget {
               ? []
               : [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, 4),
                     blurRadius: 10,
                   )
@@ -554,15 +551,14 @@ class SettingsPage extends StatelessWidget {
 
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("¡Reporte Generado! Copiado al portapapeles. 📋"),
-          backgroundColor: Colors.teal,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("¡Reporte Generado! Copiado al portapapeles. 📋"),
+        backgroundColor: Colors.teal,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   void _showEditBudgetDialog(BuildContext context) {
@@ -703,7 +699,7 @@ class SettingsPage extends StatelessWidget {
                             },
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
+                                color: Colors.white.withValues(alpha: 0.05),
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
@@ -778,6 +774,7 @@ class SettingsPage extends StatelessWidget {
         // Update via Provider
         if (context.mounted) {
           await uiProvider.setProfileImagePath(savedPath);
+          if (!context.mounted) return;
           Navigator.pop(context); // Close Sheet
         }
       }
@@ -817,13 +814,11 @@ class SettingsPage extends StatelessWidget {
               // Clear All Data via UseCase or DataSource
               await sl.sl<TransactionLocalDataSource>().clearAllData();
 
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                      builder: (context) => const OnboardingPage()),
-                  (route) => false,
-                );
-              }
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const OnboardingPage()),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text("BORRAR TODO",

@@ -50,7 +50,7 @@ class BudgetMoodWidget extends StatelessWidget {
             // Sombra suave para elevación "flotante"
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -63,11 +63,11 @@ class BudgetMoodWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.1),
                       blurRadius: 10,
                       spreadRadius: 2,
                     )
@@ -100,7 +100,7 @@ class BudgetMoodWidget extends StatelessWidget {
               Text(
                 "Saldo Total: ${walletProvider.currencySymbol} ${walletProvider.totalBalance.toStringAsFixed(2)}",
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),
