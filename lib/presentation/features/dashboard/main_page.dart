@@ -65,7 +65,7 @@ class _MainPageState extends State<MainPage> {
 
   void _startVoiceTransaction(BuildContext context) {
     String currentText = "";
-    bool isListening = true;
+    bool hasAttemptedStart = false;
 
     showModalBottomSheet(
       context: context,
@@ -74,12 +74,27 @@ class _MainPageState extends State<MainPage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            if (isListening && !_speechService.isListening) {
-              _speechService.listen(
-                (text) {
-                  setSheetState(() => currentText = text);
-                },
-              );
+            if (!hasAttemptedStart) {
+              hasAttemptedStart = true;
+
+              _speechService.onStatusCallback = (status) {
+                if (status == 'done' || status == 'notListening') {
+                  if (context.mounted) {
+                    setSheetState(() {});
+                  }
+                }
+              };
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!_speechService.isListening) {
+                  _speechService.listen(
+                    (text) {
+                      setSheetState(() => currentText = text);
+                    },
+                  );
+                  setSheetState(() {});
+                }
+              });
             }
 
             return Container(
@@ -104,34 +119,61 @@ class _MainPageState extends State<MainPage> {
                         borderRadius: BorderRadius.circular(2)),
                   ),
                   const SizedBox(height: 30),
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.redAccent.withValues(alpha: 0.1),
+                      color: _speechService.isListening
+                          ? Colors.redAccent.withValues(alpha: 0.3)
+                          : Colors.redAccent.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
+                      boxShadow: _speechService.isListening
+                          ? [
+                              BoxShadow(
+                                color: Colors.redAccent.withValues(alpha: 0.5),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              )
+                            ]
+                          : [],
                     ),
                     child: const Icon(Icons.mic,
                         size: 40, color: Colors.redAccent),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    "Te escucho...",
+                  Text(
+                    _speechService.isListening
+                        ? "¡Habla ahora!"
+                        : (currentText.isNotEmpty
+                            ? "Revisa tu frase"
+                            : "Te escucho..."),
                     style: TextStyle(
-                        color: Colors.grey, fontSize: 14, letterSpacing: 1),
+                      color:
+                          _speechService.isListening || currentText.isNotEmpty
+                              ? Colors.redAccent
+                              : Colors.grey,
+                      fontSize: _speechService.isListening ? 18 : 16,
+                      fontWeight:
+                          _speechService.isListening || currentText.isNotEmpty
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                      letterSpacing: 1,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: Center(
-                      child: Container(
-                        constraints: const BoxConstraints(maxHeight: 200),
+                      child: SizedBox(
+                        height: 120,
                         child: SingleChildScrollView(
                           child: Text(
                             currentText.isEmpty
                                 ? "Ej: Gaste 20 soles en taxi"
                                 : currentText,
                             textAlign: TextAlign.center,
+                            maxLines: null,
                             style: TextStyle(
-                              fontSize: currentText.isEmpty ? 22 : 28,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: currentText.isEmpty
                                   ? Colors.grey[600]
@@ -143,28 +185,80 @@ class _MainPageState extends State<MainPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () {
-                      _speechService.stop();
-                      Navigator.pop(context);
-                      if (currentText.isNotEmpty) {
-                        _processVoiceCommand(currentText);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.redAccent.withValues(alpha: 0.4),
-                              blurRadius: 10)
-                        ],
-                      ),
-                      child:
-                          const Icon(Icons.stop, color: Colors.white, size: 30),
-                    ),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (!_speechService.isListening &&
+                          currentText.isNotEmpty) ...[
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _speechService.stop();
+                            setSheetState(() => currentText = "");
+                            _speechService.listen((text) {
+                              setSheetState(() => currentText = text);
+                            });
+                            setSheetState(() {});
+                          },
+                          icon: const Icon(Icons.refresh,
+                              color: Colors.cyanAccent),
+                          label: const Text("Volver a hablar",
+                              style: TextStyle(color: Colors.cyanAccent)),
+                        ),
+                        const SizedBox(width: 15),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.tealAccent,
+                            foregroundColor: Colors.black87,
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _processVoiceCommand(currentText);
+                          },
+                          icon: const Icon(Icons.auto_awesome, size: 20),
+                          label: const Text("✨ Analizar con IA",
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ] else if (!_speechService.isListening &&
+                          currentText.isEmpty) ...[
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _speechService.stop();
+                            setSheetState(() => currentText = "");
+                            _speechService.listen((text) {
+                              setSheetState(() => currentText = text);
+                            });
+                            setSheetState(() {});
+                          },
+                          icon: const Icon(Icons.mic, color: Colors.cyanAccent),
+                          label: const Text("Volver a intentar",
+                              style: TextStyle(color: Colors.cyanAccent)),
+                        ),
+                      ] else ...[
+                        GestureDetector(
+                          onTap: () async {
+                            await _speechService.stop();
+                            setSheetState(() {});
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.redAccent,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                    color:
+                                        Colors.redAccent.withValues(alpha: 0.4),
+                                    blurRadius: 10)
+                              ],
+                            ),
+                            child: const Icon(Icons.stop,
+                                color: Colors.white, size: 30),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -174,6 +268,7 @@ class _MainPageState extends State<MainPage> {
         );
       },
     ).whenComplete(() {
+      _speechService.onStatusCallback = null;
       _speechService.stop();
     });
   }
@@ -206,15 +301,29 @@ class _MainPageState extends State<MainPage> {
 
     final categories = [
       "Comida",
+      "Mercado",
+      "Vivienda",
+      "Servicios",
       "Transporte",
+      "Vehículo",
       "Compras",
-      "Ocio",
+      "Cuidado",
+      "Suscripciones",
       "Salud",
-      "Hogar",
+      "Deportes",
+      "Entretenimiento",
+      "Viajes",
       "Educación",
-      "Otros",
-      "Ingreso",
-      "Transferencia"
+      "Tecnología",
+      "Deudas",
+      "Ahorro",
+      "Sueldo",
+      "Negocio",
+      "Inversiones",
+      "Regalos",
+      "Ventas",
+      "Préstamos",
+      "Otros"
     ];
 
     final accountNames = walletProvider.accounts.map((a) => a.name).toList();
@@ -239,28 +348,87 @@ class _MainPageState extends State<MainPage> {
       if (typeStr == "ingreso") type = TransactionType.income;
       if (typeStr == "transferencia") type = TransactionType.transfer;
 
-      int categoryId = 11;
-      switch (categoryName) {
-        case "Comida":
+      int categoryId =
+          type == TransactionType.income ? 25 : 20; // Default Otros
+      final String normalizedCategory = categoryName.trim().toLowerCase();
+
+      switch (normalizedCategory) {
+        case "comida":
           categoryId = 1;
           break;
-        case "Transporte":
+        case "mercado":
           categoryId = 2;
           break;
-        case "Compras":
+        case "vivienda":
           categoryId = 3;
           break;
-        case "Ocio":
+        case "hogar":
+          categoryId = 3;
+          break;
+        case "servicios":
           categoryId = 4;
           break;
-        case "Salud":
+        case "transporte":
           categoryId = 5;
           break;
-        case "Hogar":
+        case "vehículo":
           categoryId = 6;
           break;
-        case "Educación":
+        case "compras":
           categoryId = 7;
+          break;
+        case "cuidado":
+          categoryId = 8;
+          break;
+        case "suscripciones":
+          categoryId = 9;
+          break;
+        case "salud":
+          categoryId = 10;
+          break;
+        case "deportes":
+          categoryId = 11;
+          break;
+        case "ocio":
+        case "entretenimiento":
+          categoryId = 12;
+          break;
+        case "viajes":
+          categoryId = 13;
+          break;
+        case "educación":
+          categoryId = 14;
+          break;
+        case "tecnología":
+          categoryId = 15;
+          break;
+        case "deudas":
+          categoryId = 16;
+          break;
+        case "ahorro":
+          categoryId = 17;
+          break;
+        case "sueldo":
+          categoryId = 18;
+          break;
+        case "negocio":
+          categoryId = 19;
+          break;
+        case "inversiones":
+          categoryId = 21;
+          break;
+        case "regalos":
+          categoryId = 22;
+          break;
+        case "ventas":
+          categoryId = 23;
+          break;
+        case "préstamos":
+          categoryId = 24;
+          break;
+        case "otros":
+        case "gastos varios":
+          categoryId = type == TransactionType.income ? 25 : 20;
           break;
       }
 
@@ -270,12 +438,13 @@ class _MainPageState extends State<MainPage> {
 
       if (detectedAccount != null) {
         try {
-          final match = walletProvider.accounts.firstWhere((acc) =>
-              acc.name.toLowerCase().contains(detectedAccount.toLowerCase()));
+          final nom = detectedAccount.trim().toLowerCase();
+          final match = walletProvider.accounts
+              .firstWhere((acc) => acc.name.toLowerCase().trim() == nom);
           accountId = match.id;
         } catch (e) {
           debugPrint(
-              "VoiceAI: Cuenta '$detectedAccount' no encontrada. Usando default.");
+              "VoiceAI: Cuenta '$detectedAccount' no encontrada con certeza abs. Usando cuenta predeterminada.");
         }
       }
 
@@ -284,16 +453,178 @@ class _MainPageState extends State<MainPage> {
         categoryId: categoryId,
         amount: type == TransactionType.expense ? -amount.abs() : amount.abs(),
         date: DateTime.now(),
-        description: description,
-        note: "Voz: $text",
+        description: categoryName,
+        note: description.isNotEmpty && description != categoryName
+            ? description
+            : "Voz: $text",
         type: type,
         destinationAccountId: null,
       );
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => AddTransactionPage(draftTransaction: draft)),
+      showDialog(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.auto_awesome, color: Colors.tealAccent),
+                SizedBox(width: 10),
+                Expanded(
+                    child: Text("Resumen de Transacción",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    children: [
+                      // Tipo
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Tipo:",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 14)),
+                          Text(
+                              type == TransactionType.income
+                                  ? "Ingreso"
+                                  : (type == TransactionType.transfer
+                                      ? "Transferencia"
+                                      : "Gasto"),
+                              style: TextStyle(
+                                  color: type == TransactionType.income
+                                      ? Colors.greenAccent
+                                      : (type == TransactionType.transfer
+                                          ? Colors.blueAccent
+                                          : Colors.redAccent),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Monto
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Monto:",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 14)),
+                          Text("S/ ${amount.toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                              type == TransactionType.transfer
+                                  ? "Origen:"
+                                  : "Cuenta:",
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 14)),
+                          Text(
+                              detectedAccount ??
+                                  walletProvider.accounts.first.name,
+                              style: const TextStyle(
+                                  color: Colors.blueAccent, fontSize: 15)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                              type == TransactionType.transfer
+                                  ? "Destino:"
+                                  : "Categoría:",
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 14)),
+                          Text(categoryName,
+                              style: const TextStyle(
+                                  color: Colors.orangeAccent, fontSize: 15)),
+                        ],
+                      ),
+                      const Divider(color: Colors.white12, height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text("Descripción:",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 14)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(description,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 14),
+                                maxLines: 5,
+                                overflow: TextOverflow.visible),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actionsPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            AddTransactionPage(draftTransaction: draft)),
+                  );
+                },
+                child: const Text("Editar detalles",
+                    style: TextStyle(color: Colors.cyan)),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.tealAccent,
+                  foregroundColor: Colors.black87,
+                  elevation: 0,
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final transactionProvider =
+                      Provider.of<TransactionProvider>(context, listen: false);
+                  await transactionProvider.addTransaction(draft);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text("Transacción guardada exitosamente 🚀")),
+                    );
+                  }
+                },
+                child: const Text("Guardar",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

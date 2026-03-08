@@ -10,6 +10,8 @@ class SpeechService {
   final SpeechToText _speechToText = SpeechToText();
   bool _isInitialized = false;
 
+  Function(String)? onStatusCallback;
+
   Future<bool> init() async {
     if (_isInitialized) return true;
 
@@ -26,7 +28,12 @@ class SpeechService {
     try {
       _isInitialized = await _speechToText.initialize(
         onError: (error) => debugPrint("Speech error: $error"),
-        onStatus: (status) => debugPrint("Speech status: $status"),
+        onStatus: (status) {
+          debugPrint("Speech status: $status");
+          if (onStatusCallback != null) {
+            onStatusCallback!(status);
+          }
+        },
       );
     } catch (e) {
       debugPrint("Speech init exception: $e");
@@ -47,8 +54,8 @@ class SpeechService {
         onResult: (result) {
           onResult(result.recognizedWords);
         },
-        // Detecta silencios y corta automáticamente tras 3 segundos
-        pauseFor: const Duration(seconds: 3),
+        // Detecta silencios y corta automáticamente tras 5 segundos
+        pauseFor: const Duration(seconds: 5),
         listenOptions: SpeechListenOptions(listenMode: ListenMode.dictation),
         localeId: "es_ES",
       );
