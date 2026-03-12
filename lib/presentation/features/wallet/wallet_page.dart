@@ -584,66 +584,173 @@ class _WalletPageState extends State<WalletPage> {
                             
                             return StatefulBuilder(
                               builder: (context, setState) {
-                                return AlertDialog(
-                                  title: const Text("Registrar pago"),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                          "¿Registrar pago de ${sub.name} por S/ ${sub.amount.toStringAsFixed(2)}?"),
-                                      const SizedBox(height: 16),
-                                      const Text("Cuenta origen:", style: TextStyle(fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 8),
-                                      if (currentWallet.accounts.isNotEmpty)
+                                return Dialog(
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(28)), // Más curvos
+                                  backgroundColor: const Color(0xFF1E2435),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        // --- Cabecera Identificativa ---
                                         Container(
+                                          width: 64,
+                                          height: 64,
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.05),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.white10),
+                                            color: Color(sub.colorValue),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Color(sub.colorValue)
+                                                    .withValues(alpha: 0.3),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 4),
+                                              )
+                                            ],
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: DropdownButtonHideUnderline(
-                                            child: DropdownButton<int>(
-                                              isExpanded: true,
-                                              value: selectedAccountId,
-                                              items: currentWallet.accounts.map((acc) {
-                                                return DropdownMenuItem<int>(
-                                                  value: acc.id,
-                                                  child: Row(
-                                                    children: [
-                                                      Icon(acc.displayIcon, size: 16),
-                                                      const SizedBox(width: 8),
-                                                      Text(acc.name),
-                                                    ],
+                                          child: Icon(IconData(sub.iconCode, fontFamily: 'MaterialIcons'),
+                                              color: Colors.white, size: 36),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          "Pagar ${sub.name}",
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 4),
+
+                                        // --- Monto Protagonista ---
+                                        Text(
+                                          "S/ ${sub.amount.toStringAsFixed(2)}",
+                                          style: const TextStyle(
+                                            fontSize: 36,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.redAccent,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 32),
+
+                                        // --- Selector Compacto de Cuentas ---
+                                        const Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text("Cuenta origen:",
+                                              style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold)),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        if (currentWallet.accounts.isNotEmpty)
+                                          SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              alignment: WrapAlignment.center,
+                                              children: currentWallet.accounts.map((acc) {
+                                                final isSelected = acc.id == selectedAccountId;
+                                                return GestureDetector(
+                                                  onTap: () {
+                                                    setState(() => selectedAccountId = acc.id);
+                                                  },
+                                                  child: AnimatedContainer(
+                                                    duration: const Duration(milliseconds: 200),
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 8),
+                                                    decoration: BoxDecoration(
+                                                      color: isSelected
+                                                          ? Color(acc.colorValue)
+                                                          : Colors.transparent,
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      border: Border.all(
+                                                        color: isSelected
+                                                            ? Color(acc.colorValue)
+                                                            : Colors.grey.withValues(alpha: 0.2),
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(acc.displayIcon,
+                                                            size: 16,
+                                                            color: isSelected
+                                                                ? Colors.white
+                                                                : Colors.grey.shade400),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          acc.name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: isSelected
+                                                                ? FontWeight.bold
+                                                                : FontWeight.normal,
+                                                            color: isSelected
+                                                                ? Colors.white
+                                                                : Colors.grey.shade400,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 );
                                               }).toList(),
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setState(() => selectedAccountId = val);
-                                                }
-                                              },
+                                            ),
+                                          ),
+                                        const SizedBox(height: 32),
+
+                                        // --- Botones de Acción Finales ---
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: FilledButton(
+                                            onPressed: () {
+                                              final subToPay = sub.copyWith(
+                                                  accountToCharge: selectedAccountId);
+                                              provider.markSubscriptionAsPaid(subToPay);
+                                              Navigator.pop(ctx);
+                                            },
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: Colors.cyan,
+                                              foregroundColor: const Color(0xFF0F172A),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                            child: const Text("Confirmar Pago",
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16)),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 52, // Altura táctil generosa equivalente
+                                          child: TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: Colors.grey.shade400,
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                            ),
+                                            child: const Text(
+                                              "Cancelar",
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        child: const Text("Cancelar")),
-                                    ElevatedButton(
-                                        onPressed: () {
-                                          final subToPay = sub.copyWith(accountToCharge: selectedAccountId);
-                                          provider.markSubscriptionAsPaid(subToPay);
-                                          Navigator.pop(ctx);
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.tealAccent,
-                                            foregroundColor: Colors.black87),
-                                        child: const Text("Confirmar")),
-                                  ],
                                 );
                               }
                             );
