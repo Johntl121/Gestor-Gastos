@@ -565,8 +565,13 @@ class _WalletPageState extends State<WalletPage> {
                       if (sub.isPaid) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Ya pagaste este gasto este mes"),
-                            backgroundColor: Colors.green,
+                            content: Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                SizedBox(width: 8),
+                                Text("Ya pagaste este gasto este mes"),
+                              ],
+                            ),
                           ),
                         );
                       } else {

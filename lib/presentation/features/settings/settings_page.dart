@@ -213,8 +213,14 @@ class SettingsPage extends StatelessWidget {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content: Text("PIN Incorrecto ❌"),
-                                  backgroundColor: Colors.red));
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                                      SizedBox(width: 8),
+                                      Text("PIN Incorrecto ❌"),
+                                    ],
+                                  ),
+                              ));
                         }
                       });
                     }
@@ -554,8 +560,13 @@ class SettingsPage extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("¡Reporte Generado! Copiado al portapapeles. 📋"),
-        backgroundColor: Colors.teal,
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.tealAccent, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text("¡Reporte Generado! Copiado al portapapeles. 📋")),
+          ],
+        ),
         duration: Duration(seconds: 3),
       ),
     );

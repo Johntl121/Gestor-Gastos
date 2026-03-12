@@ -947,8 +947,13 @@ class _HistoryPageState extends State<HistoryPage> {
                         // For now, let's keep deletion on the list slide action.
                         ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content:
-                                    Text("Desliza en la lista para eliminar")));
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.swipe, color: Colors.orangeAccent, size: 20),
+                                    SizedBox(width: 8),
+                                    Expanded(child: Text("Desliza en la lista para eliminar")),
+                                  ],
+                                )));
                       },
                       icon: const Icon(Icons.delete_outline,
                           color: Colors.redAccent),

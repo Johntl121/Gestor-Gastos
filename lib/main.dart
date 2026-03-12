@@ -120,6 +120,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               titleLarge: TextStyle(
                   color: Color(0xFF1E293B), fontWeight: FontWeight.bold),
             ),
+            snackBarTheme: SnackBarThemeData(
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: const Color(0xFF1E293B),
+              contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+              elevation: 4,
+            ),
             useMaterial3: true,
           );
 
@@ -148,6 +155,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             textTheme: const TextTheme(
               bodyLarge: TextStyle(color: Colors.white),
               bodyMedium: TextStyle(color: Colors.white70),
+            ),
+            snackBarTheme: SnackBarThemeData(
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: const Color(0xFF252B42),
+              contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+              elevation: 4,
             ),
             useMaterial3: true,
           );

@@ -461,7 +461,13 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
 
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(
-          content: Text("Cuenta '${account.name}' eliminada."),
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.cyanAccent, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text("Cuenta '${account.name}' eliminada.")),
+            ],
+          ),
           duration: const Duration(seconds: 4),
           action: SnackBarAction(
               label: "DESHACER",
