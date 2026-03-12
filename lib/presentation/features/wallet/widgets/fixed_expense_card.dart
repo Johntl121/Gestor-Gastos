@@ -25,21 +25,36 @@ class FixedExpenseCard extends StatelessWidget {
 
     // Calcular estado
     final isPaid = subscription.isPaid;
-    final isOverdue = !isPaid &&
-        subscription.nextDueDate.isBefore(DateTime.now()) &&
-        !_isSameDay(subscription.nextDueDate, DateTime.now());
+    
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDateObj = subscription.nextDueDate;
+    final dueDate = DateTime(dueDateObj.year, dueDateObj.month, dueDateObj.day);
 
     // Estado Texto y Color
     String statusText;
     Color statusColor;
+    FontWeight statusWeight = FontWeight.w400;
+    bool isOverdue = false;
 
-    if (isOverdue) {
-      statusText = "Vencido";
-      statusColor = const Color(0xFFFF5252); // Rojo Coral
-    } else if (!isPaid) {
-      final d = subscription.nextDueDate;
-      statusText = "Vence el ${d.day}/${d.month}";
-      statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+    if (!isPaid) {
+      if (dueDate.isBefore(today)) {
+        isOverdue = true;
+        final dDay = dueDate.day.toString().padLeft(2, '0');
+        final dMonth = dueDate.month.toString().padLeft(2, '0');
+        statusText = "Venció el $dDay/$dMonth";
+        statusColor = const Color(0xFFFF5252); // Rojo Coral
+        statusWeight = FontWeight.w600;
+      } else if (dueDate.isAtSameMomentAs(today)) {
+        statusText = "¡Vence hoy!";
+        statusColor = Colors.orange;
+        statusWeight = FontWeight.bold;
+      } else {
+        final dDay = dueDate.day.toString().padLeft(2, '0');
+        final dMonth = dueDate.month.toString().padLeft(2, '0');
+        statusText = "Vence el $dDay/$dMonth";
+        statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+      }
     } else {
       statusText = "Pagado";
       statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[500]!; // Gris
@@ -86,8 +101,12 @@ class FixedExpenseCard extends StatelessWidget {
             ? Border.all(
                 color: Colors.green.withValues(alpha: 0.5),
                 width: 1.0)
-            : Border.all(
-                color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+            : isOverdue
+                ? Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.6),
+                    width: 1.5)
+                : Border.all(
+                    color: Colors.white.withValues(alpha: 0.05), width: 0.5),
       ),
       child: Material(
         color: Colors.transparent,
@@ -153,18 +172,29 @@ class FixedExpenseCard extends StatelessWidget {
                             ),
                           ],
                         )
+                      else if (isOverdue)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline, size: 14, color: statusColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: statusWeight,
+                                color: statusColor,
+                              ),
+                            ),
+                          ],
+                        )
                       else
                         Text(
                           statusText,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight:
-                                isOverdue ? FontWeight.w600 : FontWeight.w400,
-                            color: isOverdue
-                                ? statusColor
-                                : (isDarkMode
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600]),
+                            fontWeight: statusWeight,
+                            color: statusColor,
                           ),
                         ),
                     ],
@@ -173,7 +203,7 @@ class FixedExpenseCard extends StatelessWidget {
 
                 // 3. Monto
                 Text(
-                  "S/ ${subscription.amount.toStringAsFixed(0)}",
+                  "S/ ${(subscription.amount % 1 == 0) ? subscription.amount.toInt().toString() : subscription.amount.toStringAsFixed(2)}",
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
@@ -235,9 +265,5 @@ class FixedExpenseCard extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }

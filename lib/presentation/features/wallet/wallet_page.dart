@@ -627,7 +627,7 @@ class _WalletPageState extends State<WalletPage> {
 
                                         // --- Monto Protagonista ---
                                         Text(
-                                          "S/ ${sub.amount.toStringAsFixed(2)}",
+                                          "S/ ${(sub.amount % 1 == 0) ? sub.amount.toInt().toString() : sub.amount.toStringAsFixed(2)}",
                                           style: const TextStyle(
                                             fontSize: 36,
                                             fontWeight: FontWeight.bold,
