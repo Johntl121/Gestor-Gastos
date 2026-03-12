@@ -14,6 +14,7 @@ import '../../../domain/entities/account_entity.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/ui_provider.dart';
+import '../../../core/constants/app_categories.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final TransactionEntity? transactionToEdit;
@@ -192,87 +193,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     }
   }
 
-  // Data definitions
-  final Map<int, Map<String, dynamic>> _expenseCategories = {
-    // Alimentación
-    1: {'name': 'Comida', 'icon': Icons.restaurant, 'color': Colors.orange},
-    2: {
-      'name': 'Mercado',
-      'icon': Icons.shopping_cart,
-      'color': Colors.lightGreen
-    },
-    // Vivienda
-    3: {'name': 'Vivienda', 'icon': Icons.home, 'color': Colors.blueGrey},
-    4: {
-      'name': 'Servicios',
-      'icon': Icons.bolt,
-      'color': Colors.amber.shade700
-    },
-    // Transporte
-    5: {
-      'name': 'Transporte',
-      'icon': Icons.directions_bus,
-      'color': Colors.blue
-    },
-    6: {
-      'name': 'Vehículo',
-      'icon': Icons.directions_car,
-      'color': Colors.redAccent
-    },
-    // Estilo de Vida
-    7: {'name': 'Compras', 'icon': Icons.shopping_bag, 'color': Colors.pink},
-    8: {'name': 'Cuidado', 'icon': Icons.spa, 'color': Colors.purple},
-    9: {
-      'name': 'Suscripciones',
-      'icon': Icons.play_circle_filled,
-      'color': Colors.red
-    },
-    // Salud
-    10: {'name': 'Salud', 'icon': Icons.local_hospital, 'color': Colors.teal},
-    11: {
-      'name': 'Deportes',
-      'icon': Icons.fitness_center,
-      'color': Colors.green
-    },
-    // Ocio
-    12: {
-      'name': 'Entretenimiento',
-      'icon': Icons.movie,
-      'color': Colors.indigo
-    },
-    13: {'name': 'Viajes', 'icon': Icons.flight, 'color': Colors.cyan},
-    // Crecimiento
-    14: {'name': 'Educación', 'icon': Icons.school, 'color': Colors.brown},
-    15: {'name': 'Tecnología', 'icon': Icons.computer, 'color': Colors.grey},
-    // Financiero
-    16: {'name': 'Deudas', 'icon': Icons.money_off, 'color': Colors.deepOrange},
-    17: {'name': 'Ahorro', 'icon': Icons.savings, 'color': Colors.lime},
-    // Otros
-    20: {'name': 'Otros', 'icon': Icons.grid_view, 'color': Colors.blueGrey},
-  };
-
-  final Map<int, Map<String, dynamic>> _incomeCategories = {
-    18: {
-      'name': 'Sueldo',
-      'icon': Icons.monetization_on,
-      'color': Colors.green.shade800
-    },
-    19: {'name': 'Negocio', 'icon': Icons.work, 'color': Colors.blue.shade900},
-    21: {
-      'name': 'Inversiones',
-      'icon': Icons.trending_up,
-      'color': Colors.purple
-    },
-    22: {
-      'name': 'Regalos',
-      'icon': Icons.card_giftcard,
-      'color': Colors.pinkAccent
-    },
-    23: {'name': 'Ventas', 'icon': Icons.storefront, 'color': Colors.orange},
-    24: {'name': 'Préstamos', 'icon': Icons.handshake, 'color': Colors.teal},
-    25: {'name': 'Otros', 'icon': Icons.category, 'color': Colors.blueGrey},
-  };
-
   Color get _activeColor {
     switch (_transactionType) {
       case TransactionType.expense:
@@ -352,8 +272,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         }
 
         final activeMap = _transactionType == TransactionType.income
-            ? _incomeCategories
-            : _expenseCategories;
+            ? AppCategories.incomeCategories
+            : AppCategories.expenseCategories;
         final catName =
             activeMap[_selectedCategoryId]?['name'] ?? 'Transacción';
 
@@ -564,8 +484,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     Builder(builder: (context) {
                       final activeMap =
                           _transactionType == TransactionType.income
-                              ? _incomeCategories
-                              : _expenseCategories;
+                              ? AppCategories.incomeCategories
+                              : AppCategories.expenseCategories;
                       final keys = activeMap.keys.toList();
 
                       return GridView.builder(
@@ -634,9 +554,9 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       setState(() {
         _transactionType = type;
         if (type == TransactionType.income) {
-          _selectedCategoryId = _incomeCategories.keys.first;
+          _selectedCategoryId = AppCategories.incomeCategories.keys.first;
         } else {
-          _selectedCategoryId = _expenseCategories.keys.first;
+          _selectedCategoryId = AppCategories.expenseCategories.keys.first;
         }
         _updateCurrencySymbol(walletProvider);
       });
@@ -749,7 +669,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         ),
         child: Row(
           children: [
-            Icon(IconData(account.iconCode, fontFamily: 'MaterialIcons'),
+            Icon(account.displayIcon,
                 size: 18, color: isSelected ? contentColor : inactiveTextColor),
             const SizedBox(width: 8),
             Text(

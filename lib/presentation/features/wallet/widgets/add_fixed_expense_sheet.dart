@@ -5,7 +5,9 @@ import '../../../providers/transaction_provider.dart';
 import '../../../providers/wallet_provider.dart';
 
 class AddFixedExpenseSheet extends StatefulWidget {
-  const AddFixedExpenseSheet({super.key});
+  final Subscription? subscriptionToEdit;
+  
+  const AddFixedExpenseSheet({super.key, this.subscriptionToEdit});
 
   @override
   State<AddFixedExpenseSheet> createState() => _AddFixedExpenseSheetState();
@@ -21,7 +23,6 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   // State
   ExpenseFrequency _selectedFrequency = ExpenseFrequency.monthly;
   DateTime _selectedDate = DateTime.now();
-  int _selectedAccountIndex = 0;
   Color _selectedColor = const Color(0xFF00E5FF); // Cian por defecto
   IconData _selectedIcon = Icons.home;
 
@@ -54,6 +55,20 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
     Icons.restaurant,
     Icons.local_gas_station,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.subscriptionToEdit != null) {
+      final sub = widget.subscriptionToEdit!;
+      _nameController.text = sub.name;
+      _amountController.text = sub.amount.toString();
+      _selectedFrequency = sub.frequency;
+      _selectedDate = sub.paymentDate;
+      _selectedColor = Color(sub.colorValue);
+      _selectedIcon = IconData(sub.iconCode, fontFamily: 'MaterialIcons');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +109,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
 
             // Título
             Text(
-              "Nuevo Gasto Fijo",
+              widget.subscriptionToEdit != null ? "Editar Gasto Fijo" : "Nuevo Gasto Fijo",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -344,84 +359,6 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                       ),
                     const SizedBox(height: 24),
 
-                    // 5. Selector de Cuentas (Marca con texto negro)
-                    Text("Cuenta de cargo",
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: txtColor)),
-                    const SizedBox(height: 12),
-                    Consumer<WalletProvider>(
-                      builder: (context, walletProvider, _) {
-                        final accounts = walletProvider.accounts;
-                        if (accounts.isEmpty) {
-                          return Text("No hay cuentas disponibles",
-                              style: TextStyle(color: hintColor));
-                        }
-
-                        Color getAccountColor(String name) {
-                          final n = name.toLowerCase();
-                          if (n.contains("efectivo") || n.contains("cash")) {
-                            return const Color(0xFFFFC107);
-                          }
-                          if (n.contains("banco") ||
-                              n.contains("bbl") ||
-                              n.contains("bcp")) {
-                            return const Color(0xFF2196F3);
-                          }
-                          if (n.contains("ahorro")) {
-                            return const Color(0xFF9C27B0);
-                          }
-                          return const Color(0xFF00E5FF);
-                        }
-
-                        return Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: List.generate(accounts.length, (index) {
-                            final acc = accounts[index];
-                            final isSelected = _selectedAccountIndex == index;
-                            final brandColor = getAccountColor(acc.name);
-
-                            return GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedAccountIndex = index),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? brandColor : cardColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: isSelected
-                                      ? null
-                                      : Border.all(color: Colors.white10),
-                                  boxShadow: isSelected
-                                      ? [
-                                          BoxShadow(
-                                            color: brandColor.withValues(alpha: 0.4),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 3),
-                                          )
-                                        ]
-                                      : [],
-                                ),
-                                child: Text(
-                                  acc.name,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? Colors.black
-                                        : txtColor, // Texto NEGRO Puro
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -570,24 +507,30 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
       final name = _nameController.text;
       final amount = double.tryParse(_amountController.text) ?? 0.0;
       final provider = Provider.of<TransactionProvider>(context, listen: false);
-      final wallet = Provider.of<WalletProvider>(context, listen: false);
-
-      if (wallet.accounts.isEmpty) return;
-
-      final accountId = wallet.accounts[_selectedAccountIndex].id;
-
-      final newSub = Subscription(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        amount: amount,
-        paymentDate: _selectedDate,
-        frequency: _selectedFrequency,
-        accountToCharge: accountId,
-        iconCode: _selectedIcon.codePoint,
-        colorValue: _selectedColor.toARGB32(),
-      );
-
-      provider.addSubscription(newSub);
+      if (widget.subscriptionToEdit != null) {
+        final updatedSub = widget.subscriptionToEdit!.copyWith(
+          name: name,
+          amount: amount,
+          paymentDate: _selectedDate,
+          frequency: _selectedFrequency,
+          accountToCharge: 1, // Default, será sobreescrita al confirmar el pago real
+          iconCode: _selectedIcon.codePoint,
+          colorValue: _selectedColor.toARGB32(),
+        );
+        provider.addSubscription(updatedSub);
+      } else {
+        final newSub = Subscription(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          amount: amount,
+          paymentDate: _selectedDate,
+          frequency: _selectedFrequency,
+          accountToCharge: 1, // Default, será elegida en cada pago
+          iconCode: _selectedIcon.codePoint,
+          colorValue: _selectedColor.toARGB32(),
+        );
+        provider.addSubscription(newSub);
+      }
       Navigator.pop(context);
     }
   }

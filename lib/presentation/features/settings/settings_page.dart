@@ -342,7 +342,7 @@ class SettingsPage extends StatelessWidget {
             ),
 
             const SizedBox(height: 40),
-            Text("Versión de App 1.1.0",
+            Text("Versión de App 1.0.0",
                 style: TextStyle(color: subTextColor, fontSize: 12)),
             const SizedBox(height: 20),
           ],

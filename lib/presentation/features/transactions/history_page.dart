@@ -12,9 +12,10 @@ import '../../providers/ui_provider.dart';
 // Entities
 import '../../../domain/entities/transaction_entity.dart';
 
-// Pages & Delegates
+import '../../../core/constants/app_filters.dart';
+import '../../../core/constants/app_categories.dart';
 import 'transaction_search_delegate.dart';
-import 'add_transaction_page.dart'; // Ensure this points to the feature folder version
+import 'add_transaction_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -24,156 +25,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  // Config: Filter Item Structure
-  final List<Map<String, dynamic>> _filters = [
-    {'label': 'Todos', 'type': 'all', 'value': null, 'color': Colors.blueGrey},
-    {
-      'label': 'Gastos',
-      'type': 'type',
-      'value': TransactionType.expense,
-      'color': Colors.redAccent
-    },
-    {
-      'label': 'Ingresos',
-      'type': 'type',
-      'value': TransactionType.income,
-      'color': Colors.greenAccent
-    },
-    {'label': 'Efectivo', 'type': 'account', 'value': 1, 'color': Colors.amber},
-    {
-      'label': 'Banco',
-      'type': 'account',
-      'value': 2,
-      'color': Colors.blueAccent
-    },
-    {
-      'label': '|',
-      'type': 'separator',
-      'value': null,
-      'color': Colors.grey
-    }, // Visual Separator
-    // Expanded Categories
-    {
-      'label': 'Comida',
-      'type': 'category',
-      'value': 'Comida',
-      'color': Colors.orange
-    },
-    {
-      'label': 'Mercado',
-      'type': 'category',
-      'value': 'Mercado',
-      'color': Colors.lightGreen
-    },
-    {
-      'label': 'Vivienda',
-      'type': 'category',
-      'value': 'Vivienda',
-      'color': Colors.blueGrey
-    },
-    {
-      'label': 'Servicios',
-      'type': 'category',
-      'value': 'Servicios',
-      'color': Colors.amber.shade700
-    },
-    {
-      'label': 'Transporte',
-      'type': 'category',
-      'value': 'Transporte',
-      'color': Colors.blue
-    },
-    {
-      'label': 'Vehículo',
-      'type': 'category',
-      'value': 'Vehículo',
-      'color': Colors.redAccent
-    },
-    {
-      'label': 'Compras',
-      'type': 'category',
-      'value': 'Compras',
-      'color': Colors.pink
-    },
-    {
-      'label': 'Cuidado',
-      'type': 'category',
-      'value': 'Cuidado',
-      'color': Colors.purple
-    },
-    {
-      'label': 'Suscripciones',
-      'type': 'category',
-      'value': 'Suscripciones',
-      'color': Colors.red
-    },
-    {
-      'label': 'Salud',
-      'type': 'category',
-      'value': 'Salud',
-      'color': Colors.teal
-    },
-    {
-      'label': 'Deportes',
-      'type': 'category',
-      'value': 'Deportes',
-      'color': Colors.green
-    },
-    {
-      'label': 'Entretenimiento',
-      'type': 'category',
-      'value': 'Entretenimiento',
-      'color': Colors.indigo
-    },
-    {
-      'label': 'Viajes',
-      'type': 'category',
-      'value': 'Viajes',
-      'color': Colors.cyan
-    },
-    {
-      'label': 'Educación',
-      'type': 'category',
-      'value': 'Educación',
-      'color': Colors.brown
-    },
-    {
-      'label': 'Tecnología',
-      'type': 'category',
-      'value': 'Tecnología',
-      'color': Colors.grey
-    },
-    {
-      'label': 'Deudas',
-      'type': 'category',
-      'value': 'Deudas',
-      'color': Colors.deepOrange
-    },
-    {
-      'label': 'Ahorro',
-      'type': 'category',
-      'value': 'Ahorro',
-      'color': Colors.lime
-    },
-    {
-      'label': 'Sueldo',
-      'type': 'category',
-      'value': 'Sueldo',
-      'color': Colors.green.shade800
-    },
-    {
-      'label': 'Negocio',
-      'type': 'category',
-      'value': 'Negocio',
-      'color': Colors.blue.shade900
-    },
-    {
-      'label': 'Otros',
-      'type': 'category',
-      'value': 'Otros',
-      'color': Colors.blueGrey
-    },
-  ];
+  // Config: Filter Item Structure is now in app_filters.dart
 
   Map<String, dynamic> _selectedFilter = {
     'label': 'Todos',
@@ -298,19 +150,22 @@ class _HistoryPageState extends State<HistoryPage> {
             grouped[key]!.add(t);
           }
 
+          // 1. Filtros Horizontales Potenciados
+          final dynamicFilters =
+              AppFilters.getHistoryFilters(walletProvider.accounts);
+
           return Column(
             children: [
-              // 1. Filtros Horizontales Potenciados
               SizedBox(
                 height: 60,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  itemCount: _filters.length,
+                  itemCount: dynamicFilters.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
-                    final filter = _filters[index];
+                    final filter = dynamicFilters[index];
 
                     // Separator Logic
                     if (filter['type'] == 'separator') {
@@ -429,6 +284,23 @@ class _HistoryPageState extends State<HistoryPage> {
                                         String absAmount =
                                             t.amount.abs().toStringAsFixed(2);
 
+                                        final account = walletProvider.accounts
+                                            .where((a) => a.id == t.accountId)
+                                            .firstOrNull;
+
+                                        Color accountColor = account != null
+                                            ? Color(account.colorValue)
+                                            : Colors.grey;
+                                        String accountName = account?.name ??
+                                            'Cuenta Desconocida';
+                                        IconData accountIcon = account != null
+                                            ? account.displayIcon
+                                            : Icons.account_balance_wallet;
+
+                                        // Lookup Category Color and Icon
+                                        final catData = AppCategories
+                                            .allCategories[t.categoryId];
+
                                         String amount;
                                         Color color;
                                         IconData icon;
@@ -456,14 +328,26 @@ class _HistoryPageState extends State<HistoryPage> {
                                         } else {
                                           amount =
                                               "${isIncome ? '+' : '-'} $symbol $absAmount";
+
                                           color = isIncome
                                               ? (isDarkMode
                                                   ? Colors.greenAccent
                                                   : Colors.green)
                                               : Colors.redAccent;
-                                          icon = isIncome
-                                              ? Icons.account_balance_wallet
-                                              : Icons.shopping_bag;
+
+                                          if (t.colorValue != null) {
+                                            color = Color(t.colorValue!);
+                                          }
+
+                                          icon = catData != null
+                                              ? (catData['icon'] as IconData)
+                                              : (isIncome
+                                                  ? Icons.account_balance_wallet
+                                                  : Icons.shopping_bag);
+                                          
+                                          if (t.iconCode != null) {
+                                            icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');
+                                          }
 
                                           if (t.note != null &&
                                               t.note!.isNotEmpty) {
@@ -473,20 +357,6 @@ class _HistoryPageState extends State<HistoryPage> {
                                                 " • ${isIncome ? 'Ingreso' : 'Gasto'}";
                                           }
                                         }
-
-                                        Color accountColor = Colors.grey;
-                                        if (t.accountId == 1) {
-                                          accountColor = Colors.amber; // Cash
-                                        } else if (t.accountId == 2) {
-                                          accountColor =
-                                              Colors.blueAccent; // Bank
-                                        } else if (t.accountId == 3) {
-                                          accountColor =
-                                              Colors.purpleAccent; // Savings
-                                        }
-
-                                        String accountName = walletProvider
-                                            .getAccountName(t.accountId);
 
                                         return _buildTransactionItem(
                                             title: title,
@@ -500,7 +370,8 @@ class _HistoryPageState extends State<HistoryPage> {
                                             type: isTransfer
                                                 ? TransactionType.transfer
                                                 : t.type,
-                                            isDarkMode: isDarkMode);
+                                            isDarkMode: isDarkMode,
+                                            accountIcon: accountIcon);
                                       }),
                                     ),
                                   ))
@@ -585,6 +456,7 @@ class _HistoryPageState extends State<HistoryPage> {
     required Color color,
     required bool isIncome,
     required bool isDarkMode,
+    IconData? accountIcon,
     bool hasAttachment = false,
     TransactionType type = TransactionType.expense,
   }) {
@@ -613,11 +485,23 @@ class _HistoryPageState extends State<HistoryPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: type == TransactionType.expense 
+                  ? Colors.redAccent.withValues(alpha: 0.15) 
+                  : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: color.withValues(alpha: 0.1)),
+              border: Border.all(
+                color: type == TransactionType.expense
+                    ? Colors.redAccent.withValues(alpha: 0.1)
+                    : color.withValues(alpha: 0.1),
+              ),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(
+              icon, 
+              color: type == TransactionType.expense 
+                  ? Colors.redAccent 
+                  : color, 
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
 
@@ -659,7 +543,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   Text(
                     amount,
                     style: TextStyle(
-                        color: color,
+                        color: type == TransactionType.expense ? Colors.redAccent : color,
                         fontWeight: FontWeight.bold,
                         fontSize: 15),
                   ),
@@ -677,11 +561,12 @@ class _HistoryPageState extends State<HistoryPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      accountName == "Bancaria"
-                          ? Icons.credit_card
-                          : (accountName == "Ahorros"
-                              ? Icons.savings
-                              : Icons.payments),
+                      accountIcon ??
+                          (accountName == "Bancaria"
+                              ? Icons.credit_card
+                              : (accountName == "Ahorros"
+                                  ? Icons.savings
+                                  : Icons.payments)),
                       size: 10,
                       color: accountColor,
                     ),

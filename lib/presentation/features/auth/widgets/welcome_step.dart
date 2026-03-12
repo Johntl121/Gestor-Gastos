@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import '../../../../core/constants/app_onboarding_data.dart';
 
 class WelcomeStep extends StatelessWidget {
   final TextEditingController nameController;
@@ -143,27 +144,16 @@ class WelcomeStep extends StatelessWidget {
   }
 
   Widget _buildCurrencySelector(bool isDark) {
-    final currencies = [
-      {'symbol': 'S/', 'name': 'Sol', 'code': 'PEN'},
-      {'symbol': '\$', 'name': 'Dólar', 'code': 'USD'},
-      {'symbol': '€', 'name': 'Euro', 'code': 'EUR'},
-      {'symbol': 'mx\$', 'name': 'Peso', 'code': 'MXN'},
-      {'symbol': '₽', 'name': 'Rublo', 'code': 'RUB'},
-      {'symbol': '£', 'name': 'Libra', 'code': 'GBP'},
-      {'symbol': '¥', 'name': 'Yen', 'code': 'JPY'},
-      {'symbol': 'R\$', 'name': 'Real', 'code': 'BRL'},
-    ];
-
     return SizedBox(
       height: 90,
       child: ListView.separated(
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         scrollDirection: Axis.horizontal,
-        itemCount: currencies.length,
+        itemCount: AppOnboardingData.currencies.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final currency = currencies[index];
+          final currency = AppOnboardingData.currencies[index];
           final isSelected = selectedCurrency == currency['symbol'];
 
           return GestureDetector(

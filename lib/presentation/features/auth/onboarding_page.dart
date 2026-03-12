@@ -15,6 +15,7 @@ import 'dart:io';
 import '../../../core/services/database_helper.dart';
 import 'widgets/welcome_step.dart';
 import '../../providers/ui_provider.dart';
+import '../../../core/constants/app_onboarding_data.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -483,42 +484,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   crossAxisCount: 4,
                   mainAxisSpacing: 20,
                   crossAxisSpacing: 20,
-                  children: [
-                    '😎',
-                    '🦸',
-                    '🕵️',
-                    '🤖',
-                    '🦁',
-                    '👽',
-                    '🦊',
-                    '🐱',
-                    '🐼',
-                    '🐨',
-                    '🐯',
-                    '🐮',
-                    '🐷',
-                    '🐸',
-                    '🦄',
-                    '🐲',
-                    '👻',
-                    '💀',
-                    '👾',
-                    '🧘',
-                    '🚵',
-                    '🤸',
-                    '🧖',
-                    '🧟',
-                    '🧛',
-                    '🧝',
-                    '🧞',
-                    '🧜',
-                    '⚽',
-                    '🏀',
-                    '🎮',
-                    '🎵',
-                    '🎨',
-                    '📷'
-                  ]
+                  children: AppOnboardingData.avatars
                       .map((emoji) => GestureDetector(
                             onTap: () {
                               setState(() => _selectedAvatar = emoji);
@@ -590,58 +556,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   double _getBudgetSuggestion(double baseAmountPEN) {
-    double factor = 1.0;
-    double rounding = 100.0;
-
-    // Conversión real a partír de base en SOLES (PEN) para que nunca
-    // muestre "S/ 500" y luego "$ 500", sino "$ 130" o "$ 150".
-    switch (_selectedCurrency) {
-      case '\$': // USD
-        factor = 0.27; // 1 PEN ~= 0.27 USD
-        rounding = 10.0; // Redondear a las decenas (ej. 130, 210)
-        break;
-      case '€': // EUR
-        factor = 0.25; // 1 PEN ~= 0.25 EUR
-        rounding = 10.0;
-        break;
-      case '£': // GBP
-        factor = 0.21;
-        rounding = 10.0;
-        break;
-      case 'mx\$': // MXN
-        factor = 5.3;
-        rounding = 100.0;
-        break;
-      case 'R\$': // BRL
-        factor = 1.35;
-        rounding = 50.0;
-        break;
-      case '₽': // RUB
-        factor = 25.0;
-        rounding = 1000.0;
-        break;
-      case '¥': // JPY
-        factor = 40.0;
-        rounding = 1000.0;
-        break;
-      case 'S/': // PEN (Base)
-      default:
-        factor = 1.0;
-        rounding = 50.0;
-    }
-
-    double raw = baseAmountPEN * factor;
-
-    // Smart Rounding Inteligente
-    if (raw > 15000) {
-      return (raw / 1000).round() *
-          1000.0; // Redondear a millares para monedas muy grandes (JPY, RUB)
-    } else if (raw < 100) {
-      return (raw / 5).round() *
-          5.0; // Redondear a 5 para importes chicos (USD, EUR estudiantes)
-    } else {
-      return (raw / rounding).round() * rounding;
-    }
+    return AppOnboardingData.getBudgetSuggestionForCurrency(
+        baseAmountPEN, _selectedCurrency);
   }
 
   // --- STEP 2: PROFILE SELECTOR ---
@@ -680,15 +596,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
             mainAxisSpacing: 16,
             childAspectRatio: 0.85,
             physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _buildProfileCard(
-                  "Estudiante", "Gestionando lo justo.", Icons.school),
-              _buildProfileCard(
-                  "Profesional", "Sueldo fijo y metas.", Icons.work),
-              _buildProfileCard(
-                  "Freelance", "Ingresos variables.", Icons.rocket_launch),
-              _buildProfileCard("Hogar", "Finanzas familiares.", Icons.home),
-            ],
+            children: AppOnboardingData.profiles.map((profile) {
+              return _buildProfileCard(
+                profile['title'] as String,
+                profile['subtitle'] as String,
+                profile['icon'] as IconData,
+              );
+            }).toList(),
           )
         ],
       ),
@@ -850,43 +764,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final colorScheme = theme.colorScheme;
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    // Generar sugerencias dinámicamente con información breve
-    List<Map<String, dynamic>> getDynamicSuggestions() {
-      switch (_userProfile) {
-        case 'Estudiante':
-          return [
-            {'amount': 500.0, 'desc': 'Básico'},
-            {'amount': 800.0, 'desc': 'Equilibrado'},
-            {'amount': 1200.0, 'desc': 'Holgado'}
-          ];
-        case 'Profesional':
-          return [
-            {'amount': 1500.0, 'desc': 'Conservador'},
-            {'amount': 2500.0, 'desc': 'Estándar'},
-            {'amount': 4000.0, 'desc': 'Alto Nivel'}
-          ];
-        case 'Freelance':
-          return [
-            {'amount': 1800.0, 'desc': 'Ajustado'},
-            {'amount': 3000.0, 'desc': 'Promedio'},
-            {'amount': 5000.0, 'desc': 'Excelente'}
-          ];
-        case 'Hogar':
-          return [
-            {'amount': 2000.0, 'desc': 'Esencial'},
-            {'amount': 3500.0, 'desc': 'Normal'},
-            {'amount': 6000.0, 'desc': 'Confort'}
-          ];
-        default:
-          return [
-            {'amount': 1000.0, 'desc': 'Mínimo'},
-            {'amount': 2400.0, 'desc': 'Medio'},
-            {'amount': 5000.0, 'desc': 'Máximo'}
-          ];
-      }
-    }
-
-    final suggestionsData = getDynamicSuggestions();
+    final suggestionsData =
+        AppOnboardingData.getBudgetSuggestions(_userProfile);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),

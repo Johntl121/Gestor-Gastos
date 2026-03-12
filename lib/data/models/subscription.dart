@@ -29,35 +29,21 @@ class Subscription {
 
     if (frequency == ExpenseFrequency.monthly) {
       // Caso Mensual
-      // Si el día de pago ya pasó este mes (ej. hoy 20, pago 15), es el próximo mes.
-      // Si hoy es 15, vence hoy (o ya venció si consideramos horas, pero simplifiquemos a fecha).
-
       final paymentDay = paymentDate.day;
 
-      // Creamos la fecha de vencimiento para ESTE mes
-      final thisMonthDue = DateTime(now.year, now.month, paymentDay);
-
-      // Comparamos solo partes de fecha (ignorando horas) para seguridad
-      final nowDate = DateTime(now.year, now.month, now.day);
-
-      if (nowDate.isAfter(thisMonthDue)) {
-        // Ya pasó el día de este mes, pasamos al siguiente
-        // Manejo de desbordamiento de mes (diciembre -> enero) lo hace DateTime auto
+      if (isPaid) {
+        // Si ya se pagó este mes, el próximo vencimiento es el mes siguiente
         return DateTime(now.year, now.month + 1, paymentDay);
       } else {
-        return thisMonthDue;
+        // Si NO se ha pagado, el vencimiento es en ESTE mes (puede estar vencido o estar por vencer)
+        return DateTime(now.year, now.month, paymentDay);
       }
     } else {
       // Caso Anual
-      // Si la fecha (mes/dia) ya pasó este año, es el próximo.
-      final thisYearDue =
-          DateTime(now.year, paymentDate.month, paymentDate.day);
-      final nowDate = DateTime(now.year, now.month, now.day);
-
-      if (nowDate.isAfter(thisYearDue)) {
+      if (isPaid) {
         return DateTime(now.year + 1, paymentDate.month, paymentDate.day);
       } else {
-        return thisYearDue;
+        return DateTime(now.year, paymentDate.month, paymentDate.day);
       }
     }
   }

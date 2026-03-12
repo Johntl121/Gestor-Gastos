@@ -14,6 +14,8 @@ class TransactionEntity extends Equatable {
   final int? destinationAccountId;
   final double? receivedAmount;
   final String? imagePath;
+  final int? iconCode;
+  final int? colorValue;
 
   const TransactionEntity({
     this.id,
@@ -27,6 +29,8 @@ class TransactionEntity extends Equatable {
     this.destinationAccountId,
     this.receivedAmount,
     this.imagePath,
+    this.iconCode,
+    this.colorValue,
   });
 
   @override
@@ -41,6 +45,8 @@ class TransactionEntity extends Equatable {
         type,
         destinationAccountId,
         receivedAmount,
-        imagePath
+        imagePath,
+        iconCode,
+        colorValue
       ];
 }

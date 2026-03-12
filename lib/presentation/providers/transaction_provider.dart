@@ -69,8 +69,6 @@ class TransactionProvider extends ChangeNotifier {
 
     for (int i = 0; i < _subscriptions.length; i++) {
       final sub = _subscriptions[i];
-      final dueDate = sub.nextDueDate; // Fecha de vencimiento "oficial" actual
-
       // Definimos la ventana de pago:
       // Mensual: Desde el comienzo del mes de la dueDate hasta la dueDate.
       // Anual: Desde el comienzo del año de la dueDate (o mes anterior?) -> Simplifiquemos a "Este mes/año".
@@ -78,21 +76,20 @@ class TransactionProvider extends ChangeNotifier {
       bool foundPayment = false;
 
       // Buscamos una transacción que coincida
-      // Criterio simple: Misma descripción (nombre) y dentro del mes/año de vencimiento.
+      // Criterio: Misma descripción (nombre) y dentro del mes/año actual.
+      final now = DateTime.now();
 
       for (var tx in _transactions) {
         if (tx.type == TransactionType.expense && tx.description == sub.name) {
           if (sub.frequency == ExpenseFrequency.monthly) {
-            // Para mensual: Debe ser del mismo MES y AÑO que la dueDate
-            // OJO: Si dueDate es Mar 15, y pagué Feb 15, eso NO cuenta para Mar 15.
-            if (tx.date.month == dueDate.month &&
-                tx.date.year == dueDate.year) {
+            // Para mensual: Debe ser del mismo MES y AÑO actual
+            if (tx.date.month == now.month && tx.date.year == now.year) {
               foundPayment = true;
               break;
             }
           } else {
-            // Para anual: Debe ser del mismo AÑO que la dueDate (o un rango de 30 días antes)
-            if (tx.date.year == dueDate.year) {
+            // Para anual: Debe ser del mismo AÑO actual
+            if (tx.date.year == now.year) {
               foundPayment = true;
               break;
             }
@@ -183,7 +180,12 @@ class TransactionProvider extends ChangeNotifier {
   // --- Subscription Logic ---
 
   Future<void> addSubscription(Subscription subscription) async {
-    _subscriptions.add(subscription);
+    final idx = _subscriptions.indexWhere((s) => s.id == subscription.id);
+    if (idx != -1) {
+      _subscriptions[idx] = subscription;
+    } else {
+      _subscriptions.add(subscription);
+    }
     notifyListeners();
     await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
 
@@ -218,24 +220,28 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {
     final transaction = TransactionEntity(
         accountId: subscription.accountToCharge,
-        categoryId: 9,
+        categoryId: 9, // Let's keep 9 just in case, or change if needed.
         amount: -subscription.amount,
         date: DateTime.now(),
         description: subscription.name,
         note: subscription.frequency == ExpenseFrequency.monthly
             ? "Pago mensual"
             : "Pago anual",
-        type: TransactionType.expense);
+        type: TransactionType.expense,
+        iconCode: subscription.iconCode,
+        colorValue: subscription.colorValue);
 
-    // Agregar la transacción y recargar (re-calculando status automáticamente)
-    await addTransaction(transaction);
-
-    // Optimistic Update manual si queremos instantáneo antes de reload:
+    // Optimistic Update manual para bloqueo INMEDIATO en la UI
     final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
     if (index != -1) {
       _subscriptions[index] = subscription.copyWith(isPaid: true);
+      // Guardar en cache inmediatamente para que loadTransactions no pise el optimistic state
+      await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
       notifyListeners();
     }
+
+    // Agregar la transacción y recargar (re-calculando status automáticamente)
+    await addTransaction(transaction);
   }
 
   void reorderSubscriptions(int oldIndex, int newIndex) {

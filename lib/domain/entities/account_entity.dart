@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
 
 class AccountEntity extends Equatable {
@@ -13,6 +14,17 @@ class AccountEntity extends Equatable {
 
   // Calculated at runtime, not stored
   final double currentBalance;
+
+  // Helper for dynamic UI icons
+  IconData get displayIcon {
+    if (name.toLowerCase() == 'efectivo' &&
+        (iconCode == Icons.money.codePoint ||
+            iconCode == Icons.wallet_rounded.codePoint ||
+            iconCode == Icons.account_balance_wallet.codePoint)) {
+      return Icons.payments_rounded; // Specific icon for Efectivo
+    }
+    return IconData(iconCode, fontFamily: 'MaterialIcons');
+  }
 
   const AccountEntity({
     required this.id,

@@ -84,7 +84,7 @@ class GoalCard extends StatelessWidget {
                           child: Icon(
                             isCompleted ? Icons.emoji_events : icon,
                             color: displayColor,
-                            size: 24,
+                            size: 25,
                           ),
                         ),
                         const SizedBox(width: 16),

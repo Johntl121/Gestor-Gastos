@@ -4,7 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 
 class GeminiClient {
-  // Model: Gemini 2.5 Flash Lite (v1beta)
+  // Model: Gemini 2.5 Flash Lite
   // Fallback: gemini-1.5-flash
   static const String _urlOficial =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";

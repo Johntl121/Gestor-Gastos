@@ -15,6 +15,7 @@ import '../stats/stats_page.dart';
 import '../transactions/history_page.dart';
 import '../wallet/wallet_page.dart';
 import '../transactions/add_transaction_page.dart';
+import '../../../core/constants/app_categories.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -299,32 +300,9 @@ class _MainPageState extends State<MainPage> {
                   )),
             ));
 
-    final categories = [
-      "Comida",
-      "Mercado",
-      "Vivienda",
-      "Servicios",
-      "Transporte",
-      "Vehículo",
-      "Compras",
-      "Cuidado",
-      "Suscripciones",
-      "Salud",
-      "Deportes",
-      "Entretenimiento",
-      "Viajes",
-      "Educación",
-      "Tecnología",
-      "Deudas",
-      "Ahorro",
-      "Sueldo",
-      "Negocio",
-      "Inversiones",
-      "Regalos",
-      "Ventas",
-      "Préstamos",
-      "Otros"
-    ];
+    final categories = AppCategories.allCategories.values
+        .map((cat) => cat['name'] as String)
+        .toList();
 
     final accountNames = walletProvider.accounts.map((a) => a.name).toList();
 
@@ -352,84 +330,15 @@ class _MainPageState extends State<MainPage> {
           type == TransactionType.income ? 25 : 20; // Default Otros
       final String normalizedCategory = categoryName.trim().toLowerCase();
 
-      switch (normalizedCategory) {
-        case "comida":
-          categoryId = 1;
+      for (var entry in AppCategories.allCategories.entries) {
+        final catName = (entry.value['name'] as String).toLowerCase();
+        if (catName == normalizedCategory ||
+            (normalizedCategory == "hogar" && catName == "vivienda") ||
+            (normalizedCategory == "ocio" && catName == "entretenimiento") ||
+            (normalizedCategory == "gastos varios" && catName == "otros")) {
+          categoryId = entry.key;
           break;
-        case "mercado":
-          categoryId = 2;
-          break;
-        case "vivienda":
-          categoryId = 3;
-          break;
-        case "hogar":
-          categoryId = 3;
-          break;
-        case "servicios":
-          categoryId = 4;
-          break;
-        case "transporte":
-          categoryId = 5;
-          break;
-        case "vehículo":
-          categoryId = 6;
-          break;
-        case "compras":
-          categoryId = 7;
-          break;
-        case "cuidado":
-          categoryId = 8;
-          break;
-        case "suscripciones":
-          categoryId = 9;
-          break;
-        case "salud":
-          categoryId = 10;
-          break;
-        case "deportes":
-          categoryId = 11;
-          break;
-        case "ocio":
-        case "entretenimiento":
-          categoryId = 12;
-          break;
-        case "viajes":
-          categoryId = 13;
-          break;
-        case "educación":
-          categoryId = 14;
-          break;
-        case "tecnología":
-          categoryId = 15;
-          break;
-        case "deudas":
-          categoryId = 16;
-          break;
-        case "ahorro":
-          categoryId = 17;
-          break;
-        case "sueldo":
-          categoryId = 18;
-          break;
-        case "negocio":
-          categoryId = 19;
-          break;
-        case "inversiones":
-          categoryId = 21;
-          break;
-        case "regalos":
-          categoryId = 22;
-          break;
-        case "ventas":
-          categoryId = 23;
-          break;
-        case "préstamos":
-          categoryId = 24;
-          break;
-        case "otros":
-        case "gastos varios":
-          categoryId = type == TransactionType.income ? 25 : 20;
-          break;
+        }
       }
 
       int accountId = walletProvider.accounts.isNotEmpty

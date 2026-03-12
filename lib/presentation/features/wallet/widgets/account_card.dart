@@ -61,7 +61,7 @@ class AccountCard extends StatelessWidget {
               child: Icon(
                 icon,
                 color: Colors.white,
-                size: 20, // Tamaño del icono ajustado
+                size: 26, // Tamaño del icono ajustado
               ),
             ),
 

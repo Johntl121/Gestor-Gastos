@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/subscription.dart';
+import '../../../../domain/entities/account_entity.dart';
 
 class FixedExpenseCard extends StatelessWidget {
   final Subscription subscription;
+  final AccountEntity? account;
   final VoidCallback onTap;
   final VoidCallback onPay;
   final VoidCallback onDelete;
@@ -10,6 +12,7 @@ class FixedExpenseCard extends StatelessWidget {
   const FixedExpenseCard({
     super.key,
     required this.subscription,
+    this.account,
     required this.onTap,
     required this.onPay,
     required this.onDelete,
@@ -39,7 +42,7 @@ class FixedExpenseCard extends StatelessWidget {
       statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     } else {
       statusText = "Pagado";
-      statusColor = const Color(0xFF00E676); // Verde
+      statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[500]!; // Gris
     }
 
     final itemColor = Color(subscription.colorValue);
@@ -68,19 +71,23 @@ class FixedExpenseCard extends StatelessWidget {
             ],
           );
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+    return AnimatedOpacity(
+      opacity: isPaid ? 0.6 : 1.0,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         gradient: gradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
-          BoxShadow(
-              color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))
+          BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))
         ],
         border: isPaid
             ? Border.all(
-                color: const Color(0xFF00E676).withValues(alpha: 0.3), width: 1.0)
-            : Border.all(color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+                color: Colors.green.withValues(alpha: 0.5),
+                width: 1.0)
+            : Border.all(
+                color: Colors.white.withValues(alpha: 0.05), width: 0.5),
       ),
       child: Material(
         color: Colors.transparent,
@@ -88,125 +95,103 @@ class FixedExpenseCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: onPay,
-          child: Stack(
-            children: [
-              // Contenido Principal con Padding Generoso (Regla 2)
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    // 1. Icono Vivo (Glassmorphism sutil)
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: itemColor.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        // No border in this new clean style unless needed
-                      ),
-                      child: Icon(
-                        IconData(subscription.iconCode,
-                            fontFamily: 'MaterialIcons'),
-                        color: itemColor,
-                        size: 26,
-                      ),
-                    ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // 1. Icono Vivo (Glassmorphism sutil)
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: itemColor.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    IconData(subscription.iconCode,
+                        fontFamily: 'MaterialIcons'),
+                    color: itemColor,
+                    size: 25,
+                  ),
+                ),
 
-                    const SizedBox(width: 16), // Espaciado entre elementos
+                const SizedBox(width: 16), // Espaciado entre elementos
 
-                    // 2. Información Central
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Título: Grande, Blanco/Negro, w600 (Regla 3)
-                          Text(
-                            subscription.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                                color: isDarkMode
-                                    ? Colors.white
-                                    : const Color(0xFF2D3436),
-                                letterSpacing: -0.3),
-                          ),
-                          const SizedBox(height: 6), // Spacer vertical
-                          // Subtítulo: Fecha (Regla 3 - 14px Grey)
-                          Text(
-                            statusText,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight:
-                                  isOverdue ? FontWeight.w600 : FontWeight.w400,
-                              color: isOverdue
-                                  ? statusColor
-                                  : (isDarkMode
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600]),
-                            ),
-                          ),
-                        ],
+                // 2. Información Central
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Título
+                      Text(
+                        subscription.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: isDarkMode
+                                ? Colors.white
+                                : const Color(0xFF2D3436),
+                            letterSpacing: -0.3),
                       ),
-                    ),
-
-                    // 3. Datos Clave (Derecha)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Monto: Grande, Bold, Color Dinámico (Regla 3)
-                        Text(
-                          "S/ ${subscription.amount.toStringAsFixed(0)}",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 22,
-                              color: itemColor, // Color dinámico para resaltar
-                              letterSpacing: -0.5),
-                        ),
-                        const SizedBox(height: 6),
-                        // Cuenta: Pequeño, Gris (Regla 3)
+                      const SizedBox(height: 4), // Spacer vertical
+                      // Subtítulo: Fecha o Pagado
+                      if (isPaid)
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_getAccountName(subscription.accountToCharge),
-                                style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.grey[400]
-                                        : Colors.grey[600],
-                                    fontSize:
-                                        13, // Slightly adjusted for balance
-                                    fontWeight: FontWeight.w500)),
+                            const Icon(Icons.check_circle, size: 14, color: Colors.green),
                             const SizedBox(width: 4),
-                            Icon(
-                              _getAccountIcon(subscription.accountToCharge),
-                              size: 14,
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
+                            Text(
+                              "Pagado",
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                             ),
                           ],
+                        )
+                      else
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight:
+                                isOverdue ? FontWeight.w600 : FontWeight.w400,
+                            color: isOverdue
+                                ? statusColor
+                                : (isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600]),
+                          ),
                         ),
-                      ],
-                    ),
-
-                    const SizedBox(
-                        width: 24), // Espacio para el menú (Stack overlays it)
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // 4. Menú de Gestión (Top Right)
-              Positioned(
-                top: 8,
-                right: 4,
-                child: _buildActionMenu(context, isDarkMode),
-              ),
-            ],
+                // 3. Monto
+                Text(
+                  "S/ ${subscription.amount.toStringAsFixed(0)}",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: isPaid 
+                          ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400) 
+                          : itemColor, 
+                      letterSpacing: -0.5),
+                ),
+                
+                const SizedBox(width: 4),
+                
+                // 4. Menú de Gestión
+                _buildActionMenu(context, isDarkMode),
+              ],
+            ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -250,32 +235,6 @@ class FixedExpenseCard extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  IconData _getAccountIcon(int accountId) {
-    switch (accountId) {
-      case 1:
-        return Icons.payments_outlined;
-      case 2:
-        return Icons.account_balance_outlined;
-      case 3:
-        return Icons.savings_outlined;
-      default:
-        return Icons.wallet;
-    }
-  }
-
-  String _getAccountName(int accountId) {
-    switch (accountId) {
-      case 1:
-        return "Efectivo";
-      case 2:
-        return "Banco";
-      case 3:
-        return "Ahorros";
-      default:
-        return "Cta";
-    }
   }
 
   bool _isSameDay(DateTime a, DateTime b) {

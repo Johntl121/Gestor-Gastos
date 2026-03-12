@@ -174,7 +174,7 @@ class _WalletPageState extends State<WalletPage> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Icon(Icons.add_circle_outline,
-                                          size: 48,
+                                          size: 45,
                                           color: isDarkMode
                                               ? Colors.white54
                                               : Colors.grey),
@@ -341,14 +341,7 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildAccountCard(BuildContext context, AccountEntity account) {
-    IconData displayIcon =
-        IconData(account.iconCode, fontFamily: 'MaterialIcons');
-    if (account.name.toLowerCase() == 'efectivo' &&
-        (account.iconCode == Icons.money.codePoint ||
-            account.iconCode == Icons.wallet_rounded.codePoint ||
-            account.iconCode == Icons.account_balance_wallet.codePoint)) {
-      displayIcon = Icons.payments_rounded;
-    }
+    IconData displayIcon = account.displayIcon;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -375,7 +368,7 @@ class _WalletPageState extends State<WalletPage> {
               Icon(
                 displayIcon,
                 color: Colors.white70,
-                size: 28,
+                size: 34,
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz, color: Colors.white70),
@@ -543,34 +536,114 @@ class _WalletPageState extends State<WalletPage> {
               },
               itemBuilder: (context, index) {
                 final sub = provider.subscriptions[index];
+                final account =
+                    Provider.of<WalletProvider>(context, listen: false)
+                        .accounts
+                        .firstWhere((a) => a.id == sub.accountToCharge,
+                            orElse: () => const AccountEntity(
+                                id: -1,
+                                name: 'Desconocido',
+                                initialBalance: 0,
+                                currencySymbol: '',
+                                colorValue: 0xFF9E9E9E,
+                                iconCode: 0));
+
                 return Container(
                   key: ValueKey(sub.id),
                   child: FixedExpenseCard(
                     subscription: sub,
+                    account: account,
                     onTap: () {
-                      // Editar? El usuario dijo "Click Total -> Pagar", pero también "Menú: Editar"
-                      // onTap en el card ahora dispara onPay según la implementación del card.
-                      // Así que aquí pasamos una función vacía o redirigimos edit a través del menú.
-                      // FixedExpenseCard usa onTap interno para Pay, así que este callback podría ser redundante
-                      // si el card lo maneja, pero el card llama a `onTap: onTap`.
-                      // Un momento, en FixedExpenseCard implementé: `onTap: onPay`.
-                      // Entonces este callback `onTap` no se usa para Pay, se usa onTap interno.
-                      // Espera, el widget `FixedExpenseCard` tiene `required this.onTap`.
-                      // Y en su build usa `onTap: onPay` (mi error anterior).
-                      // Corregí en el write: `onTap: onPay` en InkWell.
-                      // El parámetro `onTap` del constructor se usa en el menú para 'edit': `if (value == 'edit') onTap();`.
-                      // Por tanto, este `onTap` que paso aquí debe ser EDITAR.
-
-                      // Show edit sheet logic requires implementing EditFixedExpenseSheet?
-                      // Or reusing AddFixedExpenseSheet with params.
-                      // Assuming AddFixedExpenseSheet(subscriptionToEdit: sub) exists or similar implies refactoring Add sheet.
-                      // User didn't asking for Edit sheet implementation, just "Menu -> Edit".
-                      // I'll show a "Not implemented" snackbar or similar if Logic missing.
-                      // But I can leave it empty for now or log.
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) => AddFixedExpenseSheet(subscriptionToEdit: sub),
+                      );
                     },
                     onPay: () {
-                      if (!sub.isPaid) {
-                        provider.markSubscriptionAsPaid(sub);
+                      if (sub.isPaid) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Ya pagaste este gasto este mes"),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) {
+                            final currentWallet = Provider.of<WalletProvider>(context, listen: false);
+                            int selectedAccountId = account.id != -1 ? account.id : 
+                                (currentWallet.accounts.isNotEmpty ? currentWallet.accounts.first.id : 1);
+                            
+                            return StatefulBuilder(
+                              builder: (context, setState) {
+                                return AlertDialog(
+                                  title: const Text("Registrar pago"),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                          "¿Registrar pago de ${sub.name} por S/ ${sub.amount.toStringAsFixed(2)}?"),
+                                      const SizedBox(height: 16),
+                                      const Text("Cuenta origen:", style: TextStyle(fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 8),
+                                      if (currentWallet.accounts.isNotEmpty)
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.05),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: Colors.white10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<int>(
+                                              isExpanded: true,
+                                              value: selectedAccountId,
+                                              items: currentWallet.accounts.map((acc) {
+                                                return DropdownMenuItem<int>(
+                                                  value: acc.id,
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(acc.displayIcon, size: 16),
+                                                      const SizedBox(width: 8),
+                                                      Text(acc.name),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                              onChanged: (val) {
+                                                if (val != null) {
+                                                  setState(() => selectedAccountId = val);
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        child: const Text("Cancelar")),
+                                    ElevatedButton(
+                                        onPressed: () {
+                                          final subToPay = sub.copyWith(accountToCharge: selectedAccountId);
+                                          provider.markSubscriptionAsPaid(subToPay);
+                                          Navigator.pop(ctx);
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.tealAccent,
+                                            foregroundColor: Colors.black87),
+                                        child: const Text("Confirmar")),
+                                  ],
+                                );
+                              }
+                            );
+                          },
+                        );
                       }
                     },
                     onDelete: () {

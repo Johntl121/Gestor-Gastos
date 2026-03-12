@@ -21,7 +21,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 10, // Increment version
+      version: 11, // Increment version
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -152,6 +152,16 @@ class LocalDatabase {
         // Ignore
       }
     }
+
+    if (oldVersion < 11) {
+      // Migración V10 -> V11: Agregar 'iconCode' y 'colorValue' a transactions (para Gastos Fijos personalizados)
+      try {
+        await db.execute("ALTER TABLE transactions ADD COLUMN iconCode INTEGER");
+        await db.execute("ALTER TABLE transactions ADD COLUMN colorValue INTEGER");
+      } catch (e) {
+        // Ignore if exists
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -198,6 +208,8 @@ class LocalDatabase {
         destinationAccountId INTEGER,
         receivedAmount REAL,
         imagePath TEXT,
+        iconCode INTEGER,
+        colorValue INTEGER,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE CASCADE,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )

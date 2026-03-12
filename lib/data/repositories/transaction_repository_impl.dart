@@ -38,7 +38,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
           type: transaction.type,
           destinationAccountId: transaction.destinationAccountId,
           receivedAmount: transaction.receivedAmount,
-          imagePath: transaction.imagePath);
+          imagePath: transaction.imagePath,
+          iconCode: transaction.iconCode,
+          colorValue: transaction.colorValue,
+      );
 
       transactions.add(transactionWithId);
       await transactionLocalDataSource.cacheTransactions(transactions);
@@ -214,6 +217,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
             destinationAccountId: t.destinationAccountId,
             receivedAmount: t.receivedAmount,
             imagePath: t.imagePath,
+            iconCode: t.iconCode,
+            colorValue: t.colorValue,
           );
         }
       }
