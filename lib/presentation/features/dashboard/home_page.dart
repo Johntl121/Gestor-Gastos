@@ -12,6 +12,7 @@ import '../../providers/transaction_provider.dart'; // For transactions list
 import '../../providers/stats_provider.dart'; // For Mood
 import '../../../injection_container.dart' as sl;
 import '../../../data/repositories/transaction_data_source.dart';
+import '../../../core/constants/app_categories.dart';
 
 import '../settings/settings_page.dart';
 import '../auth/onboarding_page.dart';
@@ -386,7 +387,7 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
 
-              const SizedBox(height: 100),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -593,6 +594,9 @@ class _HomePageState extends State<HomePage> {
     final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
     final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
+    // Lookup Category Color and Icon
+    final catData = AppCategories.allCategories[t.categoryId];
+
     if (isTransfer) {
       final source = walletProvider.getAccountName(t.accountId);
       final dest = t.destinationAccountId != null
@@ -610,7 +614,14 @@ class _HomePageState extends State<HomePage> {
       color = isIncome
           ? (isDarkMode ? Colors.greenAccent : Colors.green)
           : Colors.redAccent;
-      icon = isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
+
+      icon = catData != null
+          ? (catData['icon'] as IconData)
+          : (isIncome ? Icons.account_balance_wallet : Icons.shopping_bag);
+      
+      if (t.iconCode != null) {
+        icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');
+      }
 
       if (t.note != null && t.note!.isNotEmpty) {
         subtitle += " • ${t.note!}";
@@ -638,16 +649,19 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (isIncome && !isTransfer)
-                  ? (isDarkMode
-                      ? Colors.greenAccent.withValues(alpha: 0.15)
-                      : Colors.greenAccent.withValues(alpha: 0.15))
+              color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                  ? Colors.redAccent.withValues(alpha: 0.15)
                   : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                    ? Colors.redAccent.withValues(alpha: 0.1)
+                    : color.withValues(alpha: 0.1),
+              ),
             ),
             child: Icon(icon,
-                color: (isIncome && !isTransfer)
-                    ? (isDarkMode ? Colors.greenAccent : Colors.green)
+                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                    ? Colors.redAccent
                     : color,
                 size: 24),
           ),
@@ -676,7 +690,10 @@ class _HomePageState extends State<HomePage> {
           Text(
             amountFormatted,
             style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: color),
+                fontWeight: FontWeight.bold, fontSize: 16,
+                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                    ? Colors.redAccent
+                    : color),
           ),
         ],
       ),

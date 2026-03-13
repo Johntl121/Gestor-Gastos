@@ -202,7 +202,7 @@ class _HistoryPageState extends State<HistoryPage> {
                             style: TextStyle(color: Colors.grey[600])))
                     : ListView.builder(
                         padding: const EdgeInsets.only(
-                            left: 16, right: 16, top: 10, bottom: 100),
+                            left: 16, right: 16, top: 10, bottom: 24),
                         itemCount: grouped.keys.length,
                         itemBuilder: (context, index) {
                           final key = grouped.keys.elementAt(index);

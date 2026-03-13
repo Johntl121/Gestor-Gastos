@@ -551,6 +551,75 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor:
           uiProvider.isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
+      // FAB anclado al centro del BottomAppBar
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SizedBox(
+        height: 64,
+        width: 64,
+        child: FloatingActionButton(
+          onPressed: () {
+            setState(() {
+              _isSpeedDialOpen = !_isSpeedDialOpen;
+            });
+          },
+          elevation: 4,
+          backgroundColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: 64,
+            width: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: _isSpeedDialOpen
+                    ? [Colors.redAccent, Colors.red]
+                    : [Colors.cyan, Colors.blueAccent],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _isSpeedDialOpen
+                      ? Colors.redAccent.withValues(alpha: 0.3)
+                      : Colors.cyan.withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AnimatedRotation(
+              turns: _isSpeedDialOpen ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(Icons.add_rounded,
+                  color: Colors.white, size: 36),
+            ),
+          ),
+        ),
+      ),
+      // BottomAppBar con hueco (notch) para el FAB
+      bottomNavigationBar: BottomAppBar(
+        color: const Color(0xFF1F2937),
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildDockItem(
+                  Icons.home_rounded, 0, uiProvider.currentIndex),
+              _buildDockItem(
+                  Icons.bar_chart_rounded, 1, uiProvider.currentIndex),
+              const SizedBox(width: 48), // espacio para el FAB
+              _buildDockItem(
+                  Icons.history_rounded, 2, uiProvider.currentIndex),
+              _buildDockItem(Icons.account_balance_wallet_rounded, 3,
+                  uiProvider.currentIndex),
+            ],
+          ),
+        ),
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -564,42 +633,9 @@ class _MainPageState extends State<MainPage> {
                 ),
               ),
             ),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 20,
-            child: Container(
-              height: 70,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F2937),
-                borderRadius: BorderRadius.circular(35),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black45,
-                    blurRadius: 15,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildDockItem(
-                      Icons.home_rounded, 0, uiProvider.currentIndex),
-                  _buildDockItem(
-                      Icons.bar_chart_rounded, 1, uiProvider.currentIndex),
-                  const SizedBox(width: 60),
-                  _buildDockItem(
-                      Icons.history_rounded, 2, uiProvider.currentIndex),
-                  _buildDockItem(Icons.account_balance_wallet_rounded, 3,
-                      uiProvider.currentIndex),
-                ],
-              ),
-            ),
-          ),
           if (_isSpeedDialOpen)
             Positioned(
-              bottom: 110,
+              bottom: 90,
               left: 0,
               right: 0,
               child: Column(
@@ -632,50 +668,6 @@ class _MainPageState extends State<MainPage> {
                 ],
               ),
             ),
-          Positioned(
-            bottom: 25,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isSpeedDialOpen = !_isSpeedDialOpen;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 64,
-                  width: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: _isSpeedDialOpen
-                          ? [Colors.redAccent, Colors.red]
-                          : [Colors.cyan, Colors.blueAccent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isSpeedDialOpen
-                            ? Colors.redAccent.withValues(alpha: 0.3)
-                            : Colors.cyan.withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: AnimatedRotation(
-                    turns: _isSpeedDialOpen ? 0.125 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.add_rounded,
-                        color: Colors.white, size: 36),
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

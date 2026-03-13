@@ -25,7 +25,7 @@ class FixedExpenseCard extends StatelessWidget {
 
     // Calcular estado
     final isPaid = subscription.isPaid;
-    
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dueDateObj = subscription.nextDueDate;
@@ -91,137 +91,143 @@ class FixedExpenseCard extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))
-        ],
-        border: isPaid
-            ? Border.all(
-                color: Colors.green.withValues(alpha: 0.5),
-                width: 1.0)
-            : isOverdue
-                ? Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.6),
-                    width: 1.5)
-                : Border.all(
-                    color: Colors.white.withValues(alpha: 0.05), width: 0.5),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
-        child: InkWell(
+        decoration: BoxDecoration(
+          gradient: gradient,
           borderRadius: BorderRadius.circular(24),
-          onTap: onPay,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // 1. Icono Vivo (Glassmorphism sutil)
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: itemColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+          boxShadow: const [
+            BoxShadow(
+                color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))
+          ],
+          border: isPaid
+              ? Border.all(
+                  color: Colors.green.withValues(alpha: 0.5), width: 1.0)
+              : isOverdue
+                  ? Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.6),
+                      width: 1.5)
+                  : Border.all(
+                      color: Colors.white.withValues(alpha: 0.05), width: 0.5),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: onPay,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 1. Icono Vivo (Glassmorphism sutil)
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: itemColor.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      IconData(subscription.iconCode,
+                          fontFamily: 'MaterialIcons'),
+                      color: itemColor,
+                      size: 25,
+                    ),
                   ),
-                  child: Icon(
-                    IconData(subscription.iconCode,
-                        fontFamily: 'MaterialIcons'),
-                    color: itemColor,
-                    size: 25,
-                  ),
-                ),
 
-                const SizedBox(width: 16), // Espaciado entre elementos
+                  const SizedBox(width: 16), // Espaciado entre elementos
 
-                // 2. Información Central
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Título
-                      Text(
-                        subscription.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color: isDarkMode
-                                ? Colors.white
-                                : const Color(0xFF2D3436),
-                            letterSpacing: -0.3),
-                      ),
-                      const SizedBox(height: 4), // Spacer vertical
-                      // Subtítulo: Fecha o Pagado
-                      if (isPaid)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle, size: 14, color: Colors.green),
-                            const SizedBox(width: 4),
-                            Text(
-                              "Pagado",
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                            ),
-                          ],
-                        )
-                      else if (isOverdue)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.error_outline, size: 14, color: statusColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: statusWeight,
-                                color: statusColor,
-                              ),
-                            ),
-                          ],
-                        )
-                      else
+                  // 2. Información Central
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Título
                         Text(
-                          statusText,
+                          subscription.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: statusWeight,
-                            color: statusColor,
-                          ),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: isDarkMode
+                                  ? Colors.white
+                                  : const Color(0xFF2D3436),
+                              letterSpacing: -0.3),
                         ),
-                    ],
+                        const SizedBox(height: 4), // Spacer vertical
+                        // Subtítulo: Fecha o Pagado
+                        if (isPaid)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  size: 14, color: Colors.green),
+                              const SizedBox(width: 4),
+                              Text(
+                                "Pagado",
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDarkMode
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600]),
+                              ),
+                            ],
+                          )
+                        else if (isOverdue)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.warning_rounded,
+                                  size: 18, color: statusColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                statusText,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: statusWeight,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: statusWeight,
+                              color: statusColor,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
 
-                // 3. Monto
-                Text(
-                  "S/ ${(subscription.amount % 1 == 0) ? subscription.amount.toInt().toString() : subscription.amount.toStringAsFixed(2)}",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: isPaid 
-                          ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400) 
-                          : itemColor, 
-                      letterSpacing: -0.5),
-                ),
-                
-                const SizedBox(width: 4),
-                
-                // 4. Menú de Gestión
-                _buildActionMenu(context, isDarkMode),
-              ],
+                  // 3. Monto
+                  Text(
+                    "S/ ${(subscription.amount % 1 == 0) ? subscription.amount.toInt().toString() : subscription.amount.toStringAsFixed(2)}",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: isPaid
+                            ? (isDarkMode
+                                ? Colors.grey.shade500
+                                : Colors.grey.shade400)
+                            : itemColor,
+                        letterSpacing: -0.5),
+                  ),
+
+                  const SizedBox(width: 4),
+
+                  // 4. Menú de Gestión
+                  _buildActionMenu(context, isDarkMode),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
