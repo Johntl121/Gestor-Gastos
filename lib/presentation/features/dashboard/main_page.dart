@@ -24,8 +24,8 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
+
 class _MainPageState extends State<MainPage> {
-  bool _isSpeedDialOpen = false;
   final SpeechService _speechService = SpeechService();
 
   @override
@@ -545,197 +545,253 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to UiProvider for Dark Mode and Current Index
     final uiProvider = Provider.of<UiProvider>(context);
+    final isDarkMode = uiProvider.isDarkMode;
+    final currentIndex = uiProvider.currentIndex;
+    const barColor = Color(0xFF1F2937);
+    const activeColor = Colors.cyanAccent;
+    const inactiveColor = Color(0xFF6B7280);
 
     return Scaffold(
       backgroundColor:
-          uiProvider.isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
-      // FAB anclado al centro del BottomAppBar
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        height: 64,
-        width: 64,
-        child: FloatingActionButton(
-          onPressed: () {
-            setState(() {
-              _isSpeedDialOpen = !_isSpeedDialOpen;
-            });
-          },
-          elevation: 4,
-          backgroundColor: Colors.transparent,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            height: 64,
-            width: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: _isSpeedDialOpen
-                    ? [Colors.redAccent, Colors.red]
-                    : [Colors.cyan, Colors.blueAccent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _isSpeedDialOpen
-                      ? Colors.redAccent.withValues(alpha: 0.3)
-                      : Colors.cyan.withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: AnimatedRotation(
-              turns: _isSpeedDialOpen ? 0.125 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.add_rounded,
-                  color: Colors.white, size: 36),
-            ),
-          ),
-        ),
-      ),
-      // BottomAppBar con hueco (notch) para el FAB
-      bottomNavigationBar: BottomAppBar(
-        color: const Color(0xFF1F2937),
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          height: 60,
+          isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          height: 65,
+          color: barColor,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildDockItem(
-                  Icons.home_rounded, 0, uiProvider.currentIndex),
-              _buildDockItem(
-                  Icons.bar_chart_rounded, 1, uiProvider.currentIndex),
-              const SizedBox(width: 48), // espacio para el FAB
-              _buildDockItem(
-                  Icons.history_rounded, 2, uiProvider.currentIndex),
-              _buildDockItem(Icons.account_balance_wallet_rounded, 3,
-                  uiProvider.currentIndex),
+              // Inicio
+              _buildNavItem(
+                icon: currentIndex == 0
+                    ? Icons.home_rounded
+                    : Icons.home_outlined,
+                label: 'Inicio',
+                isActive: currentIndex == 0,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _onItemTapped(0),
+              ),
+              // Estadísticas
+              _buildNavItem(
+                icon: currentIndex == 1
+                    ? Icons.bar_chart_rounded
+                    : Icons.bar_chart_outlined,
+                label: 'Stats',
+                isActive: currentIndex == 1,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _onItemTapped(1),
+              ),
+              // Botón central "Añadir"
+              GestureDetector(
+                onTap: () => _showAddBottomSheet(context),
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Colors.cyan, Colors.blueAccent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.cyan.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.add_rounded,
+                      color: Colors.white, size: 28),
+                ),
+              ),
+              // Historial
+              _buildNavItem(
+                icon: currentIndex == 2
+                    ? Icons.history_rounded
+                    : Icons.history_outlined,
+                label: 'Historial',
+                isActive: currentIndex == 2,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _onItemTapped(2),
+              ),
+              // Billetera
+              _buildNavItem(
+                icon: currentIndex == 3
+                    ? Icons.account_balance_wallet_rounded
+                    : Icons.account_balance_wallet_outlined,
+                label: 'Billetera',
+                isActive: currentIndex == 3,
+                activeColor: activeColor,
+                inactiveColor: inactiveColor,
+                onTap: () => _onItemTapped(3),
+              ),
             ],
           ),
         ),
       ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          _pages[uiProvider.currentIndex],
-          if (_isSpeedDialOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => _isSpeedDialOpen = false),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.6),
-                ),
+      body: _pages[currentIndex],
+    );
+  }
+
+  /// Barra inferior: ítem de navegación individual
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required Color activeColor,
+    required Color inactiveColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                color: isActive ? activeColor : inactiveColor, size: 26),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? activeColor : inactiveColor,
+                fontSize: 10,
+                fontWeight:
+                    isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
-          if (_isSpeedDialOpen)
-            Positioned(
-              bottom: 90,
-              left: 0,
-              right: 0,
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// BottomSheet premium con las opciones de nueva transacción
+  void _showAddBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E293B),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 24),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Nueva Transacción',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            // Opción Manual
+            _buildSheetOption(
+              ctx: ctx,
+              icon: Icons.edit_note_rounded,
+              iconColor: Colors.cyanAccent,
+              title: 'Registro Manual',
+              subtitle: 'Ingresa los detalles de tu transacción',
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AddTransactionPage()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            // Opción Voz
+            _buildSheetOption(
+              ctx: ctx,
+              icon: Icons.mic_rounded,
+              iconColor: Colors.tealAccent,
+              title: 'Por Voz con IA',
+              subtitle: 'Habla y la IA registrará tu gasto',
+              onTap: () {
+                Navigator.pop(ctx);
+                _startVoiceTransaction(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSheetOption({
+    required BuildContext ctx,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSpeedDialOption(
-                    icon: Icons.mic_rounded,
-                    label: "Por Voz",
-                    color: Colors.tealAccent,
-                    onTap: () {
-                      setState(() => _isSpeedDialOpen = false);
-                      _startVoiceTransaction(context);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildSpeedDialOption(
-                    icon: Icons.edit_note_rounded,
-                    label: "Manual",
-                    color: Colors.cyanAccent,
-                    onTap: () {
-                      setState(() => _isSpeedDialOpen = false);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const AddTransactionPage()),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          color: Colors.white54, fontSize: 12)),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpeedDialOption(
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: const [
-              BoxShadow(
-                  color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
-            ],
-          ),
-          child: Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.black87)),
-        ),
-        const SizedBox(width: 12),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            height: 50,
-            width: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              boxShadow: [
-                BoxShadow(
-                    color: color.withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4))
-              ],
-            ),
-            child: Icon(icon, color: Colors.black87, size: 24),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDockItem(IconData icon, int index, int currentIndex) {
-    final isSelected = currentIndex == index;
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: isSelected
-              ? Colors.cyanAccent.withValues(alpha: 0.1)
-              : Colors.transparent,
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? Colors.cyanAccent : Colors.grey,
-          size: 28,
+            const Icon(Icons.chevron_right_rounded,
+                color: Colors.white38, size: 20),
+          ],
         ),
       ),
     );
   }
+
 }
