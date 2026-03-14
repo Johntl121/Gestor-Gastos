@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 // Providers
 import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../providers/wallet_provider.dart';
 import '../../providers/ui_provider.dart';
 
 // Components
@@ -51,22 +50,14 @@ class _StatsPageState extends State<StatsPage>
     // Access Providers
     final statsProvider = Provider.of<StatsProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
-    final walletProvider = Provider.of<WalletProvider>(context);
     final uiProvider = Provider.of<UiProvider>(context);
 
-    // Filter Transactions based on Stats Provider State (Date/Period)
-    final filteredTransactions = statsProvider.filterTransactionsByDate(
-        txProvider.transactions,
-        statsProvider.currentStatsDate,
-        statsProvider.currentStatsPeriod);
-
-    // Calculate Spending Map
-    final spendingMap =
-        statsProvider.getSpendingByCategory(filteredTransactions);
+    // Calculate Categories (Dynamically mapped with actual colors)
+    final categories = statsProvider.getSpendingByCategory(
+        txProvider.transactions, txProvider.subscriptions);
 
     // Calculate Total Amount
-    final totalAmount =
-        statsProvider.calculateTotalAmount(filteredTransactions);
+    final totalAmount = statsProvider.calculateTotalAmount(categories);
 
     final isDarkMode = uiProvider.isDarkMode;
     final currentType = statsProvider.currentStatsType;
@@ -78,77 +69,48 @@ class _StatsPageState extends State<StatsPage>
 
     // Prepare Chart Data
     List<PieChartSectionData> chartSections = [];
-    final List<Color> expenseColors = [
-      Colors.cyan,
-      const Color(0xFFFF6B6B),
-      const Color(0xFF009688),
-      Colors.orange,
-      Colors.purple,
-      Colors.blue
-    ];
 
-    final List<Color> incomeColors = [
-      Colors.greenAccent,
-      Colors.teal,
-      Colors.lightGreen,
-      Colors.green,
-      Colors.limeAccent,
-      Colors.greenAccent,
-    ];
-
-    final colors =
-        currentType == StatsType.expense ? expenseColors : incomeColors;
-
-    if (spendingMap.isEmpty) {
+    if (categories.isEmpty) {
       chartSections.add(PieChartSectionData(
-          color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+          color: isDarkMode ? Colors.white10 : Colors.grey.shade300,
           value: 1,
-          radius: 25,
+          radius: 20,
           showTitle: false));
     } else {
-      int colorIndex = 0;
-      final entries = spendingMap.entries.toList();
-      entries.sort((a, b) => b.value.compareTo(a.value));
-
-      for (int i = 0; i < entries.length; i++) {
+      for (int i = 0; i < categories.length; i++) {
         final isTouched = i == touchedIndex;
-        final radius = isTouched ? 35.0 : 25.0;
-
-        final entry = entries[i];
-        final color = colors[colorIndex % colors.length];
+        final radius = isTouched ? 30.0 : 22.0;
+        final group = categories[i];
 
         chartSections.add(PieChartSectionData(
-          color: color,
-          value: entry.value,
+          color: group.color,
+          value: group.amount,
           radius: radius,
           title: "",
           showTitle: false,
         ));
-        colorIndex++;
       }
     }
 
     // Determine Center Text Content
     String centerStartText =
         currentType == StatsType.expense ? "GASTADO" : "INGRESADO";
-    String centerAmountText =
-        "${walletProvider.currencySymbol} ${totalAmount > 0 ? totalAmount.toStringAsFixed(2) : '0.00'}";
-
-    if (touchedIndex != -1 && spendingMap.isNotEmpty) {
-      final entries = spendingMap.entries.toList();
-      entries.sort((a, b) => b.value.compareTo(a.value));
-
-      if (touchedIndex < entries.length) {
-        final entry = entries[touchedIndex];
-        centerStartText = entry.key.toUpperCase();
-        centerAmountText =
-            "${walletProvider.currencySymbol} ${entry.value.toStringAsFixed(2)}";
-      }
+    
+    // Formato de moneda inteligente: S/ 100 o S/ 100.50
+    String formatValue(double val) {
+      if (val == 0) return "0";
+      return val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2);
     }
 
-    // Prepare List Data (Sorted)
-    final sortedEntries = spendingMap.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    String centerAmountText = "S/ ${formatValue(totalAmount)}";
+
+    if (touchedIndex != -1 && categories.isNotEmpty) {
+      if (touchedIndex < categories.length) {
+        final group = categories[touchedIndex];
+        centerStartText = group.name.toUpperCase();
+        centerAmountText = "S/ ${formatValue(group.amount)}";
+      }
+    }
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -242,190 +204,217 @@ class _StatsPageState extends State<StatsPage>
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
-        child: Column(
-          children: [
-            // 1. Selector de Periodo
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  _buildPeriodTab(
-                      "Semana",
-                      statsProvider.currentStatsPeriod == PeriodType.week,
-                      () => statsProvider.setStatsPeriod(PeriodType.week),
-                      isDarkMode),
-                  _buildPeriodTab(
-                      "Mes",
-                      statsProvider.currentStatsPeriod == PeriodType.month,
-                      () => statsProvider.setStatsPeriod(PeriodType.month),
-                      isDarkMode),
-                  _buildPeriodTab(
-                      "Año",
-                      statsProvider.currentStatsPeriod == PeriodType.year,
-                      () => statsProvider.setStatsPeriod(PeriodType.year),
-                      isDarkMode),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            // 2. Gráfico Circular (Donut Chart)
-            SizedBox(
-              height: 250,
-              child: Stack(
-                children: [
-                  PieChart(
-                    PieChartData(
-                      pieTouchData: PieTouchData(
-                        touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                          setState(() {
-                            if (!event.isInterestedForInteractions ||
-                                pieTouchResponse == null ||
-                                pieTouchResponse.touchedSection == null) {
-                              touchedIndex = -1;
-                              return;
-                            }
-                            touchedIndex = pieTouchResponse
-                                .touchedSection!.touchedSectionIndex;
-                          });
-                        },
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // 1. Selector de Periodo
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      sectionsSpace: 0,
-                      centerSpaceRadius: 80,
-                      startDegreeOffset: -90,
-                      sections: chartSections,
+                      child: Row(
+                        children: [
+                          _buildPeriodTab(
+                              "Semana",
+                              statsProvider.currentStatsPeriod == PeriodType.week,
+                              () => statsProvider.setStatsPeriod(PeriodType.week),
+                              isDarkMode),
+                          _buildPeriodTab(
+                              "Mes",
+                              statsProvider.currentStatsPeriod == PeriodType.month,
+                              () => statsProvider.setStatsPeriod(PeriodType.month),
+                              isDarkMode),
+                          _buildPeriodTab(
+                              "Año",
+                              statsProvider.currentStatsPeriod == PeriodType.year,
+                              () => statsProvider.setStatsPeriod(PeriodType.year),
+                              isDarkMode),
+                        ],
+                      ),
                     ),
-                  ),
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+        
+                    const SizedBox(height: 30),
+        
+                    // 2. Gráfico Circular (Donut Chart)
+                    SizedBox(
+                      height: 260,
+                      child: Stack(
+                        children: [
+                          PieChart(
+                            PieChartData(
+                              pieTouchData: PieTouchData(
+                                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                                  setState(() {
+                                    if (!event.isInterestedForInteractions ||
+                                        pieTouchResponse == null ||
+                                        pieTouchResponse.touchedSection == null) {
+                                      touchedIndex = -1;
+                                      return;
+                                    }
+                                    touchedIndex = pieTouchResponse
+                                        .touchedSection!.touchedSectionIndex;
+                                  });
+                                },
+                              ),
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 85,
+                              startDegreeOffset: -90,
+                              sections: chartSections,
+                            ),
+                          ),
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(centerStartText,
+                                    style: TextStyle(
+                                        color: subTextColor,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.2),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 4),
+                                AnimatedDefaultTextStyle(
+                                  duration: const Duration(milliseconds: 200),
+                                  style: TextStyle(
+                                      color: textColor,
+                                      fontSize: totalAmount > 9999 ? 28 : 34,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: -0.5),
+                                  child: Text(centerAmountText),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+        
+                    const SizedBox(height: 10),
+        
+                    // Date Navigation Control
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(centerStartText,
-                            style: TextStyle(
-                                color: subTextColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.2),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 5),
-                        Text(centerAmountText,
-                            style: TextStyle(
-                                color: textColor,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1)),
-                        const SizedBox(height: 5),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          color: subTextColor,
+                          onPressed: () => _navigateDate(statsProvider, false),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatDate(statsProvider.currentStatsDate,
+                                  statsProvider.currentStatsPeriod)
+                              .toUpperCase(),
+                          style: TextStyle(
+                            color: currentType == StatsType.expense
+                                ? Colors.redAccent
+                                : Colors.greenAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          color: subTextColor,
+                          onPressed: () => _navigateDate(statsProvider, true),
+                        ),
                       ],
                     ),
-                  ),
-                ],
+        
+                    const SizedBox(height: 30),
+        
+                    // 3. Cabecera de Mayores Gastos
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                            currentType == StatsType.expense
+                                ? "Distribución de Gastos"
+                                : "Distribución de Ingresos",
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: textColor)),
+                      ],
+                    ),
+        
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 10),
-
-            // Date Navigation Control
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  color: subTextColor,
-                  onPressed: () => _navigateDate(statsProvider, false),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _formatDate(statsProvider.currentStatsDate,
-                          statsProvider.currentStatsPeriod)
-                      .toUpperCase(),
-                  style: TextStyle(
-                    color: currentType == StatsType.expense
-                        ? Colors.redAccent
-                        : Colors.greenAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            // 4. Lista de Gastos mediante Slivers para scroll fluido
+            if (categories.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.pie_chart_outline_rounded, 
+                           size: 64, 
+                           color: isDarkMode ? Colors.white10 : Colors.grey[300]),
+                      const SizedBox(height: 16),
+                      Text(
+                        currentType == StatsType.expense
+                            ? "Sin gastos en este periodo"
+                            : "Sin ingresos en este periodo",
+                        style: TextStyle(color: subTextColor, fontSize: 16),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  color: subTextColor,
-                  onPressed: () => _navigateDate(statsProvider, true),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            // 3. Cabecera de Mayores Gastos
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                    currentType == StatsType.expense
-                        ? "Mayores Gastos"
-                        : "Mayores Ingresos",
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: textColor)),
-                const Text("Ver todos",
-                    style: TextStyle(
-                        color: Colors.cyan,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14)),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 4. Lista de Gastos
-            if (sortedEntries.isEmpty)
-              Center(
-                  child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                    currentType == StatsType.expense
-                        ? "No hay gastos registrados este periodo."
-                        : "No hay ingresos registrados este periodo.",
-                    style: TextStyle(color: subTextColor)),
-              ))
+              )
             else
-              ...List.generate(sortedEntries.length, (index) {
-                final adjustedIndex = index;
-                final entry = sortedEntries[adjustedIndex];
-                final amount = entry.value;
-                final percentage = totalAmount > 0 ? amount / totalAmount : 0.0;
-                final color = colors[adjustedIndex % colors.length];
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final group = categories[index];
+                      final amount = group.amount;
+                      final percentage = totalAmount > 0 ? amount / totalAmount : 0.0;
+                      
+                      // Map icons based on names if possible, else generic
+                      IconData icon = Icons.category_rounded;
+                      if (group.name == "Suscripciones") icon = Icons.subscriptions_rounded;
 
-                return Column(
-                  children: [
-                    _buildSpendingItem(
-                        entry.key,
-                        "${(percentage * 100).toStringAsFixed(1)}% del total",
-                        "${walletProvider.currencySymbol} ${amount.toStringAsFixed(2)}",
-                        "Variable",
-                        Icons.label,
-                        color,
-                        true,
-                        percentage,
-                        isDarkMode),
-                    const SizedBox(height: 15),
-                  ],
-                );
-              }),
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 15),
+                        child: _buildSpendingItem(
+                            group.name,
+                            "${(percentage * 100).toStringAsFixed(1)}% del total",
+                            "S/ ${formatValue(amount)}",
+                            percentage > 0.3 ? "Alto impacto" : "Normal",
+                            icon,
+                            group.color,
+                            percentage < 0.4,
+                            percentage,
+                            isDarkMode),
+                      );
+                    },
+                    childCount: categories.length,
+                  ),
+                ),
+              ),
+            
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),

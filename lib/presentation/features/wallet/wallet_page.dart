@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:provider/provider.dart';
+import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../../data/models/subscription.dart';
 import '../../../domain/entities/goal_entity.dart';
 import '../../../domain/entities/account_entity.dart';
 import 'widgets/add_account_sheet.dart';
@@ -30,6 +32,10 @@ class _WalletPageState extends State<WalletPage> {
     super.initState();
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 3));
+    // Verificar si hay un pago pendiente desde una notificación
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndOpenPendingPayment();
+    });
   }
 
   @override
@@ -69,6 +75,203 @@ class _WalletPageState extends State<WalletPage> {
               goal: goal,
               onConfettiTrigger: () => _confettiController.play(),
             ));
+  }
+
+  /// Verifica si hay un gasto pendiente desde notificación y abre el dialog
+  void _checkAndOpenPendingPayment() {
+    if (!mounted) return;
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final pending = uiProvider.pendingPaySubscription;
+    if (pending != null) {
+      uiProvider.setPendingPaySubscription(null); // limpiar antes de abrir
+      _showPaymentDialog(context, pending);
+    }
+  }
+
+  /// Muestra el dialog de pago para una Subscription dada
+  void _showPaymentDialog(BuildContext context, Subscription sub) {
+    if (sub.isPaid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 20),
+              SizedBox(width: 8),
+              Text("Ya pagaste este gasto este mes"),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        int selectedAccountId = walletProvider.accounts.isNotEmpty
+            ? walletProvider.accounts.first.id
+            : 1;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28)),
+              backgroundColor: const Color(0xFF1E2435),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Color(sub.colorValue),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(sub.colorValue).withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Icon(
+                        IconData(sub.iconCode, fontFamily: 'MaterialIcons'),
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Pagar ${sub.name}",
+                      style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "S/ ${(sub.amount % 1 == 0) ? sub.amount.toInt().toString() : sub.amount.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.redAccent),
+                    ),
+                    const SizedBox(height: 32),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("Cuenta origen:",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 12),
+                    if (walletProvider.accounts.isNotEmpty)
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.center,
+                          children: walletProvider.accounts.map((acc) {
+                            final isSelected = acc.id == selectedAccountId;
+                            return GestureDetector(
+                              onTap: () => setDialogState(
+                                  () => selectedAccountId = acc.id),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Color(acc.colorValue)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Color(acc.colorValue)
+                                        : Colors.grey.withValues(alpha: 0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(acc.displayIcon,
+                                        size: 16,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.grey.shade400),
+                                    const SizedBox(width: 4),
+                                    Text(acc.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.grey.shade400,
+                                        )),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: () {
+                          final subToPay =
+                              sub.copyWith(accountToCharge: selectedAccountId);
+                          Provider.of<TransactionProvider>(context,
+                                  listen: false)
+                              .markSubscriptionAsPaid(subToPay);
+                          Navigator.pop(ctx);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.cyan,
+                          foregroundColor: const Color(0xFF0F172A),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Text("Confirmar Pago",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
+                      ),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade400,
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text("Cancelar",
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // --- Proxy Decorator for Drag & Drop ---
@@ -561,203 +764,7 @@ class _WalletPageState extends State<WalletPage> {
                         builder: (ctx) => AddFixedExpenseSheet(subscriptionToEdit: sub),
                       );
                     },
-                    onPay: () {
-                      if (sub.isPaid) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.green, size: 20),
-                                SizedBox(width: 8),
-                                Text("Ya pagaste este gasto este mes"),
-                              ],
-                            ),
-                          ),
-                        );
-                      } else {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) {
-                            final currentWallet = Provider.of<WalletProvider>(context, listen: false);
-                            int selectedAccountId = account.id != -1 ? account.id : 
-                                (currentWallet.accounts.isNotEmpty ? currentWallet.accounts.first.id : 1);
-                            
-                            return StatefulBuilder(
-                              builder: (context, setState) {
-                                return Dialog(
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(28)), // Más curvos
-                                  backgroundColor: const Color(0xFF1E2435),
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        // --- Cabecera Identificativa ---
-                                        Container(
-                                          width: 64,
-                                          height: 64,
-                                          decoration: BoxDecoration(
-                                            color: Color(sub.colorValue),
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Color(sub.colorValue)
-                                                    .withValues(alpha: 0.3),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 4),
-                                              )
-                                            ],
-                                          ),
-                                          child: Icon(IconData(sub.iconCode, fontFamily: 'MaterialIcons'),
-                                              color: Colors.white, size: 36),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          "Pagar ${sub.name}",
-                                          style: const TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 4),
-
-                                        // --- Monto Protagonista ---
-                                        Text(
-                                          "S/ ${(sub.amount % 1 == 0) ? sub.amount.toInt().toString() : sub.amount.toStringAsFixed(2)}",
-                                          style: const TextStyle(
-                                            fontSize: 36,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.redAccent,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 32),
-
-                                        // --- Selector Compacto de Cuentas ---
-                                        const Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text("Cuenta origen:",
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold)),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        if (currentWallet.accounts.isNotEmpty)
-                                          SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              alignment: WrapAlignment.center,
-                                              children: currentWallet.accounts.map((acc) {
-                                                final isSelected = acc.id == selectedAccountId;
-                                                return GestureDetector(
-                                                  onTap: () {
-                                                    setState(() => selectedAccountId = acc.id);
-                                                  },
-                                                  child: AnimatedContainer(
-                                                    duration: const Duration(milliseconds: 200),
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 8, vertical: 8),
-                                                    decoration: BoxDecoration(
-                                                      color: isSelected
-                                                          ? Color(acc.colorValue)
-                                                          : Colors.transparent,
-                                                      borderRadius: BorderRadius.circular(20),
-                                                      border: Border.all(
-                                                        color: isSelected
-                                                            ? Color(acc.colorValue)
-                                                            : Colors.grey.withValues(alpha: 0.2),
-                                                        width: 1,
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(acc.displayIcon,
-                                                            size: 16,
-                                                            color: isSelected
-                                                                ? Colors.white
-                                                                : Colors.grey.shade400),
-                                                        const SizedBox(width: 4),
-                                                        Text(
-                                                          acc.name,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: isSelected
-                                                                ? FontWeight.bold
-                                                                : FontWeight.normal,
-                                                            color: isSelected
-                                                                ? Colors.white
-                                                                : Colors.grey.shade400,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ),
-                                        const SizedBox(height: 32),
-
-                                        // --- Botones de Acción Finales ---
-                                        SizedBox(
-                                          width: double.infinity,
-                                          height: 52,
-                                          child: FilledButton(
-                                            onPressed: () {
-                                              final subToPay = sub.copyWith(
-                                                  accountToCharge: selectedAccountId);
-                                              provider.markSubscriptionAsPaid(subToPay);
-                                              Navigator.pop(ctx);
-                                            },
-                                            style: FilledButton.styleFrom(
-                                              backgroundColor: Colors.cyan,
-                                              foregroundColor: const Color(0xFF0F172A),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(16),
-                                              ),
-                                            ),
-                                            child: const Text("Confirmar Pago",
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16)),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          height: 52, // Altura táctil generosa equivalente
-                                          child: TextButton(
-                                            onPressed: () => Navigator.pop(ctx),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: Colors.grey.shade400,
-                                              padding: const EdgeInsets.symmetric(vertical: 14),
-                                            ),
-                                            child: const Text(
-                                              "Cancelar",
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }
-                            );
-                          },
-                        );
-                      }
-                    },
+                    onPay: () => _showPaymentDialog(context, sub),
                     onDelete: () {
                       showDialog(
                         context: context,

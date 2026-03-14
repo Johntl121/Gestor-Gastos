@@ -47,47 +47,155 @@ class _HomePageState extends State<HomePage> {
 
   void _showNotificationSheet(BuildContext context) {
     final txProvider = Provider.of<TransactionProvider>(context, listen: false);
-    final subs = txProvider.subscriptions.where((s) => !s.isPaid).toList();
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Filtramos solo los no pagados con vencimiento en los próximos 5 días
+    final subs = txProvider.subscriptions.where((s) {
+      if (s.isPaid) return false;
+      final due = s.nextDueDate;
+      final diff = DateTime(due.year, due.month, due.day).difference(today).inDays;
+      return diff <= 5;
+    }).toList()
+      ..sort((a, b) => a.nextDueDate.compareTo(b.nextDueDate));
 
     showModalBottomSheet(
-        context: context,
-        backgroundColor: const Color(0xFF1E2A32),
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-        builder: (context) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Notificaciones",
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E2A32),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const Text(
+              "Notificaciones",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            if (subs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text("¡Todo al día! No tienes pagos pendientes.",
+                    style: TextStyle(color: Colors.grey)),
+              )
+            else
+              ...subs.map((s) {
+                final due = s.nextDueDate;
+                final dueDay = DateTime(due.year, due.month, due.day);
+                final isOverdue = dueDay.isBefore(today);
+                final isToday = dueDay.isAtSameMomentAs(today);
+
+                // Formato de monto: sin .0 innecesario
+                final amountStr = s.amount % 1 == 0
+                    ? s.amount.toInt().toString()
+                    : s.amount.toStringAsFixed(2);
+
+                // Fecha con zero-padding
+                final formattedDate =
+                    '${due.day.toString().padLeft(2, '0')}/${due.month.toString().padLeft(2, '0')}';
+
+                final subColor = Color(s.colorValue);
+
+                // Texto y color del subtítulo según estado
+                final String subtitleText;
+                final Color subtitleColor;
+                if (isOverdue) {
+                  subtitleText = 'Venció el $formattedDate';
+                  subtitleColor = Colors.redAccent;
+                } else if (isToday) {
+                  subtitleText = '¡Vence hoy!';
+                  subtitleColor = Colors.orangeAccent;
+                } else {
+                  subtitleText = 'Vence el $formattedDate';
+                  subtitleColor = Colors.grey;
+                }
+
+                return ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    uiProvider.setPendingPaySubscription(s); // guarda el gasto pendiente
+                    uiProvider.setIndex(3); // navega a Billetera
+                  },
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: subColor,
+                      shape: BoxShape.circle,
+                      border: isOverdue
+                          ? Border.all(color: Colors.redAccent, width: 2)
+                          : null,
+                    ),
+                    child: Icon(
+                      IconData(s.iconCode, fontFamily: 'MaterialIcons'),
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  title: Text(
+                    isOverdue
+                        ? "¡Pago atrasado!: ${s.name}"
+                        : isToday
+                            ? "¡Vence hoy!: ${s.name}"
+                            : "Pago próximo: ${s.name}",
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 20),
-                if (subs.isEmpty)
-                  const Text("¡Todo al día! No tienes pagos pendientes.",
-                      style: TextStyle(color: Colors.grey))
-                else
-                  ...subs.map((s) => ListTile(
-                        leading: const Icon(Icons.warning_amber_rounded,
-                            color: Colors.orangeAccent),
-                        title: Text("Pago próximo: ${s.name}",
-                            style: const TextStyle(color: Colors.white)),
-                        subtitle: Text(
-                            "Vence el ${s.nextDueDate.day}/${s.nextDueDate.month}",
-                            style: const TextStyle(color: Colors.grey)),
-                        trailing: Text("S/ ${s.amount}",
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                      ))
-              ],
-            ),
-          );
-        });
+                        fontWeight: (isOverdue || isToday)
+                            ? FontWeight.w700
+                            : FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    subtitleText,
+                    style: TextStyle(
+                        color: subtitleColor,
+                        fontWeight: isToday || isOverdue
+                            ? FontWeight.w600
+                            : FontWeight.normal),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "S/ $amountStr",
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right_rounded,
+                          color: Colors.white38, size: 18),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

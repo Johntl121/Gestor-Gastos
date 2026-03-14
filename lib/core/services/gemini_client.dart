@@ -17,19 +17,32 @@ class GeminiClient {
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
     if (apiKey.isEmpty) return "Error: API KEY no configurada en .env";
 
+    // --- System Instruction (comportamiento del modelo) ---
+    const systemInstruction = """
+Eres un Coach Financiero experto para usuarios en Perú.
+
+REGLAS DE COMPORTAMIENTO:
+1. Todos los montos SIEMPRE usan el símbolo 'S/' (Nuevos Soles). Nunca uses el símbolo dolar.
+2. Usa Markdown rico: negritas (**S/ 100**), emojis en secciones, listas con bullets.
+3. Tono directo, empático y sin rodeos.
+4. REGLA DE PRIORIDAD CRÍTICA: Si en los datos del usuario hay algún Gasto Fijo marcado como ATRASADO o VENCE HOY, DEBES mencionarlo como el PRIMER PUNTO de tu respuesta, antes que cualquier otro consejo. Es la alerta de mayor urgencia.
+5. Nunca uses el símbolo dolar bajo ninguna circunstancia.
+""";
+
+    // --- Instruction block según modo ---
     String instruction;
     if (isNewUser) {
       instruction = """
 Es la primera vez que el usuario abre la app.
-Dale una bienvenida cálida, breve (máximo 2 frases) y anímalo a registrar su primer gasto.
+Da una bienvenida cálida, breve (máximo 2 frases) y anímalos a registrar su primer gasto.
 No des cifras, solo motivación.
 """;
     } else if (periodType == 'weekly') {
       instruction = """
 TU MISIÓN: Dar un consejo 'FLASH' ULTRA-RÁPIDO.
 REGLAS:
-- Máximo 60 palabras en TOTAL.
-- Solo 3 puntos clave (bullets).
+- Máximo 80 palabras en TOTAL.
+- Solo 3 puntos clave (bullets), priorizando pagos atrasados si los hay.
 - Directo al grano: Felicita o corrige sin rodeos.
 NO uses saludos largos ni introducciones.
 """;
@@ -37,30 +50,28 @@ NO uses saludos largos ni introducciones.
       instruction = """
 TU MISIÓN: Generar un 'REPORTE MENSUAL DETALLADO'.
 REGLAS:
-- Analiza a fondo: Ahorro vs Meta, Ingresos vs Gastos.
-- Usa Markdown rico: Negritas para cifras (**\$100**), emojis 📊 y listas.
-- Estructura clara: 1. Resumen Global, 2. Análisis por Categoría, 3. Próximos pasos.
+- Analiza a fondo: Ahorro vs Metas, Ingresos vs Gastos, Gastos Fijos comprometidos.
+- Usa Markdown rico: Negritas para cifras (**S/ 100**), emojis 📊 y listas.
+- Estructura clara obligatoria:
+  1. 🔴 Alertas Urgentes (pagos atrasados o que vencen hoy — vaciar si no hay)
+  2. 📊 Resumen Global del Periodo
+  3. 🏆 Progreso de Metas de Ahorro
+  4. 💡 Próximos Pasos concretos (máximo 3)
 - Extiéndete lo necesario para dar valor real.
 """;
     }
 
-    final fullPrompt = """
-Eres un Coach Financiero experto.
+    // El turno del usuario contiene solo sus datos financieros
+    final userMessage = """
+MODO: ${isNewUser ? 'NUEVO_USUARIO' : periodType.toUpperCase()}
 
 $instruction
 
-${isNewUser ? "" : "Tus respuestas deben ser visualmente atractivas usando formato Markdown:"}
-${isNewUser ? "" : "1. Resalta cantidades de dinero en negritas (ej: **\$50.00**)."}
-${isNewUser ? "" : "2. Usa emojis al inicio de cada sección importante 🚀."}
-${isNewUser ? "" : "3. Estructura la respuesta de forma clara."}
-
-IMPORTANTE: El usuario se encuentra en Perú. Todos los montos monetarios deben formatearse estrictamente usando el símbolo de Nuevos Soles 'S/'. Nunca uses el símbolo '\$' a menos que se especifique lo contrario.
-
-Datos para analizar (Moneda local):
+---
+DATOS FINANCIEROS DEL USUARIO:
 $contextData
 """;
 
-    // Construir URI con key
     final uri = Uri.parse("$_urlOficial?key=$apiKey");
 
     try {
@@ -68,18 +79,24 @@ $contextData
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
+          "systemInstruction": {
+            "parts": [
+              {"text": systemInstruction}
+            ]
+          },
           "contents": [
             {
+              "role": "user",
               "parts": [
-                {"text": fullPrompt}
+                {"text": userMessage}
               ]
             }
           ],
           "generationConfig": {
-            "temperature": 0.7,
-            "topP": 0.8,
+            "temperature": 0.65,
+            "topP": 0.85,
             "topK": 40,
-            "maxOutputTokens": 1000
+            "maxOutputTokens": 1200
           }
         }),
       );
@@ -90,7 +107,7 @@ $contextData
           String text = json['candidates'][0]['content']['parts'][0]['text'];
           return text;
         } catch (e) {
-          return "Error leyendo respuesta de AI: $e";
+          return "Error leyendo respuesta de IA: $e";
         }
       } else {
         return "Error del servidor: ${response.statusCode}\n${response.body}";

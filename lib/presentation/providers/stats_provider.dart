@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
 import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../data/models/subscription.dart';
 import '../../core/usecases/usecase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +10,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum PeriodType { week, month, year }
 
 enum StatsType { expense, income }
+
+class CategoryGroup {
+  final String name;
+  final double amount;
+  final Color color;
+
+  CategoryGroup({required this.name, required this.amount, required this.color});
+}
+
+class _InternalGroup {
+  final String name;
+  double amount;
+  final Color color;
+  _InternalGroup(this.name, this.amount, this.color);
+}
 
 class StatsProvider extends ChangeNotifier {
   final GetBudgetMoodUseCase getBudgetMood;
@@ -33,14 +49,16 @@ class StatsProvider extends ChangeNotifier {
   bool _isAdviceLoading = false;
   String? _weeklyAdvice;
   String? _monthlyAdvice;
-  String? _financialAdvice; // Generic/Transient
   DateTime? _lastWeeklyAnalysis;
   DateTime? _lastMonthlyAnalysis;
 
   bool get isAdviceLoading => _isAdviceLoading;
   String? get weeklyAdvice => _weeklyAdvice;
   String? get monthlyAdvice => _monthlyAdvice;
-  String? get financialAdvice => _financialAdvice;
+
+  /// Devuelve el advice correspondiente al modo seleccionado en el Sheet
+  String? currentAdvice(String mode) =>
+      mode == 'weekly' ? _weeklyAdvice : _monthlyAdvice;
 
   Future<void> loadStatsData() async {
     final result = await getBudgetMood(NoParams());
@@ -67,45 +85,70 @@ class StatsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Calculation Logic (Moved from DashboardProvider but requires Data) ---
+  // --- Calculation Logic (Sincronizada con Coach IA) ---
 
-  Map<String, double> getSpendingByCategory(
-      List<TransactionEntity> transactions) {
-    final now = _currentStatsDate;
-    final period = _currentStatsPeriod;
+  List<CategoryGroup> getSpendingByCategory(
+      List<TransactionEntity> transactions, List<Subscription> subscriptions) {
+    final Map<String, _InternalGroup> groups = {};
 
-    final filtered = transactions.where((t) {
-      if (_currentStatsType == StatsType.expense) {
-        if (t.amount >= 0) return false;
+    // 1. Procesar Transacciones
+    final filteredTransactions = filterTransactionsByDate(
+        transactions, _currentStatsDate, _currentStatsPeriod);
+
+    for (var t in filteredTransactions) {
+      if (_currentStatsType == StatsType.expense && t.amount >= 0) continue;
+      if (_currentStatsType == StatsType.income && t.amount <= 0) continue;
+
+      final name = t.description; // Nombre de categoría
+      final color = t.colorValue != null ? Color(t.colorValue!) : Colors.grey;
+
+      if (groups.containsKey(name)) {
+        groups[name]!.amount += t.amount.abs();
       } else {
-        if (t.amount <= 0) return false;
-      }
-
-      if (t.type == TransactionType.transfer) return false;
-
-      if (period == PeriodType.week) {
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6, hours: 23));
-        return t.date
-                .isAfter(startOfWeek.subtract(const Duration(seconds: 1))) &&
-            t.date.isBefore(endOfWeek.add(const Duration(seconds: 1)));
-      } else if (period == PeriodType.year) {
-        return t.date.year == now.year;
-      } else {
-        return t.date.month == now.month && t.date.year == now.year;
-      }
-    });
-
-    final Map<String, double> result = {};
-    for (var t in filtered) {
-      final category =
-          t.description; // Description is Category Name in current logic
-      if (result.containsKey(category)) {
-        result[category] = result[category]! + t.amount.abs();
-      } else {
-        result[category] = t.amount.abs();
+        groups[name] = _InternalGroup(name, t.amount.abs(), color);
       }
     }
+
+    // 2. Procesar Suscripciones (Solo si es Gasto y periodo incluye hoy)
+    if (_currentStatsType == StatsType.expense) {
+      final now = DateTime.now();
+      bool includesToday = false;
+
+      if (_currentStatsPeriod == PeriodType.week) {
+        final start =
+            _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
+        final end = start.add(const Duration(days: 7));
+        includesToday = now.isAfter(start) && now.isBefore(end);
+      } else if (_currentStatsPeriod == PeriodType.month) {
+        includesToday = now.month == _currentStatsDate.month &&
+            now.year == _currentStatsDate.year;
+      } else {
+        includesToday = now.year == _currentStatsDate.year;
+      }
+
+      if (includesToday) {
+        for (var s in subscriptions) {
+          // Si NO está pagada, la sumamos como compromiso (igual que el Coach)
+          if (!s.isPaid) {
+            const name = "Suscripciones";
+            final color = Color(s.colorValue);
+            
+            if (groups.containsKey(name)) {
+              groups[name]!.amount += s.amount;
+            } else {
+              groups[name] = _InternalGroup(name, s.amount, color);
+            }
+          }
+        }
+      }
+    }
+
+    final result = groups.values
+        .map((g) => CategoryGroup(name: g.name, amount: g.amount, color: g.color))
+        .toList();
+
+    // Ordenar por monto descendente
+    result.sort((a, b) => b.amount.compareTo(a.amount));
     return result;
   }
 
@@ -132,17 +175,8 @@ class StatsProvider extends ChangeNotifier {
     }).toList();
   }
 
-  double calculateTotalAmount(List<TransactionEntity> transactions) {
-    if (transactions.isEmpty) return 0.0;
-
-    return transactions.where((t) {
-      if (t.type == TransactionType.transfer) return false;
-      if (_currentStatsType == StatsType.expense) {
-        return t.amount < 0;
-      } else {
-        return t.amount > 0;
-      }
-    }).fold(0.0, (sum, t) => sum + t.amount.abs());
+  double calculateTotalAmount(List<CategoryGroup> categories) {
+    return categories.fold(0.0, (sum, c) => sum + c.amount);
   }
 
   // --- Coach / AI Logic ---
@@ -166,12 +200,10 @@ class StatsProvider extends ChangeNotifier {
     final now = DateTime.now();
     if (type == 'weekly') {
       if (_lastWeeklyAnalysis == null) return true;
-      final diff = now.difference(_lastWeeklyAnalysis!).inDays;
-      return diff >= 7;
+      return now.difference(_lastWeeklyAnalysis!) >= const Duration(days: 7);
     } else {
       if (_lastMonthlyAnalysis == null) return true;
-      final diff = now.difference(_lastMonthlyAnalysis!).inDays;
-      return diff >= 30;
+      return now.difference(_lastMonthlyAnalysis!) >= const Duration(days: 30);
     }
   }
 
@@ -192,41 +224,29 @@ class StatsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFinancialAdvice(String text) {
-    _financialAdvice = text;
-    notifyListeners();
-  }
-
   Future<void> saveWeeklyAdvice(String text) async {
     _weeklyAdvice = text;
     _lastWeeklyAnalysis = DateTime.now();
+    _isAdviceLoading = false;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('weekly_advice_content', text);
     await prefs.setString(
         'last_weekly_analysis_date', _lastWeeklyAnalysis!.toIso8601String());
 
-    setAdviceLoading(false);
+    notifyListeners();
   }
 
   Future<void> saveMonthlyAdvice(String text) async {
     _monthlyAdvice = text;
     _lastMonthlyAnalysis = DateTime.now();
+    _isAdviceLoading = false;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('monthly_advice_content', text);
     await prefs.setString(
         'last_monthly_analysis_date', _lastMonthlyAnalysis!.toIso8601String());
 
-    setAdviceLoading(false);
-  }
-
-  void showCachedAdvice(String type) {
-    if (type == 'weekly') {
-      _financialAdvice = _weeklyAdvice;
-    } else {
-      _financialAdvice = _monthlyAdvice;
-    }
     notifyListeners();
   }
 

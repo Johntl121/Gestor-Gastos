@@ -22,18 +22,8 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final statsProvider = Provider.of<StatsProvider>(context, listen: false);
-      final txProvider =
-          Provider.of<TransactionProvider>(context, listen: false);
-
-      if (txProvider.transactions.length <= 5) {
-        statsProvider.setFinancialAdvice(
-            "👋 ¡Bienvenido a tu Coach! Para empezar a recibir consejos inteligentes, necesito datos. Registra tu primer gasto hoy mismo.");
-      } else {
-        statsProvider.showCachedAdvice('weekly');
-      }
-    });
+    // El initState solo establece el modo por defecto.
+    // La UI lee directamente del Provider via currentAdvice(_selectedMode).
   }
 
   @override
@@ -99,49 +89,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
                           style: TextStyle(color: Colors.white70)),
                     ],
                   ))
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MarkdownBody(
-                          data: statsProvider.financialAdvice ?? "",
-                          // If provider distinguishes nicely, great.
-                          // Actually StatsProvider has separate variables but the getter/setter logic needs to be verified.
-                          // Assuming weeklyAdvice is the 'current' advice shown or I need to switch based on mode.
-                          // Let's check StatsProvider logic later or assume weeklyAdvice holds the 'display' text
-                          // No, StatsProvider has `_weeklyAdvice` and `_monthlyAdvice`.
-                          // We should probably show based on _selectedMode here or use a `currentAdvice` getter.
-                          // Since I can't see StatsProvider right now, I'll use `weeklyAdvice` as a proxy or fix it.
-                          // Actually, the original code used `provider.weeklyAdvice` for everything? No wait.
-                          // Original: `provider.showCachedAdvice(type)` updates `_financialAdvice` (or similar).
-                          // Let's assume `statsProvider.weeklyAdvice` holds the displayed text or `financialAdvice`.
-                          // Looking at previous view_file for StatsProvider:
-                          // `String _financialAdvice = ...` and `String get weeklyAdvice => _financialAdvice;` ?
-                          // I'll check.
-                          // Wait, I'll use `statsProvider.weeklyAdvice` (which seems to be the public getter for the advice text to show).
-                          styleSheet:
-                              MarkdownStyleSheet.fromTheme(Theme.of(context))
-                                  .copyWith(
-                            p: const TextStyle(
-                                color: Colors.white, fontSize: 16, height: 1.5),
-                            strong: const TextStyle(
-                                color: Colors.cyanAccent,
-                                fontWeight: FontWeight.bold),
-                            h1: const TextStyle(
-                                color: Colors.purpleAccent,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold),
-                            h2: const TextStyle(
-                                color: Colors.purpleAccent,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold),
-                            listBullet:
-                                const TextStyle(color: Colors.cyanAccent),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                : _buildAdviceContent(statsProvider, txProvider),
           ),
         ],
       ),
@@ -256,28 +204,106 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     );
   }
 
-  Future<void> _handleRequest(StatsProvider statsProvider,
-      TransactionProvider txProvider, String type) async {
-    // Check transactions
-    if (txProvider.transactions.length <= 5) {
-      statsProvider.setFinancialAdvice(
-          "👋 ¡Bienvenido a tu Coach! Para empezar a recibir consejos inteligentes, necesito datos. Registra tu primer gasto hoy mismo.");
-      return;
+  /// Construye el contenido según si hay advice guardado o no
+  Widget _buildAdviceContent(StatsProvider statsProvider, TransactionProvider txProvider) {
+    final hasMinData = txProvider.transactions.length > 5;
+
+    if (!hasMinData) {
+      return _buildPlaceholder(
+        icon: Icons.bar_chart_outlined,
+        message: "Registra al menos 5 movimientos para recibir tu primer análisis.",
+        sub: "Cuantos más datos tengas, más preciso será el coach.",
+      );
     }
 
+    final advice = statsProvider.currentAdvice(_selectedMode);
+
+    if (advice == null || advice.isEmpty) {
+      final isWeekly = _selectedMode == 'weekly';
+      return _buildPlaceholder(
+        icon: isWeekly ? Icons.calendar_view_week : Icons.calendar_month,
+        message: isWeekly
+            ? "Todavía no has generado tu análisis de esta semana."
+            : "Todavía no has generado tu análisis de este mes.",
+        sub: "Toca el botón de arriba para obtener tu primer reporte.",
+      );
+    }
+
+    return SingleChildScrollView(
+      child: MarkdownBody(
+        data: advice,
+        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+          p: const TextStyle(color: Colors.white, fontSize: 15, height: 1.6),
+          strong: const TextStyle(
+              color: Colors.cyanAccent, fontWeight: FontWeight.bold),
+          h1: const TextStyle(
+              color: Colors.purpleAccent,
+              fontSize: 22,
+              fontWeight: FontWeight.bold),
+          h2: const TextStyle(
+              color: Colors.purpleAccent,
+              fontSize: 20,
+              fontWeight: FontWeight.bold),
+          listBullet: const TextStyle(color: Colors.cyanAccent),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(
+      {required IconData icon,
+      required String message,
+      required String sub}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 52, color: Colors.white24),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              sub,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white38, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleRequest(StatsProvider statsProvider,
+      TransactionProvider txProvider, String type) async {
+    // Check min transactions
+    if (txProvider.transactions.length <= 5) return;
+
     if (!statsProvider.canRequestAnalysis(type)) {
-      statsProvider.showCachedAdvice(type);
+      // No hay nada nuevo que hacer — la UI ya lee del cache via currentAdvice
       return;
     }
 
     statsProvider.setAdviceLoading(true);
     try {
       final transactions = txProvider.transactions;
-      final budgetLimit =
-          Provider.of<WalletProvider>(context, listen: false).budgetLimit;
-
-      // Filter
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      final budgetLimit = walletProvider.budgetLimit;
+      final subscriptions = txProvider.subscriptions;
+      final goals = walletProvider.goals;
       final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+
+      // --- Filtrar transacciones recientes ---
       final filterDays = type == 'weekly' ? 7 : 30;
       final startDate = now.subtract(Duration(days: filterDays));
 
@@ -286,21 +312,20 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
               t.date.isAfter(startDate) && t.type != TransactionType.transfer)
           .toList();
 
-      if (recent.isEmpty) {
-        statsProvider.setFinancialAdvice(
-            "No hay suficientes datos recientes ($filterDays días) para analizar. ¡Sigue registrando!");
-        return;
-      }
+      if (recent.isEmpty) return;
 
-      // Calculate logic (simplified here, but should match heavy logic if needed)
-      // I'll keep the logic here as it prepares the context string for Gemini.
-      double totalIncome = 0;
-      double totalExpense = 0;
+      // --- Construir el payload ---
       final buffer = StringBuffer();
 
       buffer.writeln("Periodo: Últimos $filterDays días");
       buffer.writeln(
-          "Presupuesto Mensual Base: ${budgetLimit.toStringAsFixed(2)}");
+          "Presupuesto Mensual Base: S/ ${budgetLimit.toStringAsFixed(2)}");
+      buffer.writeln();
+
+      // Sección 1: Transacciones recientes
+      double totalIncome = 0;
+      double totalExpense = 0;
+      buffer.writeln("=== TRANSACCIONES DEL PERIODO ===");
 
       for (var t in recent) {
         if (t.type == TransactionType.income) {
@@ -309,39 +334,103 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
           totalExpense += t.amount.abs();
         }
 
-        if (buffer.length < 3500) {
+        if (buffer.length < 3000) {
+          final tipo = t.type == TransactionType.income ? "Ingreso" : "Gasto";
           buffer.writeln(
-              "- ${DateFormat('dd/MM').format(t.date)}: ${t.description} (${t.amount.abs().toStringAsFixed(2)})");
+              "- ${DateFormat('dd/MM').format(t.date)}: [$tipo] ${t.description} (S/ ${t.amount.abs().toStringAsFixed(2)})");
         }
       }
 
-      buffer.writeln("\nResumen Total:");
-      buffer.writeln("Ingresos: ${totalIncome.toStringAsFixed(2)}");
-      buffer.writeln("Gastos: ${totalExpense.toStringAsFixed(2)}");
+      buffer.writeln();
+      buffer.writeln("Resumen Transacciones:");
+      buffer.writeln("  Ingresos: S/ ${totalIncome.toStringAsFixed(2)}");
+      buffer.writeln("  Gastos: S/ ${totalExpense.toStringAsFixed(2)}");
       buffer.writeln(
-          "Balance: ${(totalIncome - totalExpense).toStringAsFixed(2)}");
+          "  Balance: S/ ${(totalIncome - totalExpense).toStringAsFixed(2)}");
+      buffer.writeln();
 
-      // Call API
+      // Sección 2: Gastos Fijos / Suscripciones
+      if (subscriptions.isNotEmpty) {
+        buffer.writeln("=== GASTOS FIJOS (Suscripciones/Recurrentes) ===");
+        for (var s in subscriptions) {
+          final dueDate = s.nextDueDate;
+          final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+          final diff = dueDay.difference(today).inDays;
+          final amountStr = s.amount % 1 == 0
+              ? s.amount.toInt().toString()
+              : s.amount.toStringAsFixed(2);
+
+          String estado;
+          if (s.isPaid) {
+            estado = "PAGADO este mes";
+          } else if (diff < 0) {
+            estado =
+                "ATRASADO (venció hace ${diff.abs()} días, el ${DateFormat('dd/MM').format(dueDate)})";
+          } else if (diff == 0) {
+            estado = "VENCE HOY";
+          } else if (diff <= 5) {
+            estado =
+                "PRÓXIMO (vence en $diff días, el ${DateFormat('dd/MM').format(dueDate)})";
+          } else {
+            estado = "Pendiente (vence el ${DateFormat('dd/MM').format(dueDate)})";
+          }
+
+          buffer.writeln("- ${s.name}: S/ $amountStr — $estado");
+        }
+
+        final totalFixed =
+            subscriptions.fold(0.0, (sum, s) => sum + s.amount);
+        buffer.writeln(
+            "  Total comprometido en fijos: S/ ${totalFixed.toStringAsFixed(2)}");
+        buffer.writeln();
+      }
+
+      // Sección 3: Metas de ahorro
+      if (goals.isNotEmpty) {
+        buffer.writeln("=== METAS DE AHORRO ===");
+        for (var g in goals) {
+          final progress = g.targetAmount > 0
+              ? (g.currentAmount / g.targetAmount * 100).clamp(0, 100)
+              : 0.0;
+          final remaining = g.targetAmount - g.currentAmount;
+          final targetStr = g.targetAmount % 1 == 0
+              ? g.targetAmount.toInt().toString()
+              : g.targetAmount.toStringAsFixed(2);
+          final currentStr = g.currentAmount % 1 == 0
+              ? g.currentAmount.toInt().toString()
+              : g.currentAmount.toStringAsFixed(2);
+          final remainingStr = remaining <= 0
+              ? "COMPLETADA"
+              : "Faltan S/ ${remaining.toStringAsFixed(2)}";
+
+          buffer.writeln(
+              "- ${g.name}: S/ $currentStr / S/ $targetStr (${progress.toStringAsFixed(0)}%) — $remainingStr");
+        }
+        buffer.writeln();
+      }
+
+      // --- Llamar a la API ---
       final advice = await GeminiClient().obtenerConsejo(
         contextData: buffer.toString(),
         periodType: type,
         isNewUser: false,
       );
 
-      // Save Advice
+      // save* actualiza el estado Y llama notifyListeners internamente
       if (type == 'weekly') {
         await statsProvider.saveWeeklyAdvice(advice);
       } else {
         await statsProvider.saveMonthlyAdvice(advice);
       }
-
-      // Update UI is handled by save... or setFinancialAdvice?
-      // StatsProvider.saveWeeklyAdvice calls notifyListeners?
-      // Yes, likely. But current displayed advice also needs update.
-      statsProvider.setFinancialAdvice(advice);
     } catch (e) {
-      statsProvider.setFinancialAdvice(
-          "Ocurrió un error al contactar al coach. Inténtalo más tarde. \nError: $e");
+      // En error guardamos en el campo correspondiente para que persista el estado
+      if (type == 'weekly') {
+        await statsProvider.saveWeeklyAdvice(
+            "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e");
+      } else {
+        await statsProvider.saveMonthlyAdvice(
+            "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e");
+      }
     } finally {
       statsProvider.setAdviceLoading(false);
     }

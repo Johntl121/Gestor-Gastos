@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../injection_container.dart';
+import '../../data/models/subscription.dart';
 import '../../data/repositories/transaction_data_source.dart';
 
 class UiProvider extends ChangeNotifier {
@@ -10,6 +11,15 @@ class UiProvider extends ChangeNotifier {
   // Navigation
   int _currentIndex = 0;
   int get currentIndex => _currentIndex;
+
+  // Pending payment action (set from notification to auto-open payment dialog)
+  Subscription? _pendingPaySubscription;
+  Subscription? get pendingPaySubscription => _pendingPaySubscription;
+
+  void setPendingPaySubscription(Subscription? sub) {
+    _pendingPaySubscription = sub;
+    notifyListeners();
+  }
 
   // Global Loading
   bool _isLoading = false;
