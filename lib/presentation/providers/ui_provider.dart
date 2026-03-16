@@ -48,13 +48,19 @@ class UiProvider extends ChangeNotifier {
 
   Future<void> _loadUiData() async {
     final dataSource = sl<TransactionLocalDataSource>();
+    
+    // 1. Migrar PIN si existe en texto plano (SharedPreferences)
+    await dataSource.migratePinIfNeeded();
+
     _userName = dataSource.getUserName() ?? 'Usuario';
     _userAvatar = dataSource.getUserAvatar();
     _profileImagePath = dataSource.getProfileImagePath();
-    _userPin = dataSource.getSecurityPin();
+    
+    // 2. Cargar PIN de forma asíncrona desde almacenamiento seguro
+    _userPin = await dataSource.getSecurityPinAsync();
+    
     _isDarkMode = dataSource.getThemeMode();
 
-    // Theme persistence could be added here
     notifyListeners();
   }
 

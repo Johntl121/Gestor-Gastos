@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Fuentes de Datos
 import 'core/services/database_helper.dart';
 import 'data/repositories/transaction_data_source.dart';
+import 'core/services/secure_storage_service.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -20,6 +21,7 @@ import 'domain/usecases/delete_transaction_usecase.dart';
 import 'domain/usecases/account_usecases.dart';
 import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
+import 'domain/usecases/get_transactions_by_date_range_usecase.dart';
 
 // Providers (New)
 import 'presentation/providers/ui_provider.dart';
@@ -37,9 +39,16 @@ Future<void> init() async {
   // Singleton de Base de Datos Local
   sl.registerLazySingleton<LocalDatabase>(() => LocalDatabase());
 
+  // Storage Seguro para datos sensibles (PIN)
+  sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
+
   //! Fuentes de Datos
   sl.registerLazySingleton<TransactionLocalDataSource>(
-    () => TransactionLocalDataSourceImpl(sharedPreferences: sl()),
+    () => TransactionLocalDataSourceImpl(
+      sharedPreferences: sl(),
+      localDatabase: sl(),
+      secureStorage: sl(), // Nueva inyección
+    ),
   );
 
   //! Repositorio
@@ -62,6 +71,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => CreateAccountUseCase(sl()));
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
+  sl.registerLazySingleton(() => GetTransactionsByDateRangeUseCase(sl()));
 
   //! Proveedores (Refactored)
 
@@ -89,6 +99,7 @@ Future<void> init() async {
       addTransactionUseCase: sl(),
       updateTransactionUseCase: sl(),
       deleteTransactionUseCase: sl(),
+      getTransactionsByDateRange: sl(),
     ),
   );
 
@@ -96,6 +107,7 @@ Future<void> init() async {
   sl.registerFactory(
     () => StatsProvider(
       getBudgetMood: sl(),
+      getTransactionsByDateRange: sl(),
     ),
   );
 }

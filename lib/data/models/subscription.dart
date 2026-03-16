@@ -55,7 +55,7 @@ class Subscription {
       'amount': amount,
       'paymentDate': paymentDate.toIso8601String(),
       'frequency': frequency.index, // Store as int index
-      'isPaid': isPaid,
+      'isPaid': isPaid ? 1 : 0,
       'iconCode': iconCode,
       'colorValue': colorValue,
       'accountToCharge': accountToCharge,
@@ -66,11 +66,10 @@ class Subscription {
     return Subscription(
       id: json['id'],
       name: json['name'],
-      amount: json['amount'],
+      amount: (json['amount'] as num).toDouble(),
       paymentDate: DateTime.parse(json['paymentDate']),
       frequency: ExpenseFrequency.values[json['frequency'] ?? 0],
-      isPaid: json['isPaid'] ??
-          false, // Mapped from old isPaidThisMonth key if needed? No, purely new.
+      isPaid: json['isPaid'] == 1 || json['isPaid'] == true,
       iconCode: json['iconCode'] ?? 0xe57f,
       colorValue: json['colorValue'] ?? 0xFF9E9E9E,
       accountToCharge: json['accountToCharge'] ?? 2,

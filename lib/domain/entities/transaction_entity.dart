@@ -8,7 +8,9 @@ class TransactionEntity extends Equatable {
   final int categoryId;
   final double amount;
   final DateTime date;
-  final String description; // Category Name
+  final String? categoryName;
+  final String? accountName;
+  final String description; // Generalmente Category Name
   final String? note; // User Note
   final TransactionType type;
   final int? destinationAccountId;
@@ -24,6 +26,8 @@ class TransactionEntity extends Equatable {
     required this.amount,
     required this.date,
     required this.description,
+    this.categoryName,
+    this.accountName,
     this.note,
     this.type = TransactionType.expense, // Default
     this.destinationAccountId,
@@ -41,6 +45,8 @@ class TransactionEntity extends Equatable {
         amount,
         date,
         description,
+        categoryName,
+        accountName,
         note,
         type,
         destinationAccountId,

@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:intl/intl.dart';
-
 import '../../../core/services/gemini_client.dart';
-import '../../../domain/entities/transaction_entity.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../providers/wallet_provider.dart';
 
 class FinancialCoachSheet extends StatefulWidget {
   const FinancialCoachSheet({super.key});
@@ -288,148 +284,32 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     if (txProvider.transactions.length <= 5) return;
 
     if (!statsProvider.canRequestAnalysis(type)) {
-      // No hay nada nuevo que hacer — la UI ya lee del cache via currentAdvice
       return;
     }
 
     statsProvider.setAdviceLoading(true);
     try {
-      final transactions = txProvider.transactions;
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-      final budgetLimit = walletProvider.budgetLimit;
-      final subscriptions = txProvider.subscriptions;
-      final goals = walletProvider.goals;
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      // --- Usar el nuevo Context Builder centralizado ---
+      final contextData = await statsProvider.buildFinancialContextForAI();
 
-      // --- Filtrar transacciones recientes ---
-      final filterDays = type == 'weekly' ? 7 : 30;
-      final startDate = now.subtract(Duration(days: filterDays));
-
-      final recent = transactions
-          .where((t) =>
-              t.date.isAfter(startDate) && t.type != TransactionType.transfer)
-          .toList();
-
-      if (recent.isEmpty) return;
-
-      // --- Construir el payload ---
-      final buffer = StringBuffer();
-
-      buffer.writeln("Periodo: Últimos $filterDays días");
-      buffer.writeln(
-          "Presupuesto Mensual Base: S/ ${budgetLimit.toStringAsFixed(2)}");
-      buffer.writeln();
-
-      // Sección 1: Transacciones recientes
-      double totalIncome = 0;
-      double totalExpense = 0;
-      buffer.writeln("=== TRANSACCIONES DEL PERIODO ===");
-
-      for (var t in recent) {
-        if (t.type == TransactionType.income) {
-          totalIncome += t.amount.abs();
-        } else {
-          totalExpense += t.amount.abs();
-        }
-
-        if (buffer.length < 3000) {
-          final tipo = t.type == TransactionType.income ? "Ingreso" : "Gasto";
-          buffer.writeln(
-              "- ${DateFormat('dd/MM').format(t.date)}: [$tipo] ${t.description} (S/ ${t.amount.abs().toStringAsFixed(2)})");
-        }
-      }
-
-      buffer.writeln();
-      buffer.writeln("Resumen Transacciones:");
-      buffer.writeln("  Ingresos: S/ ${totalIncome.toStringAsFixed(2)}");
-      buffer.writeln("  Gastos: S/ ${totalExpense.toStringAsFixed(2)}");
-      buffer.writeln(
-          "  Balance: S/ ${(totalIncome - totalExpense).toStringAsFixed(2)}");
-      buffer.writeln();
-
-      // Sección 2: Gastos Fijos / Suscripciones
-      if (subscriptions.isNotEmpty) {
-        buffer.writeln("=== GASTOS FIJOS (Suscripciones/Recurrentes) ===");
-        for (var s in subscriptions) {
-          final dueDate = s.nextDueDate;
-          final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
-          final diff = dueDay.difference(today).inDays;
-          final amountStr = s.amount % 1 == 0
-              ? s.amount.toInt().toString()
-              : s.amount.toStringAsFixed(2);
-
-          String estado;
-          if (s.isPaid) {
-            estado = "PAGADO este mes";
-          } else if (diff < 0) {
-            estado =
-                "ATRASADO (venció hace ${diff.abs()} días, el ${DateFormat('dd/MM').format(dueDate)})";
-          } else if (diff == 0) {
-            estado = "VENCE HOY";
-          } else if (diff <= 5) {
-            estado =
-                "PRÓXIMO (vence en $diff días, el ${DateFormat('dd/MM').format(dueDate)})";
-          } else {
-            estado = "Pendiente (vence el ${DateFormat('dd/MM').format(dueDate)})";
-          }
-
-          buffer.writeln("- ${s.name}: S/ $amountStr — $estado");
-        }
-
-        final totalFixed =
-            subscriptions.fold(0.0, (sum, s) => sum + s.amount);
-        buffer.writeln(
-            "  Total comprometido en fijos: S/ ${totalFixed.toStringAsFixed(2)}");
-        buffer.writeln();
-      }
-
-      // Sección 3: Metas de ahorro
-      if (goals.isNotEmpty) {
-        buffer.writeln("=== METAS DE AHORRO ===");
-        for (var g in goals) {
-          final progress = g.targetAmount > 0
-              ? (g.currentAmount / g.targetAmount * 100).clamp(0, 100)
-              : 0.0;
-          final remaining = g.targetAmount - g.currentAmount;
-          final targetStr = g.targetAmount % 1 == 0
-              ? g.targetAmount.toInt().toString()
-              : g.targetAmount.toStringAsFixed(2);
-          final currentStr = g.currentAmount % 1 == 0
-              ? g.currentAmount.toInt().toString()
-              : g.currentAmount.toStringAsFixed(2);
-          final remainingStr = remaining <= 0
-              ? "COMPLETADA"
-              : "Faltan S/ ${remaining.toStringAsFixed(2)}";
-
-          buffer.writeln(
-              "- ${g.name}: S/ $currentStr / S/ $targetStr (${progress.toStringAsFixed(0)}%) — $remainingStr");
-        }
-        buffer.writeln();
-      }
-
-      // --- Llamar a la API ---
+      // --- Llamar a la API con el contexto estructurado ---
       final advice = await GeminiClient().obtenerConsejo(
-        contextData: buffer.toString(),
+        contextData: contextData,
         periodType: type,
         isNewUser: false,
       );
 
-      // save* actualiza el estado Y llama notifyListeners internamente
       if (type == 'weekly') {
         await statsProvider.saveWeeklyAdvice(advice);
       } else {
         await statsProvider.saveMonthlyAdvice(advice);
       }
     } catch (e) {
-      // En error guardamos en el campo correspondiente para que persista el estado
+      final errorMessage = "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e";
       if (type == 'weekly') {
-        await statsProvider.saveWeeklyAdvice(
-            "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e");
+        await statsProvider.saveWeeklyAdvice(errorMessage);
       } else {
-        await statsProvider.saveMonthlyAdvice(
-            "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e");
+        await statsProvider.saveMonthlyAdvice(errorMessage);
       }
     } finally {
       statsProvider.setAdviceLoading(false);

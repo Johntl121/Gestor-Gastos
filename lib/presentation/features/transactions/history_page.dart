@@ -606,7 +606,13 @@ class _HistoryPageState extends State<HistoryPage> {
             });
           },
           eventLoader: (day) {
-            return provider.getTransactionsForDay(day);
+            // Para los puntos del calendario, usamos la lista en memoria (sincrona)
+            // Esto es necesario porque TableCalendar no soporta eventLoader asíncrono.
+            return provider.transactions.where((t) => 
+              t.date.year == day.year && 
+              t.date.month == day.month && 
+              t.date.day == day.day
+            ).toList();
           },
           calendarStyle: CalendarStyle(
             defaultTextStyle: TextStyle(color: textColor),
@@ -664,76 +670,80 @@ class _HistoryPageState extends State<HistoryPage> {
               ? const Center(
                   child: Text("Selecciona un día",
                       style: TextStyle(color: Colors.grey)))
-              : Builder(builder: (context) {
-                  final dayTransactions =
-                      provider.getTransactionsForDay(_selectedDay!);
-                  if (dayTransactions.isEmpty) {
-                    return Center(
-                        child: Text(
-                            "Sin movimientos el ${DateFormat('d MMM', 'es').format(_selectedDay!)}",
-                            style: const TextStyle(color: Colors.grey)));
-                  }
-                  return ListView(
-                    padding: const EdgeInsets.only(
-                        left: 16, right: 16, top: 16, bottom: 100),
-                    children: dayTransactions.map((t) {
-                      return Dismissible(
-                        key: Key(t.id.toString()),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          color: Colors.redAccent,
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        onDismissed: (direction) async {
-                          if (t.id != null) {
-                            final deletedTransaction = t;
-                            await provider.deleteTransaction(t.id!);
-                            // We need to refresh wallet here too, but we are inside Consumer of TransactionProvider.
-                            // Accessing WalletProvider here is cleaner if we just find it.
-                            if (context.mounted) {
-                              Provider.of<WalletProvider>(context,
-                                      listen: false)
-                                  .loadWalletData();
-
-                              ScaffoldMessenger.of(context).clearSnackBars();
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
-                                content: const Text('Transacción eliminada'),
-                                action: SnackBarAction(
-                                    label: 'DESHACER',
-                                    textColor: Colors.cyanAccent,
-                                    onPressed: () async {
-                                      await provider
-                                          .addTransaction(deletedTransaction);
-                                      if (context.mounted) {
-                                        Provider.of<WalletProvider>(context,
-                                                listen: false)
-                                            .loadWalletData();
-                                      }
-                                    }),
-                                duration: const Duration(seconds: 4),
-                              ));
-                            }
-                          }
-                        },
-                        child: GestureDetector(
-                          onTap: () {
-                            _showTransactionDetails(
-                                context,
-                                t,
+              : FutureBuilder<List<TransactionEntity>>(
+                  future: provider.getTransactionsForDay(_selectedDay!),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    
+                    final dayTransactions = snapshot.data ?? [];
+                    
+                    if (dayTransactions.isEmpty) {
+                      return Center(
+                          child: Text(
+                              "Sin movimientos el ${DateFormat('d MMM', 'es').format(_selectedDay!)}",
+                              style: const TextStyle(color: Colors.grey)));
+                    }
+                    return ListView(
+                      padding: const EdgeInsets.only(
+                          left: 16, right: 16, top: 16, bottom: 100),
+                      children: dayTransactions.map((t) {
+                        return Dismissible(
+                          key: Key(t.id.toString()),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            color: Colors.redAccent,
+                            child: const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          onDismissed: (direction) async {
+                            if (t.id != null) {
+                              final deletedTransaction = t;
+                              await provider.deleteTransaction(t.id!);
+                              if (context.mounted) {
                                 Provider.of<WalletProvider>(context,
-                                    listen: false),
-                                isDarkMode);
+                                        listen: false)
+                                    .loadWalletData();
+    
+                                ScaffoldMessenger.of(context).clearSnackBars();
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(SnackBar(
+                                  content: const Text('Transacción eliminada'),
+                                  action: SnackBarAction(
+                                      label: 'DESHACER',
+                                      textColor: Colors.cyanAccent,
+                                      onPressed: () async {
+                                        await provider
+                                            .addTransaction(deletedTransaction);
+                                        if (context.mounted) {
+                                          Provider.of<WalletProvider>(context,
+                                                  listen: false)
+                                              .loadWalletData();
+                                        }
+                                      }),
+                                  duration: const Duration(seconds: 4),
+                                ));
+                              }
+                            }
                           },
-                          child: _buildTransactionTileForCalendar(t, isDarkMode,
-                              context), // Need separate helper or reuse logic
-                        ),
-                      );
-                    }).toList(),
-                  );
-                }),
+                          child: GestureDetector(
+                            onTap: () {
+                              _showTransactionDetails(
+                                  context,
+                                  t,
+                                  Provider.of<WalletProvider>(context,
+                                      listen: false),
+                                  isDarkMode);
+                            },
+                            child: _buildTransactionTileForCalendar(t, isDarkMode,
+                                context),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }),
         ),
       ],
     );

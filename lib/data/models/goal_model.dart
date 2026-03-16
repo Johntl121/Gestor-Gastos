@@ -9,6 +9,7 @@ class GoalModel extends GoalEntity {
     required super.iconCode,
     required super.colorValue,
     super.isCompleted,
+    super.deadline,
   });
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
@@ -19,7 +20,8 @@ class GoalModel extends GoalEntity {
       currentAmount: (json['currentAmount'] as num).toDouble(),
       iconCode: json['iconCode'],
       colorValue: json['colorValue'],
-      isCompleted: json['isCompleted'] ?? false,
+      isCompleted: json['isCompleted'] == null ? false : (json['isCompleted'] == 1 || json['isCompleted'] == true),
+      deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
     );
   }
 
@@ -31,7 +33,8 @@ class GoalModel extends GoalEntity {
       'currentAmount': currentAmount,
       'iconCode': iconCode,
       'colorValue': colorValue,
-      'isCompleted': isCompleted,
+      'isCompleted': isCompleted ? 1 : 0,
+      'deadline': deadline?.toIso8601String(),
     };
   }
 
@@ -44,6 +47,7 @@ class GoalModel extends GoalEntity {
       iconCode: entity.iconCode,
       colorValue: entity.colorValue,
       isCompleted: entity.isCompleted,
+      deadline: entity.deadline,
     );
   }
 }

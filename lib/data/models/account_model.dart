@@ -9,19 +9,19 @@ class AccountModel extends AccountEntity {
     required super.colorValue,
     required super.iconCode,
     super.includeInTotal = true,
+    super.isCash = false,
   });
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
     return AccountModel(
       id: json['id'],
       name: json['name'],
-      initialBalance: (json['initialBalance'] as num?)?.toDouble() ?? 0.0,
-      currencySymbol: json['currencySymbol'] ?? '',
-      colorValue: json['colorValue'] ?? 0,
-      iconCode: json['iconCode'] ?? 0,
-      // Handle db optional column default
-      includeInTotal:
-          json['includeInTotal'] == null ? true : (json['includeInTotal'] == 1),
+      initialBalance: (json['balance'] as num?)?.toDouble() ?? 0.0, // In standard query balance is initial
+      currencySymbol: json['currencySymbol'] ?? 'S/',
+      colorValue: json['color'] ?? 0, // DB column is 'color' in some parts
+      iconCode: json['iconCode'] ?? 58343,
+      includeInTotal: json['includeInTotal'] == null ? true : (json['includeInTotal'] == 1),
+      isCash: json['type'] == 'CASH',
     );
   }
 
@@ -29,11 +29,12 @@ class AccountModel extends AccountEntity {
     return {
       'id': id,
       'name': name,
-      'initialBalance': initialBalance,
+      'balance': initialBalance, // DB column is 'balance'
       'currencySymbol': currencySymbol,
-      'colorValue': colorValue,
+      'color': colorValue, // DB column is 'color'
       'iconCode': iconCode,
       'includeInTotal': includeInTotal ? 1 : 0,
+      'type': isCash ? 'CASH' : 'DIGITAL',
     };
   }
 }

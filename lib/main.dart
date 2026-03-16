@@ -53,8 +53,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _checkInitialLock();
   }
 
-  void _checkInitialLock() {
-    final pin = di.sl<TransactionLocalDataSource>().getSecurityPin();
+  Future<void> _checkInitialLock() async {
+    final pin = await di.sl<TransactionLocalDataSource>().getSecurityPinAsync();
     if (pin != null && pin.isNotEmpty) {
       setState(() {
         _isLocked = true;
@@ -69,10 +69,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
       // App went to background: Lock if PIN is enabled
-      final pin = di.sl<TransactionLocalDataSource>().getSecurityPin();
+      final pin = await di.sl<TransactionLocalDataSource>().getSecurityPinAsync();
       if (pin != null && pin.isNotEmpty) {
         setState(() {
           _isLocked = true;

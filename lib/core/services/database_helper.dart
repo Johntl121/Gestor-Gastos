@@ -21,7 +21,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 11, // Increment version
+      version: 15, // Incremetado a 15 para índices en transactions
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -29,148 +29,157 @@ class LocalDatabase {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // ... (previous migrations)
+    // ... (migraciones previas mantenidas para compatibilidad)
     if (oldVersion < 2) {
-      // Migración V1 -> V2: Asegurar que existan categorías y segunda cuenta
-
-      // 1. Verificar si falta cuenta Bancaria
-      final accounts =
-          await db.query('accounts', where: "type = ?", whereArgs: ['DIGITAL']);
+      final accounts = await db.query('accounts', where: "type = ?", whereArgs: ['DIGITAL']);
       if (accounts.isEmpty) {
-        await db.rawInsert('''
-            INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)
-         ''');
+        await db.rawInsert("INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)");
       }
-
-      // 2. Verificar si faltan categorías
-      final categoriesCount = Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM categories'));
+      final categoriesCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM categories'));
       if (categoriesCount == 0) {
-        // Insertar categorías por defecto
-        await db.rawInsert(
-            "INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')");
-        await db.rawInsert(
-            "INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')");
-        await db.rawInsert(
-            "INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
-        await db.rawInsert(
-            "INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
+        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')");
+        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')");
+        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
+        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
       }
     }
 
     if (oldVersion < 3) {
-      // Migración V2 -> V3: Agregar columa 'type' a transactions
-      // We check if column exists first to be safe, or just run ADD COLUMN which is safe in SQLite if done right,
-      // but simplistic approach works.
       try {
         await db.execute(
             "ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'EXPENSE'");
       } catch (e) {
-        // Column might already exist
-      }
-    }
-
-    if (oldVersion < 4) {
-      // Migración V3 -> V4: Agregar cuenta Ahorros
-      final savings =
-          await db.query('accounts', where: "name = ?", whereArgs: ['Ahorros']);
-      if (savings.isEmpty) {
-        await db.rawInsert(
-            "INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)");
+        // Ignorar si la columna ya existe
       }
     }
 
     if (oldVersion < 5) {
-      // Migración V4 -> V5: Agregar columna 'destinationAccountId' a transactions
       try {
         await db.execute(
             "ALTER TABLE transactions ADD COLUMN destinationAccountId INTEGER");
       } catch (e) {
-        // Column might already exist
-      }
-    }
-
-    if (oldVersion < 6) {
-      // Migración V5 -> V6: Asegurar cuenta Ahorros (Fix para nuevos usuarios en V5)
-      final savings =
-          await db.query('accounts', where: "name = ?", whereArgs: ['Ahorros']);
-      if (savings.isEmpty) {
-        await db.rawInsert(
-            "INSERT INTO accounts(name, type, balance, color) VALUES('Ahorros', 'DIGITAL', 0.0, 4285143962)");
+        // Ignorar si la columna ya existe
       }
     }
 
     if (oldVersion < 7) {
-      // Migración V6 -> V7: Agregar columnas 'currencySymbol' e 'iconCode' a accounts
       try {
         await db.execute(
             "ALTER TABLE accounts ADD COLUMN currencySymbol TEXT DEFAULT 'S/'");
       } catch (e) {
-        // Ignore if exists
+        // Ignorar si ya existe
       }
       try {
         await db.execute(
-            "ALTER TABLE accounts ADD COLUMN iconCode INTEGER DEFAULT 58343"); // Wallet icon code
+            "ALTER TABLE accounts ADD COLUMN iconCode INTEGER DEFAULT 58343");
       } catch (e) {
-        // Ignore if exists
+        // Ignorar si ya existe
       }
-
-      // Update existing default accounts with icons
-      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 1',
-          [57533]); // Payments (Cash)
-      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 2',
-          [57774]); // Account Balance (Bank)
-      await db.rawUpdate('UPDATE accounts SET iconCode = ? WHERE id = 3',
-          [58343]); // Savings (Piggy/Wallet)
     }
 
     if (oldVersion < 8) {
-      // Migración V7 -> V8: Agregar columna 'includeInTotal'
       try {
         await db.execute(
             "ALTER TABLE accounts ADD COLUMN includeInTotal INTEGER DEFAULT 1");
       } catch (e) {
-        // Ignore if exists
+        // Ignorar si ya existe
       }
     }
 
     if (oldVersion < 9) {
-      // Migración V8 -> V9: Agregar columna 'receivedAmount' a transactions para transferencias multidivisa
       try {
-        await db
-            .execute("ALTER TABLE transactions ADD COLUMN receivedAmount REAL");
+        await db.execute("ALTER TABLE transactions ADD COLUMN receivedAmount REAL");
       } catch (e) {
-        // Ignore if exists
+        // Ignorar si ya existe
       }
     }
 
     if (oldVersion < 10) {
-      // Migración V9 -> V10: Agregar columna 'imagePath' a transactions
       try {
         await db.execute("ALTER TABLE transactions ADD COLUMN imagePath TEXT");
       } catch (e) {
-        // Ignore
+        // Ignorar si ya existe
       }
     }
 
     if (oldVersion < 11) {
-      // Migración V10 -> V11: Agregar 'iconCode' y 'colorValue' a transactions (para Gastos Fijos personalizados)
       try {
         await db.execute("ALTER TABLE transactions ADD COLUMN iconCode INTEGER");
         await db.execute("ALTER TABLE transactions ADD COLUMN colorValue INTEGER");
       } catch (e) {
-        // Ignore if exists
+        // Ignorar si ya existen
       }
+    }
+
+    // NUEVA MIGRACIÓN V13: Asegurar que TODAS las categorías están presentes
+    if (oldVersion < 13) {
+      final expenseCategories = {
+        1: {'name': 'Comida', 'icon': 'restaurant', 'color': 0xFFFB8C00},
+        2: {'name': 'Mercado', 'icon': 'shopping_cart', 'color': 0xFF9CCC65},
+        3: {'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B},
+        4: {'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00},
+        5: {'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3},
+        6: {'name': 'Vehículo', 'icon': 'directions_car', 'color': 0xFFFF5252},
+        7: {'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63},
+        8: {'name': 'Cuidado', 'icon': 'spa', 'color': 0xFF9C27B0},
+        9: {'name': 'Suscripciones', 'icon': 'play_circle_filled', 'color': 0xFFF44336},
+        10: {'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688},
+        11: {'name': 'Deportes', 'icon': 'fitness_center', 'color': 0xFF4CAF50},
+        12: {'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5},
+        13: {'name': 'Viajes', 'icon': 'flight', 'color': 0xFF00BCD4},
+        14: {'name': 'Educación', 'icon': 'school', 'color': 0xFF795548},
+        15: {'name': 'Tecnología', 'icon': 'computer', 'color': 0xFF9E9E9E},
+        16: {'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722},
+        17: {'name': 'Ahorro', 'icon': 'savings', 'color': 0xFFCDDC39},
+        20: {'name': 'Otros', 'icon': 'grid_view', 'color': 0xFF607D8B},
+      };
+
+      final incomeCategories = {
+        18: {'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32},
+        19: {'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1},
+        21: {'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0},
+        22: {'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081},
+        23: {'name': 'Ventas', 'icon': 'storefront', 'color': 0xFFFB8C00},
+        24: {'name': 'Préstamos', 'icon': 'handshake', 'color': 0xFF009688},
+        25: {'name': 'Otros', 'icon': 'category', 'color': 0xFF607D8B},
+      };
+
+      final allCats = {...expenseCategories, ...incomeCategories};
+
+      for (var entry in allCats.entries) {
+        try {
+          final type = entry.key >= 18 && entry.key <= 25 && entry.key != 20 ? 'INCOME' : 'EXPENSE';
+          await db.rawInsert(
+              "INSERT OR IGNORE INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, ?)",
+              [entry.key, entry.value['name'], entry.value['icon'], entry.value['color'], type]);
+        } catch (e) {
+          // Ignorar si hay algún error puntual
+        }
+      }
+
+      try {
+        await db.execute("ALTER TABLE transactions ADD COLUMN note TEXT");
+      } catch (e) {
+        // Ignorar
+      }
+    }
+
+    if (oldVersion < 14) {
+      await _createFixedExpensesTable(db);
+      await _createGoalsTable(db);
+    }
+
+    if (oldVersion < 15) {
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)");
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accountId ON transactions(accountId)");
     }
   }
 
   Future<void> _onConfigure(Database db) async {
-    // Habilitar claves foráneas
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // 1. Tabla de Cuentas
     await db.execute('''
       CREATE TABLE accounts(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,7 +193,6 @@ class LocalDatabase {
       )
     ''');
 
-    // 2. Tabla de Categorias
     await db.execute('''
       CREATE TABLE categories(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -195,7 +203,6 @@ class LocalDatabase {
       )
     ''');
 
-    // 3. Tabla de Transacciones
     await db.execute('''
       CREATE TABLE transactions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,6 +211,7 @@ class LocalDatabase {
         amount REAL NOT NULL,
         date TEXT NOT NULL,
         description TEXT,
+        note TEXT,
         type TEXT DEFAULT 'EXPENSE',
         destinationAccountId INTEGER,
         receivedAmount REAL,
@@ -215,34 +223,101 @@ class LocalDatabase {
       )
     ''');
 
-    // Semilla de Datos Inicial (Opcional, pero bueno para UX)
+    await db.execute("CREATE INDEX idx_transactions_date ON transactions(date)");
+    await db.execute("CREATE INDEX idx_transactions_accountId ON transactions(accountId)");
+
+    await _createFixedExpensesTable(db);
+    await _createGoalsTable(db);
+
     await _seedData(db);
   }
 
-  Future<void> _seedData(Database db) async {
-    // Cuentas Iniciales - REMOVED per user request
-    // No default accounts. User must create them or Onboarding will do it.
+  Future<void> _createFixedExpensesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE fixed_expenses(
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        paymentDate TEXT NOT NULL,
+        frequency INTEGER NOT NULL,
+        isPaid INTEGER DEFAULT 0,
+        iconCode INTEGER,
+        colorValue INTEGER,
+        accountToCharge INTEGER,
+        FOREIGN KEY (accountToCharge) REFERENCES accounts (id) ON DELETE SET NULL
+      )
+    ''');
+  }
 
-    // Categorías Iniciales (Gastos)
-    await db.rawInsert('''
-      INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')
-    '''); // Orange
-    await db.rawInsert('''
-      INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')
-    '''); // Blue
-    await db.rawInsert('''
-      INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')
-    '''); // Purple
-    await db.rawInsert('''
-      INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')
-    '''); // Grey
+  Future<void> _createGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE goals(
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        targetAmount REAL NOT NULL,
+        currentAmount REAL DEFAULT 0.0,
+        iconCode INTEGER,
+        colorValue INTEGER,
+        isCompleted INTEGER DEFAULT 0,
+        deadline TEXT
+      )
+    ''');
+  }
+
+  Future<void> _seedData(Database db) async {
+    // 1. Cuentas iniciales
+    await db.rawInsert(
+        "INSERT INTO accounts(name, type, balance, color, currencySymbol) VALUES('Efectivo', 'CASH', 0.0, 4280391411, 'S/')");
+
+    // 2. Insertar TODAS las categorías definidas en AppCategories para evitar violaciones de FK
+    final expenseCategories = {
+      1: {'name': 'Comida', 'icon': 'restaurant', 'color': 0xFFFB8C00},
+      2: {'name': 'Mercado', 'icon': 'shopping_cart', 'color': 0xFF9CCC65},
+      3: {'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B},
+      4: {'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00},
+      5: {'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3},
+      6: {'name': 'Vehículo', 'icon': 'directions_car', 'color': 0xFFFF5252},
+      7: {'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63},
+      8: {'name': 'Cuidado', 'icon': 'spa', 'color': 0xFF9C27B0},
+      9: {'name': 'Suscripciones', 'icon': 'play_circle_filled', 'color': 0xFFF44336},
+      10: {'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688},
+      11: {'name': 'Deportes', 'icon': 'fitness_center', 'color': 0xFF4CAF50},
+      12: {'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5},
+      13: {'name': 'Viajes', 'icon': 'flight', 'color': 0xFF00BCD4},
+      14: {'name': 'Educación', 'icon': 'school', 'color': 0xFF795548},
+      15: {'name': 'Tecnología', 'icon': 'computer', 'color': 0xFF9E9E9E},
+      16: {'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722},
+      17: {'name': 'Ahorro', 'icon': 'savings', 'color': 0xFFCDDC39},
+      20: {'name': 'Otros', 'icon': 'grid_view', 'color': 0xFF607D8B},
+    };
+
+    final incomeCategories = {
+      18: {'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32},
+      19: {'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1},
+      21: {'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0},
+      22: {'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081},
+      23: {'name': 'Ventas', 'icon': 'storefront', 'color': 0xFFFB8C00},
+      24: {'name': 'Préstamos', 'icon': 'handshake', 'color': 0xFF009688},
+      25: {'name': 'Otros', 'icon': 'category', 'color': 0xFF607D8B},
+    };
+
+    for (var entry in expenseCategories.entries) {
+      await db.rawInsert(
+          "INSERT INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, 'EXPENSE')",
+          [entry.key, entry.value['name'], entry.value['icon'], entry.value['color']]);
+    }
+
+    for (var entry in incomeCategories.entries) {
+      await db.rawInsert(
+          "INSERT INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, 'INCOME')",
+          [entry.key, entry.value['name'], entry.value['icon'], entry.value['color']]);
+    }
   }
 
   Future<void> clearAllTables() async {
     final db = await database;
     await db.delete('transactions');
     await db.delete('accounts');
-    await db
-        .delete('sqlite_sequence', where: 'name = ?', whereArgs: ['accounts']);
+    await db.delete('sqlite_sequence', where: 'name = ?', whereArgs: ['accounts']);
   }
 }

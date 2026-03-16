@@ -8,6 +8,7 @@ class GoalEntity {
   final int iconCode; // Store icon as codePoint
   final int colorValue; // Store color as int
   final bool isCompleted;
+  final DateTime? deadline;
 
   GoalEntity({
     required this.id,
@@ -17,6 +18,7 @@ class GoalEntity {
     required this.iconCode,
     required this.colorValue,
     this.isCompleted = false,
+    this.deadline,
   });
 
   IconData get icon => IconData(iconCode, fontFamily: 'MaterialIcons');

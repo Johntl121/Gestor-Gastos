@@ -199,6 +199,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         colorValue: Colors.amber.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
+        isCash: true,
       ));
 
       // Account 2: Banco
@@ -211,6 +212,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         colorValue: Colors.blueAccent.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
+        isCash: false,
       ));
 
       // Account 3: Ahorros
@@ -223,6 +225,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         colorValue: Colors.purpleAccent.toARGB32(),
         currencySymbol: _selectedCurrency,
         includeInTotal: true,
+        isCash: false,
       ));
 
       // Add Initial Transactions for History
@@ -231,7 +234,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         if (amount > 0) {
           final t = TransactionEntity(
               accountId: accountId,
-              categoryId: 0, // Incomes/Initial
+              categoryId: 25, // Otros / Saldo Inicial
               amount: amount,
               date: DateTime.now(),
               description: desc,

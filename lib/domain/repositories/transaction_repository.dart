@@ -11,6 +11,7 @@ abstract class TransactionRepository {
   Future<Either<Failure, double>> getCurrentMonthExpenses();
   Future<Either<Failure, double>> getMonthlyBudget();
   Future<Either<Failure, List<TransactionEntity>>> getTransactions();
+  Future<Either<Failure, List<TransactionEntity>>> getTransactionsByDateRange(DateTime start, DateTime end);
   Future<Either<Failure, void>> updateTransaction(
       TransactionEntity transaction);
   Future<Either<Failure, void>> deleteTransaction(int id);

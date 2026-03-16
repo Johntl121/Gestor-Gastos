@@ -53,8 +53,7 @@ class _StatsPageState extends State<StatsPage>
     final uiProvider = Provider.of<UiProvider>(context);
 
     // Calculate Categories (Dynamically mapped with actual colors)
-    final categories = statsProvider.getSpendingByCategory(
-        txProvider.transactions, txProvider.subscriptions);
+    final categories = statsProvider.getSpendingByCategory(txProvider.subscriptions);
 
     // Calculate Total Amount
     final totalAmount = statsProvider.calculateTotalAmount(categories);
@@ -74,12 +73,12 @@ class _StatsPageState extends State<StatsPage>
       chartSections.add(PieChartSectionData(
           color: isDarkMode ? Colors.white10 : Colors.grey.shade300,
           value: 1,
-          radius: 20,
+          radius: 35, // More premium thickness
           showTitle: false));
     } else {
       for (int i = 0; i < categories.length; i++) {
         final isTouched = i == touchedIndex;
-        final radius = isTouched ? 30.0 : 22.0;
+        final radius = isTouched ? 45.0 : 35.0; // Dynamic thickness
         final group = categories[i];
 
         chartSections.add(PieChartSectionData(
@@ -88,6 +87,8 @@ class _StatsPageState extends State<StatsPage>
           radius: radius,
           title: "",
           showTitle: false,
+          badgeWidget: isTouched ? _buildSectionBadge(group.color) : null,
+          badgePositionPercentageOffset: 0.98,
         ));
       }
     }
@@ -96,19 +97,21 @@ class _StatsPageState extends State<StatsPage>
     String centerStartText =
         currentType == StatsType.expense ? "GASTADO" : "INGRESADO";
     
-    // Formato de moneda inteligente: S/ 100 o S/ 100.50
-    String formatValue(double val) {
-      if (val == 0) return "0";
-      return val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2);
-    }
-
-    String centerAmountText = "S/ ${formatValue(totalAmount)}";
+    // Formato de moneda profesional dinámico
+    final currencySymbol = statsProvider.currencySymbol;
+    final currencyFormat = NumberFormat.currency(
+      symbol: '$currencySymbol ', 
+      decimalDigits: 2, 
+      locale: currencySymbol == 'S/' ? 'es_PE' : 'en_US' // Adaptar locale si es necesario
+    );
+    
+    String centerAmountText = currencyFormat.format(totalAmount);
 
     if (touchedIndex != -1 && categories.isNotEmpty) {
       if (touchedIndex < categories.length) {
         final group = categories[touchedIndex];
         centerStartText = group.name.toUpperCase();
-        centerAmountText = "S/ ${formatValue(group.amount)}";
+        centerAmountText = currencyFormat.format(group.amount);
       }
     }
 
@@ -266,12 +269,12 @@ class _StatsPageState extends State<StatsPage>
                                   });
                                 },
                               ),
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 85,
-                              startDegreeOffset: -90,
-                              sections: chartSections,
+                                sectionsSpace: 4,
+                                centerSpaceRadius: 75,
+                                startDegreeOffset: -90,
+                                sections: chartSections,
+                              ),
                             ),
-                          ),
                           Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -400,7 +403,7 @@ class _StatsPageState extends State<StatsPage>
                         child: _buildSpendingItem(
                             group.name,
                             "${(percentage * 100).toStringAsFixed(1)}% del total",
-                            "S/ ${formatValue(amount)}",
+                            currencyFormat.format(amount),
                             percentage > 0.3 ? "Alto impacto" : "Normal",
                             icon,
                             group.color,
@@ -627,6 +630,24 @@ class _StatsPageState extends State<StatsPage>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => const FinancialCoachSheet(),
+    );
+  }
+
+  Widget _buildSectionBadge(Color color) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.5),
+            blurRadius: 4,
+            spreadRadius: 2,
+          )
+        ],
+      ),
     );
   }
 }

@@ -12,6 +12,9 @@ class AccountEntity extends Equatable {
   /// Determines if this account's balance counts towards the total net worth
   final bool includeInTotal;
 
+  /// Determines if this is a Cash account or Digital
+  final bool isCash;
+
   // Calculated at runtime, not stored
   final double currentBalance;
 
@@ -34,6 +37,7 @@ class AccountEntity extends Equatable {
     required this.colorValue,
     required this.iconCode,
     this.includeInTotal = true,
+    this.isCash = false,
     this.currentBalance = 0.0,
   });
 
@@ -45,6 +49,7 @@ class AccountEntity extends Equatable {
     int? colorValue,
     int? iconCode,
     bool? includeInTotal,
+    bool? isCash,
     double? currentBalance,
   }) {
     return AccountEntity(
@@ -55,6 +60,7 @@ class AccountEntity extends Equatable {
       colorValue: colorValue ?? this.colorValue,
       iconCode: iconCode ?? this.iconCode,
       includeInTotal: includeInTotal ?? this.includeInTotal,
+      isCash: isCash ?? this.isCash,
       currentBalance: currentBalance ?? this.currentBalance,
     );
   }
@@ -68,6 +74,7 @@ class AccountEntity extends Equatable {
         colorValue,
         iconCode,
         includeInTotal,
+        isCash,
         currentBalance
       ];
 }

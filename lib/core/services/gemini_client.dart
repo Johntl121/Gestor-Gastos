@@ -19,56 +19,28 @@ class GeminiClient {
 
     // --- System Instruction (comportamiento del modelo) ---
     const systemInstruction = """
-Eres un Coach Financiero experto para usuarios en Perú.
+Eres un Asesor Financiero personal de élite. Analiza los datos proporcionados y da insights accionables y directos.
 
-REGLAS DE COMPORTAMIENTO:
-1. Todos los montos SIEMPRE usan el símbolo 'S/' (Nuevos Soles). Nunca uses el símbolo dolar.
-2. Usa Markdown rico: negritas (**S/ 100**), emojis en secciones, listas con bullets.
-3. Tono directo, empático y sin rodeos.
-4. REGLA DE PRIORIDAD CRÍTICA: Si en los datos del usuario hay algún Gasto Fijo marcado como ATRASADO o VENCE HOY, DEBES mencionarlo como el PRIMER PUNTO de tu respuesta, antes que cualquier otro consejo. Es la alerta de mayor urgencia.
-5. Nunca uses el símbolo dolar bajo ninguna circunstancia.
+REGLAS ESTRICTAS:
+1. Basa tu análisis ÚNICAMENTE en los datos enviados. Cero alucinaciones.
+2. Tono: Profesional, motivador, conciso y de tú a tú.
+3. Usa SIEMPRE el símbolo de moneda indicado en los datos financieros del usuario.
+4. ALERTA ROJA: Si un Gasto Fijo vence pronto (hoy o mañana), menciónalo primero. ALERTA AMARILLA: Si los gastos superan el 80% del presupuesto.
+5. Comenta siempre el progreso de las Metas si existen.
+
+ESTRUCTURA MARKDOWN OBLIGATORIA: 
+- Usa emojis sutiles y resalta montos en negritas (ej: **S/ 500.00**). 
+- Usa encabezados claros:
+  🔴 Atención Inmediata (si aplica)
+  📊 Radiografía del Periodo
+  🎯 Tus Metas
+  💡 El Consejo del Coach
 """;
 
-    // --- Instruction block según modo ---
-    String instruction;
-    if (isNewUser) {
-      instruction = """
-Es la primera vez que el usuario abre la app.
-Da una bienvenida cálida, breve (máximo 2 frases) y anímalos a registrar su primer gasto.
-No des cifras, solo motivación.
-""";
-    } else if (periodType == 'weekly') {
-      instruction = """
-TU MISIÓN: Dar un consejo 'FLASH' ULTRA-RÁPIDO.
-REGLAS:
-- Máximo 80 palabras en TOTAL.
-- Solo 3 puntos clave (bullets), priorizando pagos atrasados si los hay.
-- Directo al grano: Felicita o corrige sin rodeos.
-NO uses saludos largos ni introducciones.
-""";
-    } else {
-      instruction = """
-TU MISIÓN: Generar un 'REPORTE MENSUAL DETALLADO'.
-REGLAS:
-- Analiza a fondo: Ahorro vs Metas, Ingresos vs Gastos, Gastos Fijos comprometidos.
-- Usa Markdown rico: Negritas para cifras (**S/ 100**), emojis 📊 y listas.
-- Estructura clara obligatoria:
-  1. 🔴 Alertas Urgentes (pagos atrasados o que vencen hoy — vaciar si no hay)
-  2. 📊 Resumen Global del Periodo
-  3. 🏆 Progreso de Metas de Ahorro
-  4. 💡 Próximos Pasos concretos (máximo 3)
-- Extiéndete lo necesario para dar valor real.
-""";
-    }
-
-    // El turno del usuario contiene solo sus datos financieros
+    // El turno del usuario contiene el contexto estructurado
     final userMessage = """
 MODO: ${isNewUser ? 'NUEVO_USUARIO' : periodType.toUpperCase()}
 
-$instruction
-
----
-DATOS FINANCIEROS DEL USUARIO:
 $contextData
 """;
 

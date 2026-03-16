@@ -9,18 +9,21 @@ import '../../domain/usecases/update_transaction_usecase.dart';
 import '../../injection_container.dart';
 import '../../data/repositories/transaction_data_source.dart';
 import '../../core/services/notification_service.dart';
+import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 
 class TransactionProvider extends ChangeNotifier {
   final GetTransactionsUseCase getTransactionsUseCase;
   final AddTransactionUseCase addTransactionUseCase;
   final UpdateTransactionUseCase updateTransactionUseCase;
   final DeleteTransactionUseCase deleteTransactionUseCase;
+  final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
 
   TransactionProvider({
     required this.getTransactionsUseCase,
     required this.addTransactionUseCase,
     required this.updateTransactionUseCase,
     required this.deleteTransactionUseCase,
+    required this.getTransactionsByDateRange,
   }) {
     loadTransactions();
   }
@@ -46,6 +49,8 @@ class TransactionProvider extends ChangeNotifier {
       },
     );
 
+    // Migrar datos de SharedPreferences a SQLite si existen
+    await sl<TransactionLocalDataSource>().migrateDataFromPrefsToSql();
     await _loadSubscriptions();
 
     // Validar status (revisar si ya se pagó este ciclo)
@@ -105,9 +110,15 @@ class TransactionProvider extends ChangeNotifier {
     }
 
     if (changed) {
-      // Guardamos el estado actualizado (opcional, pero buena práctica para persistencia UI)
-      sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
-      // notifyListeners se llama al final de loadTransactions
+      // Guardamos el estado actualizado en SQLite
+      _saveAllSubscriptionsToDb();
+    }
+  }
+
+  Future<void> _saveAllSubscriptionsToDb() async {
+    final ds = sl<TransactionLocalDataSource>();
+    for (var sub in _subscriptions) {
+      await ds.saveSubscription(sub);
     }
   }
 
@@ -120,6 +131,7 @@ class TransactionProvider extends ChangeNotifier {
 
     result.fold(
       (fail) {
+        debugPrint("❌ ERROR AL GUARDAR TRANSACCIÓN: ${fail.message}");
         _isLoading = false;
         notifyListeners();
       },
@@ -187,7 +199,7 @@ class TransactionProvider extends ChangeNotifier {
       _subscriptions.add(subscription);
     }
     notifyListeners();
-    await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+    await sl<TransactionLocalDataSource>().saveSubscription(subscription);
 
     // Schedule notification based on frequency
     if (subscription.frequency == ExpenseFrequency.monthly) {
@@ -213,7 +225,7 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
-    await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+    await sl<TransactionLocalDataSource>().deleteSubscription(id);
     await NotificationService().cancelNotification(id.hashCode);
   }
 
@@ -234,9 +246,10 @@ class TransactionProvider extends ChangeNotifier {
     // Optimistic Update manual para bloqueo INMEDIATO en la UI
     final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
     if (index != -1) {
-      _subscriptions[index] = subscription.copyWith(isPaid: true);
-      // Guardar en cache inmediatamente para que loadTransactions no pise el optimistic state
-      await sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+      final updatedSub = subscription.copyWith(isPaid: true);
+      _subscriptions[index] = updatedSub;
+      // Guardar en SQLite inmediatamente
+      await sl<TransactionLocalDataSource>().saveSubscription(updatedSub);
       notifyListeners();
     }
 
@@ -251,16 +264,22 @@ class TransactionProvider extends ChangeNotifier {
     final item = _subscriptions.removeAt(oldIndex);
     _subscriptions.insert(newIndex, item);
     notifyListeners();
-    sl<TransactionLocalDataSource>().cacheSubscriptions(_subscriptions);
+    // En SQLite el orden se maneja de forma natural o por IDs, 
+    // pero si queremos persistir el orden exacto de una lista JSON 
+    // necesitaríamos otra estrategia. Por ahora, al ser SQLite, el orden es irrelevante 
+    // a menos que añadamos una columna 'order'.
+    // Como simplificación técnica, no re-guardamos todo para reordenar.
   }
 
-  List<TransactionEntity> getTransactionsForDay(DateTime day) {
-    return _transactions
-        .where((t) =>
-            t.date.year == day.year &&
-            t.date.month == day.month &&
-            t.date.day == day.day)
-        .toList();
+  Future<List<TransactionEntity>> getTransactionsForDay(DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day, 0, 0, 0);
+    final end = DateTime(day.year, day.month, day.day, 23, 59, 59);
+
+    final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
+    return result.fold(
+      (fail) => [],
+      (list) => list,
+    );
   }
 
   // --- Dev Tools ---

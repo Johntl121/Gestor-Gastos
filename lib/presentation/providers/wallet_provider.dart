@@ -70,6 +70,9 @@ class WalletProvider extends ChangeNotifier {
   Future<void> initApp() async {
     debugPrint("🔄 Inicializando WalletProvider...");
 
+    // Migrar datos de SharedPreferences a SQLite si existen
+    await localDataSource.migrateDataFromPrefsToSql();
+
     // Solo cargamos datos. La creación inicial es responsabilidad del Onboarding.
     await loadWalletData();
 
@@ -211,31 +214,28 @@ class WalletProvider extends ChangeNotifier {
 
   // --- Goals Section ---
 
-  void addGoal(String name, double targetAmount, int iconCode, int colorValue) {
-    final newGoal = GoalEntity(
+  void addGoal(String name, double targetAmount, int iconCode, int colorValue) async {
+    final newGoal = GoalModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         targetAmount: targetAmount,
         currentAmount: 0,
         iconCode: iconCode,
-        colorValue: colorValue);
+        colorValue: colorValue,
+        isCompleted: false);
     _goals.add(newGoal);
-    _saveGoals();
     notifyListeners();
+    await localDataSource.saveGoal(newGoal);
   }
 
-  Future<void> _saveGoals() async {
-    final goalModels = _goals.map((g) => GoalModel.fromEntity(g)).toList();
-    await localDataSource.cacheGoals(goalModels);
-  }
+  // Eliminado _saveGoals ya que usaremos persistencia individual por meta-id
 
-  void updateGoal(GoalEntity updatedGoal) {
+  void updateGoal(GoalEntity updatedGoal) async {
     final index = _goals.indexWhere((g) => g.id == updatedGoal.id);
     if (index != -1) {
       _goals[index] = updatedGoal;
-      _goals[index] = updatedGoal;
-      _saveGoals();
       notifyListeners();
+      await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
     }
   }
 
@@ -262,8 +262,8 @@ class WalletProvider extends ChangeNotifier {
     }
 
     _goals.removeAt(index);
-    _saveGoals();
     notifyListeners();
+    await localDataSource.deleteGoal(id);
   }
 
   void reorderGoals(int oldIndex, int newIndex) {
@@ -272,8 +272,8 @@ class WalletProvider extends ChangeNotifier {
     }
     final GoalEntity item = _goals.removeAt(oldIndex);
     _goals.insert(newIndex, item);
-    _saveGoals();
     notifyListeners();
+    // Al igual que con subs, el orden en SQLite relacional es por ID o timestamp unless we add an order col.
   }
 
   Future<void> depositToGoal(
@@ -305,8 +305,8 @@ class WalletProvider extends ChangeNotifier {
         isCompleted: (goal.currentAmount + amount) >= goal.targetAmount);
 
     _goals[index] = updatedGoal;
-    _saveGoals();
     notifyListeners();
+    await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
   }
 
   Future<void> purchaseGoal(String goalId) async {
@@ -328,8 +328,8 @@ class WalletProvider extends ChangeNotifier {
     await loadWalletData();
 
     _goals.removeAt(index);
-    _saveGoals();
     notifyListeners();
+    await localDataSource.deleteGoal(goalId);
   }
 
   String getAccountName(int id) {

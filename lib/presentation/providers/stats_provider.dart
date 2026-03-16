@@ -4,7 +4,10 @@ import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../data/models/subscription.dart';
 import '../../core/usecases/usecase.dart';
+import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/repositories/transaction_data_source.dart';
+import '../../injection_container.dart';
 
 // Enums for Stats
 enum PeriodType { week, month, year }
@@ -28,8 +31,12 @@ class _InternalGroup {
 
 class StatsProvider extends ChangeNotifier {
   final GetBudgetMoodUseCase getBudgetMood;
+  final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
 
-  StatsProvider({required this.getBudgetMood}) {
+  StatsProvider({
+    required this.getBudgetMood,
+    required this.getTransactionsByDateRange,
+  }) {
     loadStatsData();
   }
 
@@ -45,6 +52,12 @@ class StatsProvider extends ChangeNotifier {
   PeriodType get currentStatsPeriod => _currentStatsPeriod;
   StatsType get currentStatsType => _currentStatsType;
 
+  List<TransactionEntity> _currentPeriodTransactions = [];
+  bool _isLoadingTransactions = false;
+
+  List<TransactionEntity> get currentPeriodTransactions => _currentPeriodTransactions;
+  bool get isLoadingTransactions => _isLoadingTransactions;
+
   // AI & Advice State
   bool _isAdviceLoading = false;
   String? _weeklyAdvice;
@@ -55,6 +68,9 @@ class StatsProvider extends ChangeNotifier {
   bool get isAdviceLoading => _isAdviceLoading;
   String? get weeklyAdvice => _weeklyAdvice;
   String? get monthlyAdvice => _monthlyAdvice;
+
+  // Currency Support
+  String get currencySymbol => sl<TransactionLocalDataSource>().getCurrency();
 
   /// Devuelve el advice correspondiente al modo seleccionado en el Sheet
   String? currentAdvice(String mode) =>
@@ -67,17 +83,50 @@ class StatsProvider extends ChangeNotifier {
       (mood) => _budgetMood = mood,
     );
     await _loadCoachPersistence();
+    await loadTransactionsForPeriod();
+    notifyListeners();
+  }
+
+  Future<void> loadTransactionsForPeriod() async {
+    _isLoadingTransactions = true;
+    notifyListeners();
+
+    DateTime start;
+    DateTime end;
+
+    if (_currentStatsPeriod == PeriodType.week) {
+      start = _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
+      // Reset to start of day
+      start = DateTime(start.year, start.month, start.day);
+      end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+    } else if (_currentStatsPeriod == PeriodType.year) {
+      start = DateTime(_currentStatsDate.year, 1, 1);
+      end = DateTime(_currentStatsDate.year, 12, 31, 23, 59, 59);
+    } else {
+      // Month
+      start = DateTime(_currentStatsDate.year, _currentStatsDate.month, 1);
+      end = DateTime(_currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
+    }
+
+    final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
+    
+    result.fold(
+      (fail) => _currentPeriodTransactions = [],
+      (list) => _currentPeriodTransactions = list,
+    );
+
+    _isLoadingTransactions = false;
     notifyListeners();
   }
 
   void setStatsDate(DateTime date) {
     _currentStatsDate = date;
-    notifyListeners();
+    loadTransactionsForPeriod();
   }
 
   void setStatsPeriod(PeriodType type) {
     _currentStatsPeriod = type;
-    notifyListeners();
+    loadTransactionsForPeriod();
   }
 
   void setStatsType(StatsType type) {
@@ -87,19 +136,18 @@ class StatsProvider extends ChangeNotifier {
 
   // --- Calculation Logic (Sincronizada con Coach IA) ---
 
-  List<CategoryGroup> getSpendingByCategory(
-      List<TransactionEntity> transactions, List<Subscription> subscriptions) {
+  List<CategoryGroup> getSpendingByCategory(List<Subscription> subscriptions) {
     final Map<String, _InternalGroup> groups = {};
 
-    // 1. Procesar Transacciones
-    final filteredTransactions = filterTransactionsByDate(
-        transactions, _currentStatsDate, _currentStatsPeriod);
+    // 1. Usar Transacciones ya filtradas por la base de datos
+    final filteredTransactions = _currentPeriodTransactions.where((t) => t.type != TransactionType.transfer);
 
     for (var t in filteredTransactions) {
       if (_currentStatsType == StatsType.expense && t.amount >= 0) continue;
       if (_currentStatsType == StatsType.income && t.amount <= 0) continue;
 
-      final name = t.description; // Nombre de categoría
+      // Usar categoryName (de SQL) o description (fallback histórico)
+      final name = t.categoryName ?? t.description; 
       final color = t.colorValue != null ? Color(t.colorValue!) : Colors.grey;
 
       if (groups.containsKey(name)) {
@@ -177,6 +225,63 @@ class StatsProvider extends ChangeNotifier {
 
   double calculateTotalAmount(List<CategoryGroup> categories) {
     return categories.fold(0.0, (sum, c) => sum + c.amount);
+  }
+
+  // --- AI Context Builder ---
+
+  Future<String> buildFinancialContextForAI() async {
+    final datasource = sl<TransactionLocalDataSource>();
+    final currencySymbol = datasource.getCurrency();
+    final budgetLimit = datasource.getBudgetLimit();
+    
+    // 1. Totales (usando transacciones ya en memoria para el periodo seleccionado)
+    double totalIncome = 0;
+    double totalExpense = 0;
+    
+    for (var t in _currentPeriodTransactions) {
+      if (t.type == TransactionType.income) totalIncome += t.amount.abs();
+      if (t.type == TransactionType.expense) totalExpense += t.amount.abs();
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln("DATOS DEL USUARIO:");
+    buffer.writeln("Moneda Principal: $currencySymbol");
+    buffer.writeln();
+    buffer.writeln("--- RESUMEN DEL PERIODO ---");
+    buffer.writeln("Total Ingresos: $currencySymbol ${totalIncome.toStringAsFixed(2)}");
+    buffer.writeln("Total Gastos: $currencySymbol ${totalExpense.toStringAsFixed(2)}");
+    buffer.writeln("Presupuesto Mensual: $currencySymbol ${budgetLimit.toStringAsFixed(2)}");
+    buffer.writeln();
+
+    // 2. Gastos por Categoría (Top 5)
+    buffer.writeln("--- GASTOS POR CATEGORÍA (Top 5) ---");
+    final categories = getSpendingByCategory([]); // Sin suscripciones extra para el resumen puro
+    final topCategories = categories.take(5).toList();
+    for (int i = 0; i < topCategories.length; i++) {
+      buffer.writeln("${i + 1}. ${topCategories[i].name}: $currencySymbol ${topCategories[i].amount.toStringAsFixed(2)}");
+    }
+    buffer.writeln();
+
+    // 3. Gastos Fijos (Desde SQLite)
+    final subscriptions = await datasource.getSubscriptions();
+    if (subscriptions.isNotEmpty) {
+      buffer.writeln("--- GASTOS FIJOS ACTIVOS ---");
+      for (var s in subscriptions) {
+        buffer.writeln("- ${s.name}: $currencySymbol ${s.amount.toStringAsFixed(2)} | Vence el día: ${s.paymentDate.day}");
+      }
+      buffer.writeln();
+    }
+
+    // 4. Metas de Ahorro (Desde SQLite)
+    final goals = await datasource.getGoals();
+    if (goals.isNotEmpty) {
+      buffer.writeln("--- METAS DE AHORRO ---");
+      for (var g in goals) {
+        buffer.writeln("- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
+      }
+    }
+
+    return buffer.toString();
   }
 
   // --- Coach / AI Logic ---
