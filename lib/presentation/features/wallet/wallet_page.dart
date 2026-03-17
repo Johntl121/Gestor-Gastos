@@ -155,7 +155,7 @@ class _WalletPageState extends State<WalletPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      CurrencyFormatter.format(sub.amount, "S/"),
+                      CurrencyFormatter.format(sub.amount, walletProvider.accounts.firstWhere((a) => a.id == selectedAccountId, orElse: () => walletProvider.accounts.first).currencySymbol),
                       style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -686,7 +686,7 @@ class _WalletPageState extends State<WalletPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  "Total: ${CurrencyFormatter.format(totalFixed, "S/")}",
+                  "Total: ${CurrencyFormatter.format(totalFixed, Provider.of<WalletProvider>(context).currencySymbol)}",
                   style: const TextStyle(
                       color: Colors.redAccent,
                       fontSize: 12,
@@ -725,12 +725,16 @@ class _WalletPageState extends State<WalletPage> {
         const SizedBox(height: 15),
         if (provider.subscriptions.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Center(
-              child: Text(
-                "No tienes suscripciones registradas.",
-                style: TextStyle(
-                    color: isDarkMode ? Colors.grey : Colors.grey[600]),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            child: SizedBox(
+              width: double.infinity,
+              child: Center(
+                child: Text(
+                  "No tienes gastos fijos registrados. ¡Agrega uno para empezar!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                ),
               ),
             ),
           )
@@ -779,7 +783,7 @@ class _WalletPageState extends State<WalletPage> {
                       showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text("¿Eliminar suscripción?"),
+                          title: const Text("¿Eliminar gasto fijo?"),
                           content: Text(
                               "¿Ya no pagas ${sub.name}? Esto dejará de notificarte."),
                           actions: [

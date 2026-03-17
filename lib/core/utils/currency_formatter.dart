@@ -11,20 +11,25 @@ class CurrencyFormatter {
   /// Ejemplo: format(60.00, 'S/') -> "S/ 60"
   /// Ejemplo: format(60.50, '$') -> "$ 60.50"
   static String format(double amount, String symbol) {
+    final isNegative = amount < 0;
     final absAmount = amount.abs();
     
+    String formatted;
     // Verificar si es entero para ocultar decimales
     if (absAmount.truncateToDouble() == absAmount) {
       final intFormat = NumberFormat.decimalPattern('en_US');
-      return "$symbol ${intFormat.format(absAmount.toInt())}";
+      formatted = "$symbol ${intFormat.format(absAmount.toInt())}";
+    } else {
+      formatted = "$symbol ${_numberFormat.format(absAmount)}";
     }
 
-    return "$symbol ${_numberFormat.format(absAmount)}";
+    return isNegative ? "-$formatted" : formatted;
   }
 
   /// Versión que mantiene el signo si es necesario (para listas de transacciones)
   static String formatWithSign(double amount, String symbol) {
-    final formatted = format(amount, symbol);
+    // Usamos el valor absoluto para evitar doble signo si format() ya incluye el negativo
+    final formatted = format(amount.abs(), symbol);
     return amount < 0 ? "-$formatted" : "+$formatted";
   }
 }

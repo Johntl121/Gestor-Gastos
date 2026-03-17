@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../data/models/subscription.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../providers/wallet_provider.dart';
+import '../../../../core/constants/app_categories.dart';
 
 class AddFixedExpenseSheet extends StatefulWidget {
   final Subscription? subscriptionToEdit;
@@ -23,38 +24,10 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   // State
   ExpenseFrequency _selectedFrequency = ExpenseFrequency.monthly;
   DateTime _selectedDate = DateTime.now();
-  Color _selectedColor = const Color(0xFF00E5FF); // Cian por defecto
+  Color _selectedColor = const Color(0xFF00E5FF); 
   IconData _selectedIcon = Icons.home;
+  int _selectedCategoryId = 9; // Suscripciones por defecto
 
-  final List<Color> _colors = [
-    const Color(0xFF00E5FF), // Cian
-    const Color(0xFFD500F9), // Morado Neon
-    const Color(0xFFFFC107), // Amarillo Oro
-    const Color(0xFF00E676), // Verde Neón
-    const Color(0xFF2979FF), // Azul Eléctrico
-    const Color(0xFFFF3D00), // Naranja Coral
-    const Color(0xFFF50057), // Rosa Hot
-    const Color(0xFFD32F2F), // Rojo Vivo
-    const Color(0xFF00BFA5), // Verde Esmeralda
-    const Color(0xFF7C4DFF), // Violeta
-  ];
-
-  final List<IconData> _icons = [
-    Icons.home,
-    Icons.wifi,
-    Icons.lightbulb,
-    Icons.water_drop,
-    Icons.credit_card,
-    Icons.directions_car,
-    Icons.school,
-    Icons.fitness_center,
-    Icons.movie,
-    Icons.pets,
-    Icons.medical_services,
-    Icons.shopping_bag,
-    Icons.restaurant,
-    Icons.local_gas_station,
-  ];
 
   @override
   void initState() {
@@ -67,6 +40,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
       _selectedDate = sub.paymentDate;
       _selectedColor = Color(sub.colorValue);
       _selectedIcon = IconData(sub.iconCode, fontFamily: 'MaterialIcons');
+      _selectedCategoryId = sub.categoryId;
     }
   }
 
@@ -165,96 +139,74 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                       isNumber: true,
                     ),
                     const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                    // 3. SECCIÓN PERSONALIZACIÓN (Pixel Perfect)
-
-                    // Fila 1: Íconos
-                    Text("Ícono",
+                    // --- NUEVA SECCIÓN: CATEGORÍA ---
+                    Text("Categoría",
                         style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: hintColor)),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _icons.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemBuilder: (context, index) {
-                          final icon = _icons[index];
-                          final isSelected = _selectedIcon == icon;
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedIcon = icon),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? _selectedColor.withValues(alpha: 0.2)
-                                    : cardColor,
-                                shape: BoxShape.circle,
-                                border: isSelected
-                                    ? Border.all(
-                                        color: _selectedColor, width: 2)
-                                    : null,
-                              ),
-                              child: Icon(
-                                icon,
-                                color: isSelected ? _selectedColor : hintColor,
-                                size: 20,
-                              ),
-                            ),
-                          );
-                        },
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: txtColor)),
+                    const SizedBox(height: 12),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 0.8,
                       ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Fila 2: Colores
-                    Text("Color",
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: hintColor)),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _colors.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemBuilder: (context, index) {
-                          final color = _colors[index];
-                          final isSelected = _selectedColor == color;
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedColor = color),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: isSelected
-                                    ? Border.all(
-                                        color: Colors.white, width: 2.5)
-                                    : null,
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                            color: color.withValues(alpha: 0.4),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2))
-                                      ]
-                                    : [],
+                      itemCount: AppCategories.expenseCategories.length,
+                      itemBuilder: (context, index) {
+                        final catId = AppCategories.expenseCategories.keys.elementAt(index);
+                        final catData = AppCategories.expenseCategories[catId]!;
+                        final isSelected = _selectedCategoryId == catId;
+                        
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategoryId = catId;
+                              _selectedIcon = AppCategories.getIcon(catId);
+                              _selectedColor = AppCategories.getColor(catId);
+                            });
+                          },
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: isSelected 
+                                      ? _selectedColor.withValues(alpha: 0.2)
+                                      : cardColor,
+                                  shape: BoxShape.circle,
+                                  border: isSelected 
+                                      ? Border.all(color: _selectedColor, width: 2)
+                                      : null,
+                                ),
+                                child: Icon(
+                                  AppCategories.getIcon(catId),
+                                  color: isSelected ? _selectedColor : hintColor,
+                                  size: 20,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              const SizedBox(height: 4),
+                              Text(
+                                catData['name'],
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isSelected ? _selectedColor : hintColor,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -516,6 +468,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           accountToCharge: 1, // Default, será sobreescrita al confirmar el pago real
           iconCode: _selectedIcon.codePoint,
           colorValue: _selectedColor.toARGB32(),
+          categoryId: _selectedCategoryId,
         );
         provider.addSubscription(updatedSub);
       } else {
@@ -528,6 +481,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           accountToCharge: 1, // Default, será elegida en cada pago
           iconCode: _selectedIcon.codePoint,
           colorValue: _selectedColor.toARGB32(),
+          categoryId: _selectedCategoryId,
         );
         provider.addSubscription(newSub);
       }

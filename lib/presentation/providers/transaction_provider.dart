@@ -239,7 +239,7 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {
     final transaction = TransactionEntity(
         accountId: subscription.accountToCharge,
-        categoryId: 9, // Let's keep 9 just in case, or change if needed.
+        categoryId: subscription.categoryId,
         amount: -subscription.amount,
         date: DateTime.now(),
         description: subscription.name,

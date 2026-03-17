@@ -296,9 +296,6 @@ class _HistoryPageState extends State<HistoryPage> {
                                             ? account.displayIcon
                                             : Icons.account_balance_wallet;
 
-                                        // Lookup Category Color and Icon
-                                        final catData = AppCategories
-                                            .allCategories[t.categoryId];
 
                                         String amount;
                                         Color color;
@@ -337,11 +334,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                             color = Color(t.colorValue!);
                                           }
 
-                                          icon = catData != null
-                                              ? (catData['icon'] as IconData)
-                                              : (isIncome
-                                                  ? Icons.account_balance_wallet
-                                                  : Icons.shopping_bag);
+                                          icon = AppCategories.getIcon(t.categoryId);
                                           
                                           if (t.iconCode != null) {
                                             icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/subscription.dart';
 import '../../../../domain/entities/account_entity.dart';
+import '../../../../core/constants/app_categories.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class FixedExpenseCard extends StatelessWidget {
   final Subscription subscription;
@@ -60,7 +62,7 @@ class FixedExpenseCard extends StatelessWidget {
       statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[500]!; // Gris
     }
 
-    final itemColor = Color(subscription.colorValue);
+    final itemColor = AppCategories.getColor(subscription.categoryId);
 
     // Dynamic Gradient based on "Dark Mode Premium" rule
     // Gradient: Top slightly lighter, Bottom slightly darker for volume.
@@ -128,7 +130,7 @@ class FixedExpenseCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      IconData(subscription.iconCode,
+                      IconData(AppCategories.getIcon(subscription.categoryId).codePoint,
                           fontFamily: 'MaterialIcons'),
                       color: itemColor,
                       size: 25,
@@ -207,7 +209,7 @@ class FixedExpenseCard extends StatelessWidget {
 
                   // 3. Monto
                   Text(
-                    "S/ ${(subscription.amount % 1 == 0) ? subscription.amount.toInt().toString() : subscription.amount.toStringAsFixed(2)}",
+                    CurrencyFormatter.format(subscription.amount, account?.currencySymbol ?? "S/"),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/icon_mapper.dart';
+import '../../core/constants/app_categories.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
 import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
@@ -193,68 +193,16 @@ class StatsProvider extends ChangeNotifier {
       // REGLA: Excluir Saldo Inicial estrictamente (descripcion que lo contenga)
       if (t.description.toLowerCase().contains("saldo inicial")) continue;
 
-      // Obtener moneda de la cuenta (usando fallback si no la tenemos)
-      // En una arquitectura ideal, TransactionEntity tendría currencySymbol.
-      // Como no lo tiene, intentamos inferirlo o asumimos S/ por ahora.
-      // Pero para cumplir con el usuario, vamos a convertir lo que podamos.
-      
-      final name = t.categoryName ?? t.description; 
-      
-      // 1. Obtener Color (Vibrante por defecto si es null)
-      Color color;
-      if (t.categoryColor != null) {
-        color = Color(t.categoryColor!);
-      } else {
-        // Paleta vibrante por defecto
-        if (_currentStatsType == StatsType.income) {
-          color = [Colors.teal, Colors.greenAccent, Colors.cyan, Colors.lightGreenAccent][groups.length % 4];
-        } else {
-          color = [Colors.redAccent, Colors.orangeAccent, Colors.purpleAccent, Colors.pinkAccent][groups.length % 4];
-        }
-      }
-
-      // 2. Obtener Icono
-      final icon = IconMapper.getIcon(t.categoryIcon);
+      // 1. Obtener Metadatos de Categoría Estandarizados
+      // Priorizamos los datos vinculados al ID de categoría de la semilla maestra
+      final String name = AppCategories.getName(t.categoryId);
+      final Color color = AppCategories.getColor(t.categoryId);
+      final IconData icon = AppCategories.getIcon(t.categoryId);
 
       if (groups.containsKey(name)) {
         groups[name]!.amount += t.amount.abs();
       } else {
         groups[name] = _InternalGroup(name, t.amount.abs(), color, icon);
-      }
-    }
-
-    // 2. Procesar Suscripciones (Solo si es Gasto y periodo incluye hoy)
-    if (_currentStatsType == StatsType.expense) {
-      final now = DateTime.now();
-      bool includesToday = false;
-
-      if (_currentStatsPeriod == PeriodType.week) {
-        final start =
-            _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
-        final end = start.add(const Duration(days: 7));
-        includesToday = now.isAfter(start) && now.isBefore(end);
-      } else if (_currentStatsPeriod == PeriodType.month) {
-        includesToday = now.month == _currentStatsDate.month &&
-            now.year == _currentStatsDate.year;
-      } else {
-        includesToday = now.year == _currentStatsDate.year;
-      }
-
-      if (includesToday) {
-        for (var s in subscriptions) {
-          // Si NO está pagada, la sumamos como compromiso (igual que el Coach)
-          if (!s.isPaid) {
-            const name = "Suscripciones";
-            final color = Color(s.colorValue);
-            
-            if (groups.containsKey(name)) {
-              groups[name]!.amount += s.amount;
-            } else {
-              final icon = IconData(s.iconCode, fontFamily: 'MaterialIcons');
-              groups[name] = _InternalGroup(name, s.amount, color, icon);
-            }
-          }
-        }
       }
     }
 

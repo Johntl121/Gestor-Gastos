@@ -10,6 +10,7 @@ class Subscription {
   final int iconCode;
   final int colorValue;
   final int accountToCharge; // 1: Cash, 2: Bank, 3: Savings
+  final int categoryId;
 
   Subscription({
     required this.id,
@@ -21,6 +22,7 @@ class Subscription {
     this.iconCode = 0xe57f, // Icons.subscriptions default
     this.colorValue = 0xFF9E9E9E, // Colors.grey default
     this.accountToCharge = 2, // Default to Bank
+    this.categoryId = 9, // Default to Suscripciones
   });
 
   // Getter inteligente: nextDueDate
@@ -59,6 +61,7 @@ class Subscription {
       'iconCode': iconCode,
       'colorValue': colorValue,
       'accountToCharge': accountToCharge,
+      'categoryId': categoryId,
     };
   }
 
@@ -73,6 +76,7 @@ class Subscription {
       iconCode: json['iconCode'] ?? 0xe57f,
       colorValue: json['colorValue'] ?? 0xFF9E9E9E,
       accountToCharge: json['accountToCharge'] ?? 2,
+      categoryId: json['categoryId'] ?? 9,
     );
   }
 
@@ -86,6 +90,7 @@ class Subscription {
     int? iconCode,
     int? colorValue,
     int? accountToCharge,
+    int? categoryId,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -97,6 +102,7 @@ class Subscription {
       iconCode: iconCode ?? this.iconCode,
       colorValue: colorValue ?? this.colorValue,
       accountToCharge: accountToCharge ?? this.accountToCharge,
+      categoryId: categoryId ?? this.categoryId,
     );
   }
 }

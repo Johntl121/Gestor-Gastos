@@ -735,8 +735,6 @@ class _HomePageState extends State<HomePage> {
     final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
     final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
 
-    // Lookup Category Color and Icon
-    final catData = AppCategories.allCategories[t.categoryId];
 
     if (isTransfer) {
       final source = walletProvider.getAccountName(t.accountId);
@@ -756,9 +754,7 @@ class _HomePageState extends State<HomePage> {
           ? (isDarkMode ? Colors.greenAccent : Colors.green)
           : Colors.redAccent;
 
-      icon = catData != null
-          ? (catData['icon'] as IconData)
-          : (isIncome ? Icons.account_balance_wallet : Icons.shopping_bag);
+      icon = AppCategories.getIcon(t.categoryId);
 
       if (t.iconCode != null) {
         icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');

@@ -706,7 +706,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
               border: isSelected ? Border.all(color: color, width: 2) : null,
             ),
             child: Icon(
-              catData['icon'] as IconData,
+              AppCategories.getIcon(id),
               color: isSelected ? color : inactiveIconColor,
               size: 24,
             ),

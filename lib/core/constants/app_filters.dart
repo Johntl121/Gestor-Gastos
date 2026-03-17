@@ -44,7 +44,7 @@ class AppFilters {
             'type': 'category',
             'value': cat[
                 'name'], // Note: 'value' uses the name for filtering in HistoryPage
-            'color': cat['color'],
+            'color': Color(cat['color'] as int),
           }),
     ];
   }
