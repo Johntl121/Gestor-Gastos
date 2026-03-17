@@ -74,7 +74,7 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   });
 
   String get _transactionJoinQuery => '''
-    SELECT t.*, c.name as cat_name, a.name as acc_name
+    SELECT t.*, c.name as cat_name, c.icon as cat_icon, c.color as cat_color, a.name as acc_name
     FROM transactions t
     LEFT JOIN categories c ON t.categoryId = c.id
     LEFT JOIN accounts a ON t.accountId = a.id

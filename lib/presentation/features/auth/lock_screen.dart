@@ -46,28 +46,29 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
-  void _validatePin() {
+  Future<void> _validatePin() async {
     if (!mounted) return;
 
-    // Get stored PIN directly from DataSource
+    // Get stored PIN directly from DataSource (Async version for SecureStorage)
     final dataSource = sl.sl<TransactionLocalDataSource>();
-    final storedPin = dataSource.getSecurityPin();
+    final storedPin = await dataSource.getSecurityPinAsync();
 
     // Verify
     if (storedPin == _inputPin) {
       widget.onUnlocked();
     } else {
       HapticFeedback.heavyImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        // Using ScaffoldMessenger instead of Get or similar
-        const SnackBar(
-          content: Text("PIN Incorrecto"),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(milliseconds: 1000),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(top: 50, left: 20, right: 20),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("PIN Incorrecto"),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 1000),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(top: 50, left: 20, right: 20),
+          ),
+        );
+      }
       setState(() => _inputPin = "");
     }
   }

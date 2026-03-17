@@ -60,6 +60,13 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Refresca los datos del provider (útil tras Factory Reset)
+  Future<void> refreshData() async {
+    _transactions = [];
+    _subscriptions = [];
+    await loadTransactions();
+  }
+
   Future<void> _loadSubscriptions() async {
     try {
       _subscriptions =

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../domain/entities/transaction_entity.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/services/gemini_client.dart';
 import '../../../core/services/speech_service.dart';
 
@@ -28,35 +29,43 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final SpeechService _speechService = SpeechService();
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final walletProvider =
-          Provider.of<WalletProvider>(context, listen: false);
-      walletProvider.initApp();
+  void _initializeStartupConfig() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 1. Cargamos configuración básica del UI y Wallet (Cuentas, Balance)
+      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      await walletProvider.initApp();
 
-      final transactionProvider =
-          Provider.of<TransactionProvider>(context, listen: false);
+      if (!mounted) return;
+
+      // 2. Cargamos transacciones (esto disparará el ProxyProvider hacia StatsProvider)
+      final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
       try {
-        // Attempt to load transactions if the provider has such method exposed,
-        // otherwise it might be in constructor.
-        // Based on typical patterns, it's safer to just let WalletProvider handle its part.
-        // However, if TransactionProvider is empty, we should load it.
-        // Let's assume loadTransactions exists or is public.
-        transactionProvider.loadTransactions();
+        await transactionProvider.loadTransactions();
       } catch (e) {
-        // If method doesn't exist, ignore.
+        debugPrint("Transaction load error: $e");
       }
+
+      if (!mounted) return;
+
+      // 3. Solicitamos permisos de notificaciones (Ahora no bloquea el inicio)
+      // Lo hacemos al final para asegurar que la UI ya es interactiva
+      await NotificationService().requestPermissions();
     });
   }
 
-  List<Widget> get _pages => [
-        HomePage(onSeeAllPressed: () => _onItemTapped(2)),
-        const StatsPage(),
-        const HistoryPage(),
-        const WalletPage(),
-      ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      HomePage(onSeeAllPressed: () => _onItemTapped(2)),
+      const StatsPage(),
+      const HistoryPage(),
+      const WalletPage(),
+    ];
+    _initializeStartupConfig();
+  }
 
   void _onItemTapped(int index) {
     Provider.of<UiProvider>(context, listen: false).setIndex(index);
@@ -519,7 +528,16 @@ class _MainPageState extends State<MainPage> {
                   Navigator.pop(ctx);
                   final transactionProvider =
                       Provider.of<TransactionProvider>(context, listen: false);
+                  final walletProvider = 
+                      Provider.of<WalletProvider>(context, listen: false);
+
                   await transactionProvider.addTransaction(draft);
+                  
+                  // Sincronizar saldos en WalletProvider
+                  if (mounted) {
+                    await walletProvider.loadWalletData();
+                  }
+
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -635,7 +653,10 @@ class _MainPageState extends State<MainPage> {
           ),
         ),
       ),
-      body: _pages[currentIndex],
+      body: IndexedStack(
+        index: currentIndex,
+        children: _pages,
+      ),
     );
   }
 

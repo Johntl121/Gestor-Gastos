@@ -21,13 +21,19 @@ import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Bloquear orientación en Vertical
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   await initializeDateFormatting('es_ES', null);
   await dotenv.load(fileName: ".env");
   await di.init();
 
   // Notifications Init
   await NotificationService().init();
-  await NotificationService().requestPermissions();
+  // We'll call requestPermissions inside the UI to avoid blocking the first frame
 
   // Check First Time
   final isFirstTime = di.sl<TransactionLocalDataSource>().isFirstTime();
@@ -88,7 +94,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => di.sl<UiProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<WalletProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<TransactionProvider>()),
-        ChangeNotifierProvider(create: (_) => di.sl<StatsProvider>()),
+        ChangeNotifierProxyProvider<TransactionProvider, StatsProvider>(
+          create: (_) => di.sl<StatsProvider>(),
+          update: (_, txProvider, statsProvider) {
+            statsProvider?.setAllTransactions(txProvider.transactions);
+            return statsProvider!;
+          },
+        ),
       ],
       child: Consumer<UiProvider>(
         builder: (context, uiProvider, _) {

@@ -76,10 +76,10 @@ Future<void> init() async {
   //! Proveedores (Refactored)
 
   // 1. UI Provider
-  sl.registerFactory(() => UiProvider());
+  sl.registerLazySingleton(() => UiProvider());
 
   // 2. Wallet Provider
-  sl.registerFactory(
+  sl.registerLazySingleton(
     () => WalletProvider(
       getAccountBalance: sl(),
       getAccountsUseCase: sl(),
@@ -93,7 +93,7 @@ Future<void> init() async {
   );
 
   // 3. Transaction Provider
-  sl.registerFactory(
+  sl.registerLazySingleton(
     () => TransactionProvider(
       getTransactionsUseCase: sl(),
       addTransactionUseCase: sl(),
@@ -104,7 +104,7 @@ Future<void> init() async {
   );
 
   // 4. Stats Provider
-  sl.registerFactory(
+  sl.registerLazySingleton(
     () => StatsProvider(
       getBudgetMood: sl(),
       getTransactionsByDateRange: sl(),

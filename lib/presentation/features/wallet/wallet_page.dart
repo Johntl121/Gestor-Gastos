@@ -13,6 +13,7 @@ import 'widgets/goal_card.dart';
 import 'widgets/add_fixed_expense_sheet.dart';
 import 'widgets/fixed_expense_card.dart';
 import 'widgets/goal_detail_sheet.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -154,7 +155,7 @@ class _WalletPageState extends State<WalletPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "S/ ${(sub.amount % 1 == 0) ? sub.amount.toInt().toString() : sub.amount.toStringAsFixed(2)}",
+                      CurrencyFormatter.format(sub.amount, "S/"),
                       style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -230,13 +231,22 @@ class _WalletPageState extends State<WalletPage> {
                       width: double.infinity,
                       height: 52,
                       child: FilledButton(
-                        onPressed: () {
+                        onPressed: () async {
                           final subToPay =
                               sub.copyWith(accountToCharge: selectedAccountId);
-                          Provider.of<TransactionProvider>(context,
-                                  listen: false)
-                              .markSubscriptionAsPaid(subToPay);
-                          Navigator.pop(ctx);
+                          final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+                          final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+
+                          await transactionProvider.markSubscriptionAsPaid(subToPay);
+                          
+                          // Sincronizar saldos de cuenta en WalletProvider
+                          if (mounted) {
+                            await walletProvider.loadWalletData();
+                          }
+                          
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                          }
                         },
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.cyan,
@@ -635,7 +645,7 @@ class _WalletPageState extends State<WalletPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                "${account.currencySymbol} ${account.currentBalance.toStringAsFixed(2)}",
+                CurrencyFormatter.format(account.currentBalance, account.currencySymbol),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
@@ -676,7 +686,7 @@ class _WalletPageState extends State<WalletPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  "Total: S/ ${totalFixed.toStringAsFixed(2)}",
+                  "Total: ${CurrencyFormatter.format(totalFixed, "S/")}",
                   style: const TextStyle(
                       color: Colors.redAccent,
                       fontSize: 12,

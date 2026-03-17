@@ -11,6 +11,7 @@ import '../../providers/ui_provider.dart';
 
 // Components
 import 'financial_coach_sheet.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 /// StatsPage: Pantalla de Estadísticas.
 /// Muestra un desglose visual de los gastos mediante gráficos y listas detalladas.
@@ -78,7 +79,7 @@ class _StatsPageState extends State<StatsPage>
     } else {
       for (int i = 0; i < categories.length; i++) {
         final isTouched = i == touchedIndex;
-        final radius = isTouched ? 45.0 : 35.0; // Dynamic thickness
+        final radius = isTouched ? 35.0 : 28.0; // Dynamic thickness - Elegant and Thinner
         final group = categories[i];
 
         chartSections.add(PieChartSectionData(
@@ -87,6 +88,7 @@ class _StatsPageState extends State<StatsPage>
           radius: radius,
           title: "",
           showTitle: false,
+          borderSide: BorderSide.none, // Eliminamos bordes toscos
           badgeWidget: isTouched ? _buildSectionBadge(group.color) : null,
           badgePositionPercentageOffset: 0.98,
         ));
@@ -97,21 +99,14 @@ class _StatsPageState extends State<StatsPage>
     String centerStartText =
         currentType == StatsType.expense ? "GASTADO" : "INGRESADO";
     
-    // Formato de moneda profesional dinámico
     final currencySymbol = statsProvider.currencySymbol;
-    final currencyFormat = NumberFormat.currency(
-      symbol: '$currencySymbol ', 
-      decimalDigits: 2, 
-      locale: currencySymbol == 'S/' ? 'es_PE' : 'en_US' // Adaptar locale si es necesario
-    );
-    
-    String centerAmountText = currencyFormat.format(totalAmount);
+    String centerAmountText = CurrencyFormatter.format(totalAmount, currencySymbol);
 
     if (touchedIndex != -1 && categories.isNotEmpty) {
       if (touchedIndex < categories.length) {
         final group = categories[touchedIndex];
         centerStartText = group.name.toUpperCase();
-        centerAmountText = currencyFormat.format(group.amount);
+        centerAmountText = CurrencyFormatter.format(group.amount, currencySymbol);
       }
     }
 
@@ -269,8 +264,8 @@ class _StatsPageState extends State<StatsPage>
                                   });
                                 },
                               ),
-                                sectionsSpace: 4,
-                                centerSpaceRadius: 75,
+                                sectionsSpace: 2,
+                                centerSpaceRadius: 85,
                                 startDegreeOffset: -90,
                                 sections: chartSections,
                               ),
@@ -289,14 +284,20 @@ class _StatsPageState extends State<StatsPage>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis),
                                 const SizedBox(height: 4),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 200),
-                                  style: TextStyle(
-                                      color: textColor,
-                                      fontSize: totalAmount > 9999 ? 28 : 34,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.5),
-                                  child: Text(centerAmountText),
+                                SizedBox(
+                                  width: 140, // Límite para el FittedBox
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: AnimatedDefaultTextStyle(
+                                      duration: const Duration(milliseconds: 200),
+                                      style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 34,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.5),
+                                      child: Text(centerAmountText),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -394,18 +395,15 @@ class _StatsPageState extends State<StatsPage>
                       final amount = group.amount;
                       final percentage = totalAmount > 0 ? amount / totalAmount : 0.0;
                       
-                      // Map icons based on names if possible, else generic
-                      IconData icon = Icons.category_rounded;
-                      if (group.name == "Suscripciones") icon = Icons.subscriptions_rounded;
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 15),
                         child: _buildSpendingItem(
                             group.name,
                             "${(percentage * 100).toStringAsFixed(1)}% del total",
-                            currencyFormat.format(amount),
+                            CurrencyFormatter.format(amount, currencySymbol),
                             percentage > 0.3 ? "Alto impacto" : "Normal",
-                            icon,
+                            group.icon,
                             group.color,
                             percentage < 0.4,
                             percentage,

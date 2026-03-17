@@ -825,6 +825,12 @@ class SettingsPage extends StatelessWidget {
               // Clear All Data via UseCase or DataSource
               await sl.sl<TransactionLocalDataSource>().clearAllData();
 
+              // Refresh Providers to clear UI state
+              if (context.mounted) {
+                Provider.of<WalletProvider>(context, listen: false).refreshData();
+                Provider.of<TransactionProvider>(context, listen: false).refreshData();
+              }
+
               if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const OnboardingPage()),

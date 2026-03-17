@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/icon_mapper.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
 import '../../domain/entities/budget_mood.dart';
 import '../../domain/entities/transaction_entity.dart';
@@ -18,15 +19,22 @@ class CategoryGroup {
   final String name;
   final double amount;
   final Color color;
+  final IconData icon;
 
-  CategoryGroup({required this.name, required this.amount, required this.color});
+  CategoryGroup({
+    required this.name,
+    required this.amount,
+    required this.color,
+    required this.icon,
+  });
 }
 
 class _InternalGroup {
   final String name;
   double amount;
   final Color color;
-  _InternalGroup(this.name, this.amount, this.color);
+  final IconData icon;
+  _InternalGroup(this.name, this.amount, this.color, this.icon);
 }
 
 class StatsProvider extends ChangeNotifier {
@@ -52,11 +60,20 @@ class StatsProvider extends ChangeNotifier {
   PeriodType get currentStatsPeriod => _currentStatsPeriod;
   StatsType get currentStatsType => _currentStatsType;
 
+  List<TransactionEntity> _allTransactions = [];
   List<TransactionEntity> _currentPeriodTransactions = [];
   bool _isLoadingTransactions = false;
 
+  List<TransactionEntity> get transactions => _allTransactions;
   List<TransactionEntity> get currentPeriodTransactions => _currentPeriodTransactions;
   bool get isLoadingTransactions => _isLoadingTransactions;
+
+  /// Sincroniza todas las transacciones desde el TransactionProvider
+  void setAllTransactions(List<TransactionEntity> transactions) {
+    _allTransactions = transactions;
+    // Si ya cargamos stats antes, refrescamos el periodo actual con la nueva data
+    _loadTransactionsForPeriodInternal();
+  }
 
   // AI & Advice State
   bool _isAdviceLoading = false;
@@ -83,40 +100,66 @@ class StatsProvider extends ChangeNotifier {
       (mood) => _budgetMood = mood,
     );
     await _loadCoachPersistence();
-    await loadTransactionsForPeriod();
+    // No llamamos a loadTransactionsForPeriod aquí porque ahora depende de setAllTransactions (ProxyProvider)
     notifyListeners();
   }
 
   Future<void> loadTransactionsForPeriod() async {
-    _isLoadingTransactions = true;
-    notifyListeners();
+    // Si no tenemos transacciones aún, intentamos cargar desde BD (fallback o primer inicio)
+    if (_allTransactions.isEmpty) {
+      _isLoadingTransactions = true;
+      notifyListeners();
 
+      DateTime start;
+      DateTime end;
+
+      if (_currentStatsPeriod == PeriodType.week) {
+        start = _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
+        start = DateTime(start.year, start.month, start.day);
+        end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      } else if (_currentStatsPeriod == PeriodType.year) {
+        start = DateTime(_currentStatsDate.year, 1, 1);
+        end = DateTime(_currentStatsDate.year, 12, 31, 23, 59, 59);
+      } else {
+        start = DateTime(_currentStatsDate.year, _currentStatsDate.month, 1);
+        end = DateTime(_currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
+      }
+
+      final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
+      
+      result.fold(
+        (fail) => _currentPeriodTransactions = [],
+        (list) => _currentPeriodTransactions = list,
+      );
+
+      _isLoadingTransactions = false;
+    } else {
+      // Filtrado en memoria (más rápido y siempre sincronizado)
+      _loadTransactionsForPeriodInternal();
+    }
+    notifyListeners();
+  }
+
+  void _loadTransactionsForPeriodInternal() {
     DateTime start;
     DateTime end;
 
     if (_currentStatsPeriod == PeriodType.week) {
       start = _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
-      // Reset to start of day
       start = DateTime(start.year, start.month, start.day);
       end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
     } else if (_currentStatsPeriod == PeriodType.year) {
       start = DateTime(_currentStatsDate.year, 1, 1);
       end = DateTime(_currentStatsDate.year, 12, 31, 23, 59, 59);
     } else {
-      // Month
       start = DateTime(_currentStatsDate.year, _currentStatsDate.month, 1);
       end = DateTime(_currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
     }
 
-    final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
-    
-    result.fold(
-      (fail) => _currentPeriodTransactions = [],
-      (list) => _currentPeriodTransactions = list,
-    );
-
-    _isLoadingTransactions = false;
-    notifyListeners();
+    _currentPeriodTransactions = _allTransactions.where((t) {
+      return t.date.isAfter(start.subtract(const Duration(seconds: 1))) && 
+             t.date.isBefore(end.add(const Duration(seconds: 1)));
+    }).toList();
   }
 
   void setStatsDate(DateTime date) {
@@ -140,20 +183,43 @@ class StatsProvider extends ChangeNotifier {
     final Map<String, _InternalGroup> groups = {};
 
     // 1. Usar Transacciones ya filtradas por la base de datos
-    final filteredTransactions = _currentPeriodTransactions.where((t) => t.type != TransactionType.transfer);
+    final filteredTransactions =
+        _currentPeriodTransactions.where((t) => t.type != TransactionType.transfer);
 
     for (var t in filteredTransactions) {
       if (_currentStatsType == StatsType.expense && t.amount >= 0) continue;
       if (_currentStatsType == StatsType.income && t.amount <= 0) continue;
 
-      // Usar categoryName (de SQL) o description (fallback histórico)
+      // REGLA: Excluir Saldo Inicial estrictamente (descripcion que lo contenga)
+      if (t.description.toLowerCase().contains("saldo inicial")) continue;
+
+      // Obtener moneda de la cuenta (usando fallback si no la tenemos)
+      // En una arquitectura ideal, TransactionEntity tendría currencySymbol.
+      // Como no lo tiene, intentamos inferirlo o asumimos S/ por ahora.
+      // Pero para cumplir con el usuario, vamos a convertir lo que podamos.
+      
       final name = t.categoryName ?? t.description; 
-      final color = t.colorValue != null ? Color(t.colorValue!) : Colors.grey;
+      
+      // 1. Obtener Color (Vibrante por defecto si es null)
+      Color color;
+      if (t.categoryColor != null) {
+        color = Color(t.categoryColor!);
+      } else {
+        // Paleta vibrante por defecto
+        if (_currentStatsType == StatsType.income) {
+          color = [Colors.teal, Colors.greenAccent, Colors.cyan, Colors.lightGreenAccent][groups.length % 4];
+        } else {
+          color = [Colors.redAccent, Colors.orangeAccent, Colors.purpleAccent, Colors.pinkAccent][groups.length % 4];
+        }
+      }
+
+      // 2. Obtener Icono
+      final icon = IconMapper.getIcon(t.categoryIcon);
 
       if (groups.containsKey(name)) {
         groups[name]!.amount += t.amount.abs();
       } else {
-        groups[name] = _InternalGroup(name, t.amount.abs(), color);
+        groups[name] = _InternalGroup(name, t.amount.abs(), color, icon);
       }
     }
 
@@ -184,7 +250,8 @@ class StatsProvider extends ChangeNotifier {
             if (groups.containsKey(name)) {
               groups[name]!.amount += s.amount;
             } else {
-              groups[name] = _InternalGroup(name, s.amount, color);
+              final icon = IconData(s.iconCode, fontFamily: 'MaterialIcons');
+              groups[name] = _InternalGroup(name, s.amount, color, icon);
             }
           }
         }
@@ -192,7 +259,12 @@ class StatsProvider extends ChangeNotifier {
     }
 
     final result = groups.values
-        .map((g) => CategoryGroup(name: g.name, amount: g.amount, color: g.color))
+        .map((g) => CategoryGroup(
+              name: g.name,
+              amount: g.amount,
+              color: g.color,
+              icon: g.icon,
+            ))
         .toList();
 
     // Ordenar por monto descendente

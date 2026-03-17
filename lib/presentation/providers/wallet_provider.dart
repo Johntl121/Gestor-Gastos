@@ -50,7 +50,7 @@ class WalletProvider extends ChangeNotifier {
   String get currencySymbol => _currencySymbol;
 
   // Mock Exchange Rates
-  static const Map<String, double> _exchangeRatesToPEN = {
+  static const Map<String, double> exchangeRatesToPEN = {
     'S/': 1.0,
     '\$': 3.75,
     '€': 4.10,
@@ -59,12 +59,18 @@ class WalletProvider extends ChangeNotifier {
     '₿': 350000.0,
   };
 
-  /// Cálculo Dinámico: Getter que suma dinámicamente
-  double get totalBalance =>
-      _accounts.where((a) => a.includeInTotal).fold(0.0, (sum, acc) {
-        final rate = _exchangeRatesToPEN[acc.currencySymbol] ?? 1.0;
-        return sum + (acc.currentBalance * rate);
-      });
+  /// Cálculo Dinámico: Suma los saldos convirtiéndolos a la moneda preferida del usuario
+  double get totalBalance {
+    final targetSymbol = _currencySymbol;
+    final targetRate = exchangeRatesToPEN[targetSymbol] ?? 1.0;
+
+    return _accounts.where((a) => a.includeInTotal).fold(0.0, (sum, acc) {
+      final sourceRate = exchangeRatesToPEN[acc.currencySymbol] ?? 1.0;
+      // Convertimos: (Monto * RateOrigen) / RateDestino
+      final convertedAmount = (acc.currentBalance * sourceRate) / targetRate;
+      return sum + convertedAmount;
+    });
+  }
 
   /// Singleton de Inicialización
   Future<void> initApp() async {
@@ -152,7 +158,18 @@ class WalletProvider extends ChangeNotifier {
     final cachedGoals = await localDataSource.getGoals();
     _goals = List<GoalEntity>.from(cachedGoals);
 
+    // 5. Load Currency Symbol
+    _currencySymbol = localDataSource.getCurrency();
+
     notifyListeners();
+  }
+
+  /// Refresca los datos del provider (útil tras Factory Reset)
+  Future<void> refreshData() async {
+    _accounts = [];
+    _goals = [];
+    _balanceBreakdown = null;
+    await loadWalletData();
   }
 
   Future<void> createAccount(AccountEntity account) async {

@@ -13,6 +13,7 @@ import '../../providers/stats_provider.dart'; // For Mood
 import '../../../injection_container.dart' as sl;
 import '../../../data/repositories/transaction_data_source.dart';
 import '../../../core/constants/app_categories.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 import '../settings/settings_page.dart';
 import '../auth/onboarding_page.dart';
@@ -55,7 +56,8 @@ class _HomePageState extends State<HomePage> {
     final subs = txProvider.subscriptions.where((s) {
       if (s.isPaid) return false;
       final due = s.nextDueDate;
-      final diff = DateTime(due.year, due.month, due.day).difference(today).inDays;
+      final diff =
+          DateTime(due.year, due.month, due.day).difference(today).inDays;
       return diff <= 5;
     }).toList()
       ..sort((a, b) => a.nextDueDate.compareTo(b.nextDueDate));
@@ -106,11 +108,6 @@ class _HomePageState extends State<HomePage> {
                 final isOverdue = dueDay.isBefore(today);
                 final isToday = dueDay.isAtSameMomentAs(today);
 
-                // Formato de monto: sin .0 innecesario
-                final amountStr = s.amount % 1 == 0
-                    ? s.amount.toInt().toString()
-                    : s.amount.toStringAsFixed(2);
-
                 // Fecha con zero-padding
                 final formattedDate =
                     '${due.day.toString().padLeft(2, '0')}/${due.month.toString().padLeft(2, '0')}';
@@ -131,12 +128,25 @@ class _HomePageState extends State<HomePage> {
                   subtitleColor = Colors.grey;
                 }
 
+                // Buscamos el símbolo de la cuenta asociada
+                final walletProvider =
+                    Provider.of<WalletProvider>(context, listen: false);
+                final acc = walletProvider.accounts.firstWhere(
+                    (a) => a.id == s.accountToCharge,
+                    orElse: () => walletProvider.accounts.isNotEmpty
+                        ? walletProvider.accounts.first
+                        : null as dynamic // Fallback
+                    );
+                final accountSymbol = acc.currencySymbol;
+                final amountStr = CurrencyFormatter.format(s.amount, "");
+
                 return ListTile(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                   onTap: () {
                     Navigator.pop(ctx);
-                    uiProvider.setPendingPaySubscription(s); // guarda el gasto pendiente
+                    uiProvider.setPendingPaySubscription(
+                        s); // guarda el gasto pendiente
                     uiProvider.setIndex(3); // navega a Billetera
                   },
                   leading: Container(
@@ -179,7 +189,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        "S/ $amountStr",
+                        "$accountSymbol $amountStr",
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -208,6 +218,8 @@ class _HomePageState extends State<HomePage> {
     final walletProvider = Provider.of<WalletProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
 
+    final currency = walletProvider.currencySymbol;
+
     // 1. Calculate Summary Data locally based on Transactions (or move to Provider)
     // To match original logic:
     double todayIncome = 0;
@@ -225,22 +237,40 @@ class _HomePageState extends State<HomePage> {
       final isSameMonth = t.date.year == now.year && t.date.month == now.month;
 
       if (isToday) {
+        // Obtenemos la cuenta para saber su moneda
+        final accList =
+            walletProvider.accounts.where((a) => a.id == t.accountId);
+        final acc = accList.isNotEmpty ? accList.first : null;
+
+        final sourceRate =
+            WalletProvider.exchangeRatesToPEN[acc?.currencySymbol ?? 'S/'] ??
+                1.0;
+        final targetRate = WalletProvider.exchangeRatesToPEN[currency] ?? 1.0;
+        final convertedAmount = (t.amount * sourceRate) / targetRate;
+
         if (t.amount > 0) {
-          todayIncome += t.amount;
+          todayIncome += convertedAmount;
         } else {
-          todayExpense += t.amount.abs();
+          todayExpense += convertedAmount.abs();
         }
       }
 
       if (isSameMonth && t.amount < 0) {
-        monthSpent += t.amount.abs();
+        final accList =
+            walletProvider.accounts.where((a) => a.id == t.accountId);
+        final acc = accList.isNotEmpty ? accList.first : null;
+
+        final sourceRate =
+            WalletProvider.exchangeRatesToPEN[acc?.currencySymbol ?? 'S/'] ??
+                1.0;
+        final targetRate = WalletProvider.exchangeRatesToPEN[currency] ?? 1.0;
+        monthSpent += (t.amount.abs() * sourceRate) / targetRate;
       }
     }
 
     final balance = walletProvider.totalBalance;
     final budgetLimit =
         walletProvider.budgetLimit; // WalletProvider has budget limit
-    final currency = walletProvider.currencySymbol;
 
     // Theme
     final isDarkMode = uiProvider.isDarkMode;
@@ -359,7 +389,7 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 5),
               Text(
-                "$currency ${balance.toStringAsFixed(2)}",
+                CurrencyFormatter.format(balance, currency),
                 style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
@@ -373,10 +403,13 @@ class _HomePageState extends State<HomePage> {
                     fontStyle: FontStyle.italic,
                     fontSize: 13),
               ),
-              const SizedBox(height: 5),
-              const Text(
-                "⚠️ Totales estimados en S/",
-                style: TextStyle(color: Colors.orangeAccent, fontSize: 10),
+              const SizedBox(height: 8),
+              Text(
+                "⚠️ Totales convertidos a $currency",
+                style: TextStyle(
+                    color: Colors.orangeAccent.withValues(alpha: 0.8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500),
               ),
 
               const SizedBox(height: 30),
@@ -397,8 +430,8 @@ class _HomePageState extends State<HomePage> {
                           backgroundColor: isDarkMode
                               ? Colors.greenAccent.withValues(alpha: 0.1)
                               : const Color(0xFFE0F2F1),
-                          amount:
-                              "+$currency ${todayIncome.toStringAsFixed(2)}",
+                          amount: CurrencyFormatter.formatWithSign(
+                              todayIncome, currency),
                           label: "Ingresos Hoy",
                           context: context)),
                   const SizedBox(width: 15),
@@ -409,8 +442,8 @@ class _HomePageState extends State<HomePage> {
                           backgroundColor: isDarkMode
                               ? Colors.redAccent.withValues(alpha: 0.1)
                               : const Color(0xFFFFEBEE),
-                          amount:
-                              "-$currency ${todayExpense.toStringAsFixed(2)}",
+                          amount: CurrencyFormatter.formatWithSign(
+                              -todayExpense, currency),
                           label: "Gastos Hoy",
                           context: context)),
                 ],
@@ -726,7 +759,7 @@ class _HomePageState extends State<HomePage> {
       icon = catData != null
           ? (catData['icon'] as IconData)
           : (isIncome ? Icons.account_balance_wallet : Icons.shopping_bag);
-      
+
       if (t.iconCode != null) {
         icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');
       }
@@ -757,18 +790,21 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+              color: (t.type == TransactionType.expense ||
+                      (!isIncome && !isTransfer))
                   ? Colors.redAccent.withValues(alpha: 0.15)
                   : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                color: (t.type == TransactionType.expense ||
+                        (!isIncome && !isTransfer))
                     ? Colors.redAccent.withValues(alpha: 0.1)
                     : color.withValues(alpha: 0.1),
               ),
             ),
             child: Icon(icon,
-                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                color: (t.type == TransactionType.expense ||
+                        (!isIncome && !isTransfer))
                     ? Colors.redAccent
                     : color,
                 size: 24),
@@ -798,8 +834,10 @@ class _HomePageState extends State<HomePage> {
           Text(
             amountFormatted,
             style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16,
-                color: (t.type == TransactionType.expense || (!isIncome && !isTransfer))
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: (t.type == TransactionType.expense ||
+                        (!isIncome && !isTransfer))
                     ? Colors.redAccent
                     : color),
           ),

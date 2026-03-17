@@ -11,6 +11,7 @@ import '../../providers/ui_provider.dart';
 
 // Entities
 import '../../../domain/entities/transaction_entity.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 import '../../../core/constants/app_filters.dart';
 import '../../../core/constants/app_categories.dart';
@@ -281,8 +282,6 @@ class _HistoryPageState extends State<HistoryPage> {
                                                 .firstOrNull
                                                 ?.currencySymbol ??
                                             walletProvider.currencySymbol;
-                                        String absAmount =
-                                            t.amount.abs().toStringAsFixed(2);
 
                                         final account = walletProvider.accounts
                                             .where((a) => a.id == t.accountId)
@@ -320,14 +319,13 @@ class _HistoryPageState extends State<HistoryPage> {
                                           subtitle =
                                               "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
 
-                                          amount = "⇄ $symbol $absAmount";
+                                          amount = "⇄ ${CurrencyFormatter.format(t.amount.abs(), symbol)}";
                                           color = isDarkMode
                                               ? Colors.white70
                                               : const Color(0xFF64B5F6);
                                           icon = Icons.swap_horiz;
                                         } else {
-                                          amount =
-                                              "${isIncome ? '+' : '-'} $symbol $absAmount";
+                                            amount = CurrencyFormatter.formatWithSign(t.amount, symbol);
 
                                           color = isIncome
                                               ? (isDarkMode
@@ -761,9 +759,8 @@ class _HistoryPageState extends State<HistoryPage> {
     bool isIncome = t.amount > 0;
     String symbol = walletProvider
         .currencySymbol; // Símbolo genérico para calendario para simplificar
-    String absAmount = t.amount.abs().toStringAsFixed(2);
 
-    String amountString = "${isIncome ? '+' : '-'} $symbol $absAmount";
+    String amountString = CurrencyFormatter.formatWithSign(t.amount, symbol);
     Color color = isIncome
         ? (isDarkMode ? Colors.greenAccent : Colors.green)
         : Colors.redAccent;
@@ -771,7 +768,7 @@ class _HistoryPageState extends State<HistoryPage> {
         isIncome ? Icons.account_balance_wallet : Icons.shopping_bag;
 
     if (isTransfer) {
-      amountString = "⇄ $symbol $absAmount";
+      amountString = "⇄ ${CurrencyFormatter.format(t.amount.abs(), symbol)}";
       color = Colors.blueAccent;
       icon = Icons.swap_horiz;
     }
