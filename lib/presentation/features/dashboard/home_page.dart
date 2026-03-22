@@ -14,6 +14,7 @@ import '../../../injection_container.dart' as sl;
 import '../../../data/repositories/transaction_data_source.dart';
 import '../../../core/constants/app_categories.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/constants/icon_mapper.dart';
 
 import '../settings/settings_page.dart';
 import '../auth/onboarding_page.dart';
@@ -112,7 +113,7 @@ class _HomePageState extends State<HomePage> {
                 final formattedDate =
                     '${due.day.toString().padLeft(2, '0')}/${due.month.toString().padLeft(2, '0')}';
 
-                final subColor = Color(s.colorValue);
+                final subColor = Color(s.customColor ?? AppCategories.getColor(s.categoryId).toARGB32());
 
                 // Texto y color del subtítulo según estado
                 final String subtitleText;
@@ -160,7 +161,9 @@ class _HomePageState extends State<HomePage> {
                           : null,
                     ),
                     child: Icon(
-                      IconData(s.iconCode, fontFamily: 'MaterialIcons'),
+                        s.customIcon != null
+                            ? IconMapper.getIcon(s.customIcon)
+                            : AppCategories.getIcon(s.categoryId),
                       color: Colors.white,
                       size: 22,
                     ),

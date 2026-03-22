@@ -57,6 +57,16 @@ class IconMapper {
         return Icons.grid_view;
       case 'fastfood':
         return Icons.fastfood;
+      case 'live_tv':
+        return Icons.live_tv;
+      case 'wifi':
+        return Icons.wifi;
+      case 'water_drop':
+        return Icons.water_drop;
+      case 'phone_android':
+        return Icons.phone_android;
+      case 'gamepad':
+        return Icons.gamepad;
       default:
         return Icons.category;
     }

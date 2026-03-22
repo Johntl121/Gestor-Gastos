@@ -22,7 +22,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 17, // Incrementado a 17 para incluir categoryId en gastos fijos
+      version: 20, // Incrementado a 20 para Wipe & Rebuild (Clean Slate)
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -204,6 +204,19 @@ class LocalDatabase {
         // Ignorar si ya existe
       }
     }
+
+    // --- MIGRACIÓN V20: WIPE & REBUILD (CLEAN SLATE) ---
+    if (oldVersion < 20 && oldVersion > 0) {
+      // Destructive Wipe: Limpiar historial anterior
+      await db.execute("DROP TABLE IF EXISTS transactions");
+      await db.execute("DROP TABLE IF EXISTS fixed_expenses");
+      await db.execute("DROP TABLE IF EXISTS goals");
+      await db.execute("DROP TABLE IF EXISTS categories");
+      await db.execute("DROP TABLE IF EXISTS accounts");
+      
+      // Recrear esquema desde cero
+      await _onCreate(db, newVersion);
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -230,7 +243,8 @@ class LocalDatabase {
         name TEXT NOT NULL,
         icon TEXT,
         color INTEGER,
-        type TEXT NOT NULL CHECK(type IN ('EXPENSE', 'INCOME'))
+        type TEXT NOT NULL CHECK(type IN ('EXPENSE', 'INCOME')),
+        is_editable INTEGER DEFAULT 1
       )
     ''');
 
@@ -272,11 +286,12 @@ class LocalDatabase {
         paymentDate TEXT NOT NULL,
         frequency INTEGER NOT NULL,
         isPaid INTEGER DEFAULT 0,
-        iconCode INTEGER,
-        colorValue INTEGER,
+        custom_icon TEXT,
+        custom_color INTEGER,
         accountToCharge INTEGER,
-        categoryId INTEGER DEFAULT 9,
-        FOREIGN KEY (accountToCharge) REFERENCES accounts (id) ON DELETE SET NULL
+        categoryId INTEGER NOT NULL,
+        FOREIGN KEY (accountToCharge) REFERENCES accounts (id) ON DELETE SET NULL,
+        FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )
     ''');
   }
@@ -301,18 +316,38 @@ class LocalDatabase {
     await db.rawInsert(
         "INSERT INTO accounts(name, type, balance, color, currencySymbol) VALUES('Efectivo', 'CASH', 0.0, 4280391411, 'S/')");
 
-    // 2. Insertar categorías desde AppCategories
-    for (var entry in AppCategories.allCategories.entries) {
-      final isIncome = entry.key >= 18 && entry.key <= 25 && entry.key != 20;
+    // 2. Semilla robusta de Categorías (v20)
+    final defaultExpenses = [
+      {'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFFB8C00},
+      {'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B},
+      {'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3},
+      {'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00},
+      {'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688},
+      {'name': 'Educación', 'icon': 'school', 'color': 0xFF795548},
+      {'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5},
+      {'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63},
+      {'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722},
+      {'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFF9E9E9E},
+    ];
+    
+    final defaultIncomes = [
+      {'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32},
+      {'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1},
+      {'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0},
+      {'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081},
+      {'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF607D8B},
+    ];
+
+    for (var cat in defaultExpenses) {
       await db.rawInsert(
-          "INSERT INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, ?)",
-          [
-            entry.key, 
-            entry.value['name'], 
-            entry.value['icon'], 
-            entry.value['color'], 
-            isIncome ? 'INCOME' : 'EXPENSE'
-          ]);
+          "INSERT INTO categories(name, icon, color, type, is_editable) VALUES(?, ?, ?, 'EXPENSE', 0)",
+          [cat['name'], cat['icon'], cat['color']]);
+    }
+    
+    for (var cat in defaultIncomes) {
+      await db.rawInsert(
+          "INSERT INTO categories(name, icon, color, type, is_editable) VALUES(?, ?, ?, 'INCOME', 0)",
+          [cat['name'], cat['icon'], cat['color']]);
     }
   }
 

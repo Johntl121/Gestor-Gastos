@@ -234,7 +234,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         if (amount > 0) {
           final t = TransactionEntity(
               accountId: accountId,
-              categoryId: 25, // Otros / Saldo Inicial
+              categoryId: 15, // Otros / Saldo Inicial
               amount: amount,
               date: DateTime.now(),
               description: desc,

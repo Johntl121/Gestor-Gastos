@@ -7,8 +7,8 @@ class Subscription {
   final DateTime paymentDate;
   final ExpenseFrequency frequency;
   final bool isPaid;
-  final int iconCode;
-  final int colorValue;
+  final String? customIcon;
+  final int? customColor;
   final int accountToCharge; // 1: Cash, 2: Bank, 3: Savings
   final int categoryId;
 
@@ -19,8 +19,8 @@ class Subscription {
     required this.paymentDate,
     required this.frequency,
     this.isPaid = false,
-    this.iconCode = 0xe57f, // Icons.subscriptions default
-    this.colorValue = 0xFF9E9E9E, // Colors.grey default
+    this.customIcon,
+    this.customColor,
     this.accountToCharge = 2, // Default to Bank
     this.categoryId = 9, // Default to Suscripciones
   });
@@ -58,8 +58,8 @@ class Subscription {
       'paymentDate': paymentDate.toIso8601String(),
       'frequency': frequency.index, // Store as int index
       'isPaid': isPaid ? 1 : 0,
-      'iconCode': iconCode,
-      'colorValue': colorValue,
+      'custom_icon': customIcon,
+      'custom_color': customColor,
       'accountToCharge': accountToCharge,
       'categoryId': categoryId,
     };
@@ -73,8 +73,8 @@ class Subscription {
       paymentDate: DateTime.parse(json['paymentDate']),
       frequency: ExpenseFrequency.values[json['frequency'] ?? 0],
       isPaid: json['isPaid'] == 1 || json['isPaid'] == true,
-      iconCode: json['iconCode'] ?? 0xe57f,
-      colorValue: json['colorValue'] ?? 0xFF9E9E9E,
+      customIcon: json['custom_icon'],
+      customColor: json['custom_color'],
       accountToCharge: json['accountToCharge'] ?? 2,
       categoryId: json['categoryId'] ?? 9,
     );
@@ -87,8 +87,8 @@ class Subscription {
     DateTime? paymentDate,
     ExpenseFrequency? frequency,
     bool? isPaid,
-    int? iconCode,
-    int? colorValue,
+    String? customIcon,
+    int? customColor,
     int? accountToCharge,
     int? categoryId,
   }) {
@@ -99,8 +99,8 @@ class Subscription {
       paymentDate: paymentDate ?? this.paymentDate,
       frequency: frequency ?? this.frequency,
       isPaid: isPaid ?? this.isPaid,
-      iconCode: iconCode ?? this.iconCode,
-      colorValue: colorValue ?? this.colorValue,
+      customIcon: customIcon ?? this.customIcon,
+      customColor: customColor ?? this.customColor,
       accountToCharge: accountToCharge ?? this.accountToCharge,
       categoryId: categoryId ?? this.categoryId,
     );

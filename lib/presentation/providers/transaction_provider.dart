@@ -10,6 +10,8 @@ import '../../injection_container.dart';
 import '../../data/repositories/transaction_data_source.dart';
 import '../../core/services/notification_service.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
+import '../../core/constants/app_categories.dart';
+import '../../core/constants/icon_mapper.dart';
 
 class TransactionProvider extends ChangeNotifier {
   final GetTransactionsUseCase getTransactionsUseCase;
@@ -247,8 +249,11 @@ class TransactionProvider extends ChangeNotifier {
             ? "Pago mensual"
             : "Pago anual",
         type: TransactionType.expense,
-        iconCode: subscription.iconCode,
-        colorValue: subscription.colorValue);
+        iconCode: subscription.customIcon != null 
+            ? IconMapper.getIcon(subscription.customIcon).codePoint 
+            : AppCategories.getIcon(subscription.categoryId).codePoint,
+        colorValue: subscription.customColor ?? 
+            AppCategories.getColor(subscription.categoryId).toARGB32());
 
     // Optimistic Update manual para bloqueo INMEDIATO en la UI
     final index = _subscriptions.indexWhere((s) => s.id == subscription.id);

@@ -13,6 +13,8 @@ import 'widgets/goal_card.dart';
 import 'widgets/add_fixed_expense_sheet.dart';
 import 'widgets/fixed_expense_card.dart';
 import 'widgets/goal_detail_sheet.dart';
+import '../../../core/constants/app_categories.dart';
+import '../../../core/constants/icon_mapper.dart';
 import '../../../core/utils/currency_formatter.dart';
 
 class WalletPage extends StatefulWidget {
@@ -128,18 +130,20 @@ class _WalletPageState extends State<WalletPage> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Color(sub.colorValue),
+                        color: Color(sub.customColor ?? AppCategories.getColor(sub.categoryId).toARGB32()),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(sub.colorValue).withValues(alpha: 0.3),
+                            color: Color(sub.customColor ?? AppCategories.getColor(sub.categoryId).toARGB32()).withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           )
                         ],
                       ),
                       child: Icon(
-                        IconData(sub.iconCode, fontFamily: 'MaterialIcons'),
+                        sub.customIcon != null
+                            ? IconMapper.getIcon(sub.customIcon)
+                            : AppCategories.getIcon(sub.categoryId),
                         color: Colors.white,
                         size: 36,
                       ),
@@ -730,7 +734,7 @@ class _WalletPageState extends State<WalletPage> {
               width: double.infinity,
               child: Center(
                 child: Text(
-                  "No tienes gastos fijos registrados. ¡Agrega uno para empezar!",
+                  "No tienes gastos fijos registrados.\n¡Agrega uno para empezar!",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: isDarkMode ? Colors.grey : Colors.grey[600]),
