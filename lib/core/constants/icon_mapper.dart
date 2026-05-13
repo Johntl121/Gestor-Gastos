@@ -67,6 +67,22 @@ class IconMapper {
         return Icons.phone_android;
       case 'gamepad':
         return Icons.gamepad;
+      case 'sports_esports':
+        return Icons.sports_esports;
+      case 'music_note':
+        return Icons.music_note;
+      case 'local_gas_station':
+        return Icons.local_gas_station;
+      case 'cleaning_services':
+        return Icons.cleaning_services;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'content_cut':
+        return Icons.content_cut;
+      case 'pets':
+        return Icons.pets;
+      case 'tune':
+        return Icons.tune;
       default:
         return Icons.category;
     }

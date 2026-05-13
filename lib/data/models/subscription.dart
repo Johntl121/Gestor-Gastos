@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 enum ExpenseFrequency { monthly, yearly }
 
 class Subscription {
@@ -35,10 +37,14 @@ class Subscription {
 
       if (isPaid) {
         // Si ya se pagó este mes, el próximo vencimiento es el mes siguiente
-        return DateTime(now.year, now.month + 1, paymentDay);
+        int diasDelProximoMes = DateTime(now.year, now.month + 2, 0).day;
+        int diaDeCobroProximo = math.min(paymentDay, diasDelProximoMes);
+        return DateTime(now.year, now.month + 1, diaDeCobroProximo);
       } else {
         // Si NO se ha pagado, el vencimiento es en ESTE mes (puede estar vencido o estar por vencer)
-        return DateTime(now.year, now.month, paymentDay);
+        int diasDelMesActual = DateTime(now.year, now.month + 1, 0).day;
+        int diaDeCobroReal = math.min(paymentDay, diasDelMesActual);
+        return DateTime(now.year, now.month, diaDeCobroReal);
       }
     } else {
       // Caso Anual
