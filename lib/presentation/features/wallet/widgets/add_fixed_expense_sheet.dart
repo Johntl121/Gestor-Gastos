@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/subscription.dart';
 import '../../../providers/transaction_provider.dart';
@@ -21,6 +22,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   // Controllers
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
+  late final TextEditingController _dayController;
+  final FocusNode _dayFocusNode = FocusNode();
 
   // State
   ExpenseFrequency _selectedFrequency = ExpenseFrequency.monthly;
@@ -83,13 +86,38 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
       _customIconName = _availableIcons.first;
       _selectedCategoryId = _smartIconsMap[_customIconName] ?? 10;
     }
+
+    _dayController = TextEditingController(text: _selectedDate.day.toString());
+    _dayFocusNode.addListener(_onDayFieldUnfocused);
   }
 
   @override
   void dispose() {
+    _dayFocusNode.removeListener(_onDayFieldUnfocused);
+    _dayFocusNode.dispose();
+    _dayController.dispose();
     _nameController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  void _onDayFieldUnfocused() {
+    if (_dayFocusNode.hasFocus) return;
+    final parsed = int.tryParse(_dayController.text);
+    final clamped = (parsed == null || parsed < 1) ? 1 : (parsed > 31 ? 31 : parsed);
+    _dayController.text = clamped.toString();
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, clamped);
+    });
+  }
+
+  void _updateDay(int delta) {
+    final current = int.tryParse(_dayController.text) ?? _selectedDate.day;
+    final newDay = (current + delta).clamp(1, 31);
+    _dayController.text = newDay.toString();
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, newDay);
+    });
   }
 
   void _onIconSelected(String iconName) {
@@ -247,33 +275,64 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                     const SizedBox(height: 12),
                     if (_selectedFrequency == ExpenseFrequency.monthly)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.white10),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: _selectedDate.day,
-                            isExpanded: true,
-                            dropdownColor: isDarkMode ? const Color(0xFF1E2435) : Colors.white,
-                            icon: Icon(Icons.arrow_drop_down, color: txtColor),
-                            items: List.generate(31, (index) {
-                              final day = index + 1;
-                              return DropdownMenuItem(
-                                value: day,
-                                child: Text("Día $day del mes", style: TextStyle(color: txtColor, fontSize: 14)),
-                              );
-                            }),
-                            onChanged: (newDay) {
-                              if (newDay != null) {
-                                setState(() {
-                                  _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, newDay);
-                                });
-                              }
-                            },
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Botón Decrementar
+                            Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.hardEdge,
+                              child: IconButton(
+                                onPressed: () => _updateDay(-1),
+                                icon: Icon(Icons.remove, color: _customColor ?? const Color(0xFF00E5FF), size: 22),
+                                splashRadius: 20,
+                                tooltip: 'Disminuir día',
+                              ),
+                            ),
+                            // Campo numérico editable
+                            SizedBox(
+                              width: 64,
+                              child: TextFormField(
+                                controller: _dayController,
+                                focusNode: _dayFocusNode,
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                style: TextStyle(
+                                  color: txtColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(2),
+                                ],
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            // Botón Incrementar
+                            Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.hardEdge,
+                              child: IconButton(
+                                onPressed: () => _updateDay(1),
+                                icon: Icon(Icons.add, color: _customColor ?? const Color(0xFF00E5FF), size: 22),
+                                splashRadius: 20,
+                                tooltip: 'Aumentar día',
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     else
