@@ -1,9 +1,12 @@
 # Inteligencia Artificial en Gestor de Gastos
 
 ## 1. Estrategia de IA: Escasez de Recursos
-El sistema está diseñado para operar bajo un límite estricto de **20 Peticiones Por Día (RPD)** de la API de Gemini (en su capa gratuita Flash/Pro).
-*   **Modelo:** Gemini 1.5 Flash (v1beta/gemini-pro).
+El sistema está diseñado para operar bajo un límite estricto de **Peticiones Por Día (RPD)** de la API de Gemini (en su capa gratuita).
+*   **Modelo:** Gemini 1.5 Flash / Gemini Pro.
+*   **Cliente:** `GeminiClient` (`lib/core/services/gemini_client.dart`) — Comunicación HTTP directa con control granular.
+*   **Renderizado:** Las respuestas del Coach se renderizan con `flutter_markdown_plus` para formato rico.
 *   **Estrategia:** Se minimizan las llamadas a la API mediante la gestión local (SQLite) y el uso de Prompts "todo en uno" para obtener la máxima cantidad de datos en una sola solicitud.
+*   **Estado:** Gestionado por `StatsProvider` (`lib/presentation/providers/stats_provider.dart`).
 
 ## 2. Ingeniería de Prompts (Voice Service)
 El corazón de la funcionalidad de reconocimiento de voz reside en el prompt estructurado que se envía a la API.

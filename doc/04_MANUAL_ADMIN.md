@@ -18,12 +18,13 @@ Para activar el **Panel de Desarrollador**, sigue estos pasos:
 
 | Herramienta | Color del Botón | Función Principal | Advertencia |
 | :--- | :--- | :--- | :--- |
-| **Reset Timers (Coach)** | 🟠 Naranja | Reinicia los contadores de tiempo (Semanal/Mensual) para probar el Coach Financiero sin esperar. | Ninguna, solo afecta el límite de tiempo. |
-| **Sembrar Datos (Test)** | 🔵 Azul | Crea una base de datos ficticia con múltiples transacciones y cuentas para pruebas de visualización. | Ideal para demos rápidas. |
-| **Factory Reset** | 🔴 Rojo | **Borra TODA la base de datos (SQLite) y Preferencias**. La aplicación parecerá recién instalada. | **IRREVERSIBLE**. Se perderán todas las transacciones reales. |
+| **Reset Timers (Coach)** | 🟠 Naranja | Reinicia los contadores de tiempo (Semanal/Mensual) para probar el Coach Financiero sin esperar. | Ninguna, solo afecta el límite de tiempo del Coach IA. |
+| **Sembrar Datos (Test)** | 🔵 Azul | Crea una base de datos ficticia con transacciones y cuentas para pruebas de visualización. | Ideal para demos rápidas. |
+| **Factory Reset** | 🔴 Rojo | **Borra TODA la base de datos (SQLite v20) y Preferencias**. La aplicación parecerá recién instalada. | **IRREVERSIBLE**. Se perderán todas las transacciones, gastos fijos y metas. |
 
 ## 4. Reset del Coach (Técnico)
-El botón naranja "Reset Timers" invoca la función `resetCoachTimers()` del `DashboardProvider`. Esto elimina las claves de `SharedPreferences` que controlan la última fecha de análisis (`KEY_LAST_ADVICE_DATE`), permitiendo llamar a la IA nuevamente de inmediato.
+El botón naranja "Reset Timers" invoca la función `resetCoachTimers()` del `StatsProvider`. Esto elimina las claves de `SharedPreferences` que controlan la última fecha de análisis, permitiendo llamar a la IA nuevamente de inmediato.
 
-*Función interna:* `provider.resetCoachTimers()`
+*Función interna:* `statsProvider.resetCoachTimers()`
 *Impacto en API:* Incrementará el contador de llamadas a Gemini API si vuelves a consultar el Coach inmediatamente.
+*Proveedor:* `StatsProvider` (`lib/presentation/providers/stats_provider.dart`)
