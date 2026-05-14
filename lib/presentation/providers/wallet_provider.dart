@@ -326,15 +326,15 @@ class WalletProvider extends ChangeNotifier {
     await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
   }
 
-  Future<void> purchaseGoal(String goalId) async {
+  Future<void> purchaseGoal(String goalId, {required int accountId}) async {
     final index = _goals.indexWhere((g) => g.id == goalId);
     if (index == -1) return;
 
     final goal = _goals[index];
 
     final transaction = TransactionEntity(
-        accountId: 3, // Assuming 3 is a valid default or should come from param
-        categoryId: 3,
+        accountId: accountId,
+        categoryId: 8, // Compras
         amount: -goal.targetAmount,
         date: DateTime.now(),
         description: "Meta Cumplida: ${goal.name}",

@@ -175,34 +175,110 @@ class GoalDetailSheet extends StatelessWidget {
   }
 
   void _confirmPurchase(BuildContext context) {
+    final provider = Provider.of<WalletProvider>(context, listen: false);
+    int selectedPurchaseAccount = 2;
+    if (provider.accounts.isNotEmpty) {
+      if (!provider.accounts.any((a) => a.id == selectedPurchaseAccount)) {
+        selectedPurchaseAccount = provider.accounts.first.id;
+      }
+    } else {
+      selectedPurchaseAccount = -1;
+    }
+
     showDialog(
         context: context,
-        builder: (c) => AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Text("¡Felicidades! 🎉",
-                  style: TextStyle(color: Colors.white)),
-              content: Text(
-                  "¿Deseas registrar la compra de '${goal.name}' por S/ ${goal.targetAmount}?",
-                  style: const TextStyle(color: Colors.white70)),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(c),
-                    child: const Text("Rechazar",
-                        style: TextStyle(color: Colors.grey))),
-                ElevatedButton(
-                    onPressed: () {
-                      Provider.of<WalletProvider>(context, listen: false)
-                          .purchaseGoal(goal.id.toString());
-                      Navigator.pop(c); // Dialog
-                      Navigator.pop(context); // BottomSheet
-                    },
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                    child: const Text("¡SÍ, COMPRAR!",
-                        style: TextStyle(
-                            color: Colors.black, fontWeight: FontWeight.bold)))
-              ],
-            ));
+        builder: (c) => StatefulBuilder(builder: (builderCtx, setState) {
+              return AlertDialog(
+                backgroundColor: const Color(0xFF1E293B),
+                title: const Text("¡Felicidades! 🎉",
+                    style: TextStyle(color: Colors.white)),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        "¿Deseas registrar la compra de '${goal.name}' por S/ ${goal.targetAmount}?",
+                        style: const TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 16),
+                    if (selectedPurchaseAccount == -1)
+                      const Text("No hay cuentas disponibles.",
+                          style: TextStyle(color: Colors.red))
+                    else
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          canvasColor: const Color(0xFF1E293B),
+                        ),
+                        child: DropdownButtonFormField<int>(
+                          isExpanded: true,
+                          initialValue: selectedPurchaseAccount,
+                          dropdownColor: const Color(0xFF1E293B),
+                          items: provider.accounts.map((acc) {
+                            return DropdownMenuItem<int>(
+                              value: acc.id,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                      IconData(acc.iconCode,
+                                          fontFamily: 'MaterialIcons'),
+                                      size: 18,
+                                      color: Color(acc.colorValue)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      "${acc.name} (${acc.currencySymbol} ${acc.currentBalance.toStringAsFixed(2)})",
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 14, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => selectedPurchaseAccount = val);
+                            }
+                          },
+                          decoration: InputDecoration(
+                            labelText: "Comprar con:",
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            enabledBorder: OutlineInputBorder(
+                                borderSide: const BorderSide(color: Colors.white24),
+                                borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
+                        ),
+                      )
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: const Text("Rechazar",
+                          style: TextStyle(color: Colors.grey))),
+                  ElevatedButton(
+                      onPressed: selectedPurchaseAccount == -1
+                          ? null
+                          : () {
+                              provider.purchaseGoal(goal.id.toString(),
+                                  accountId: selectedPurchaseAccount);
+                              Navigator.pop(c); // Dialog
+                              if (context.mounted) {
+                                Navigator.pop(context); // BottomSheet
+                              }
+                            },
+                      style:
+                          ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+                      child: const Text("¡SÍ, COMPRAR!",
+                          style: TextStyle(
+                              color: Colors.black, fontWeight: FontWeight.bold)))
+                ],
+              );
+            }));
   }
 
   void _confirmDeleteGoal(BuildContext context) {

@@ -74,24 +74,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final List<Map<String, dynamic>> accountsMap = await db.query('accounts');
 
       final accounts = accountsMap.map((e) {
-        return AccountModel(
-          id: e['id'],
-          name: e['name'],
-          initialBalance: 0.0,
-          currencySymbol: e['currencySymbol'] ?? 'S/',
-          colorValue: e['color'] ?? 0xFF4CAF50,
-          iconCode: e['iconCode'] ?? 58343,
-        ).copyWith(currentBalance: (e['balance'] as num).toDouble());
+        final model = AccountModel.fromJson(e);
+        return model.copyWith(currentBalance: (e['balance'] as num).toDouble());
       }).toList();
 
-      double total = 0, cash = 0, digital = 0, savings = 0;
+      double total = 0, cash = 0, digital = 0;
 
       for (var account in accounts) {
+        if (!account.includeInTotal) continue;
         total += account.currentBalance;
-        if (account.id == 1 || account.name.toLowerCase() == 'efectivo') {
+        if (account.isCash) {
           cash += account.currentBalance;
-        } else if (account.id == 3 || account.name.toLowerCase() == 'ahorros') {
-          savings += account.currentBalance;
         } else {
           digital += account.currentBalance;
         }
@@ -101,7 +94,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
         total: total,
         cash: cash,
         digital: digital,
-        savings: savings,
       ));
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

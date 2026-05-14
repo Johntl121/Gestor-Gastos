@@ -357,6 +357,7 @@ class LocalDatabase {
     await db.delete('accounts');
     await db.delete('goals');
     await db.delete('fixed_expenses');
+    await db.delete('categories');
     await db.delete('sqlite_sequence');
   }
 }
