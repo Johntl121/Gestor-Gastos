@@ -218,15 +218,16 @@ class WalletProvider extends ChangeNotifier {
     await deleteAccount(id);
   }
 
-  void setBudgetLimit(double newLimit) {
+  Future<void> setBudgetLimit(double newLimit) async {
     _budgetLimit = newLimit;
     notifyListeners();
-    // In real app, persist this
+    await localDataSource.saveBudgetLimit(newLimit);
   }
 
-  void setCurrency(String symbol) {
+  Future<void> setCurrency(String symbol) async {
     _currencySymbol = symbol;
     notifyListeners();
+    await localDataSource.saveCurrency(symbol);
   }
 
   // --- Goals Section ---

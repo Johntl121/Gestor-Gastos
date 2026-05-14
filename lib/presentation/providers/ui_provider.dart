@@ -60,6 +60,8 @@ class UiProvider extends ChangeNotifier {
     _userPin = await dataSource.getSecurityPinAsync();
     
     _isDarkMode = dataSource.getThemeMode();
+    _enableBiometrics = dataSource.getEnableBiometrics();
+    _enableNotifications = dataSource.getEnableNotifications();
 
     notifyListeners();
   }
@@ -119,10 +121,12 @@ class UiProvider extends ChangeNotifier {
   void toggleBiometrics(bool value) {
     _enableBiometrics = value;
     notifyListeners();
+    sl<TransactionLocalDataSource>().saveEnableBiometrics(value);
   }
 
   void toggleNotifications(bool value) {
     _enableNotifications = value;
     notifyListeners();
+    sl<TransactionLocalDataSource>().saveEnableNotifications(value);
   }
 }

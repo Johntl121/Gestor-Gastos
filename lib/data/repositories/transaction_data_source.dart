@@ -19,6 +19,8 @@ const String keySecurityPin = 'SECURITY_PIN';
 const String keyUserAvatar = 'USER_AVATAR';
 const String keyProfileImagePath = 'PROFILE_IMAGE_PATH';
 const String keyThemeMode = 'THEME_MODE';
+const String keyEnableBiometrics = 'ENABLE_BIOMETRICS';
+const String keyEnableNotifications = 'ENABLE_NOTIFICATIONS';
 
 abstract class TransactionLocalDataSource {
   // Transacciones (Ahora en SQLite)
@@ -58,6 +60,10 @@ abstract class TransactionLocalDataSource {
   String? getProfileImagePath();
   Future<void> saveThemeMode(bool isDark);
   bool getThemeMode();
+  Future<void> saveEnableBiometrics(bool enable);
+  bool getEnableBiometrics();
+  Future<void> saveEnableNotifications(bool enable);
+  bool getEnableNotifications();
   Future<String?> getSecurityPinAsync();
   Future<void> clearAllData();
 }
@@ -284,6 +290,18 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
 
   @override
   bool getThemeMode() => sharedPreferences.getBool(keyThemeMode) ?? true;
+
+  @override
+  Future<void> saveEnableBiometrics(bool enable) => sharedPreferences.setBool(keyEnableBiometrics, enable);
+
+  @override
+  bool getEnableBiometrics() => sharedPreferences.getBool(keyEnableBiometrics) ?? false;
+
+  @override
+  Future<void> saveEnableNotifications(bool enable) => sharedPreferences.setBool(keyEnableNotifications, enable);
+
+  @override
+  bool getEnableNotifications() => sharedPreferences.getBool(keyEnableNotifications) ?? true;
 
   @override
   Future<void> clearAllData() async {
