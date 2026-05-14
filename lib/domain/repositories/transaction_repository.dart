@@ -18,7 +18,7 @@ abstract class TransactionRepository {
 
   // Custom Accounts
   Future<Either<Failure, List<AccountEntity>>> getAccounts();
-  Future<Either<Failure, void>> createAccount(AccountEntity account);
+  Future<Either<Failure, int>> createAccount(AccountEntity account);
   Future<Either<Failure, void>> updateAccount(AccountEntity account);
   Future<Either<Failure, void>> deleteAccount(int id);
 }

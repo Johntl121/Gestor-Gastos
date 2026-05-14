@@ -190,8 +190,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       final savings = double.tryParse(_savingsController.text) ?? 0;
 
       // Account 1: Efectivo
-      await walletProvider.createAccount(AccountEntity(
-        id: 1, // Force ID for compatibility
+      final id1 = await walletProvider.createAccount(AccountEntity(
+        id: 0, // Dynamic ID
         name: "Efectivo",
         initialBalance: 0, // Start with 0
         currentBalance: 0,
@@ -203,8 +203,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ));
 
       // Account 2: Banco
-      await walletProvider.createAccount(AccountEntity(
-        id: 2,
+      final id2 = await walletProvider.createAccount(AccountEntity(
+        id: 0, // Dynamic ID
         name: "Banco",
         initialBalance: 0,
         currentBalance: 0,
@@ -216,8 +216,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       ));
 
       // Account 3: Ahorros
-      await walletProvider.createAccount(AccountEntity(
-        id: 3,
+      final id3 = await walletProvider.createAccount(AccountEntity(
+        id: 0, // Dynamic ID
         name: "Ahorros",
         initialBalance: 0,
         currentBalance: 0, // Initialize with same amount
@@ -245,9 +245,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         }
       }
 
-      await addInitTx(cash, 1, "Saldo Inicial Efectivo");
-      await addInitTx(bank, 2, "Saldo Inicial Banco");
-      await addInitTx(savings, 3, "Saldo Inicial Ahorros");
+      await addInitTx(cash, id1, "Saldo Inicial Efectivo");
+      await addInitTx(bank, id2, "Saldo Inicial Banco");
+      await addInitTx(savings, id3, "Saldo Inicial Ahorros");
 
       // 5. Complete
       await dataSource.setFirstTime(false);

@@ -312,42 +312,52 @@ class LocalDatabase {
   }
 
   Future<void> _seedData(Database db) async {
-    // 1. Cuentas iniciales
-    await db.rawInsert(
-        "INSERT INTO accounts(name, type, balance, color, currencySymbol) VALUES('Efectivo', 'CASH', 0.0, 4280391411, 'S/')");
+    // 1. Cuentas iniciales por defecto
+    await db.insert('accounts', {
+      'name': 'Efectivo',
+      'type': 'CASH',
+      'balance': 0.0,
+      'color': 4280391411,
+      'currencySymbol': 'S/',
+      'iconCode': 58343,
+      'includeInTotal': 1
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-    // 2. Semilla robusta de Categorías (v20)
-    final defaultExpenses = [
-      {'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFFB8C00},
-      {'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B},
-      {'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3},
-      {'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00},
-      {'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688},
-      {'name': 'Educación', 'icon': 'school', 'color': 0xFF795548},
-      {'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5},
-      {'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63},
-      {'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722},
-      {'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFF9E9E9E},
-    ];
-    
-    final defaultIncomes = [
-      {'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32},
-      {'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1},
-      {'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0},
-      {'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081},
-      {'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF607D8B},
+    // 2. Semilla robusta de Categorías asegurando exactamente los 15 IDs mapeados
+    await _seedCategories(db);
+  }
+
+  Future<void> _seedCategories(Database db) async {
+    final categories = [
+      // Gastos (1 al 10)
+      {'id': 1, 'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFFB8C00, 'type': 'EXPENSE'},
+      {'id': 2, 'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B, 'type': 'EXPENSE'},
+      {'id': 3, 'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3, 'type': 'EXPENSE'},
+      {'id': 4, 'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00, 'type': 'EXPENSE'},
+      {'id': 5, 'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688, 'type': 'EXPENSE'},
+      {'id': 6, 'name': 'Educación', 'icon': 'school', 'color': 0xFF795548, 'type': 'EXPENSE'},
+      {'id': 7, 'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5, 'type': 'EXPENSE'},
+      {'id': 8, 'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63, 'type': 'EXPENSE'},
+      {'id': 9, 'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722, 'type': 'EXPENSE'},
+      {'id': 10, 'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFF9E9E9E, 'type': 'EXPENSE'},
+      
+      // Ingresos (11 al 15)
+      {'id': 11, 'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32, 'type': 'INCOME'},
+      {'id': 12, 'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1, 'type': 'INCOME'},
+      {'id': 13, 'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0, 'type': 'INCOME'},
+      {'id': 14, 'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081, 'type': 'INCOME'},
+      {'id': 15, 'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF607D8B, 'type': 'INCOME'},
     ];
 
-    for (var cat in defaultExpenses) {
-      await db.rawInsert(
-          "INSERT INTO categories(name, icon, color, type, is_editable) VALUES(?, ?, ?, 'EXPENSE', 0)",
-          [cat['name'], cat['icon'], cat['color']]);
-    }
-    
-    for (var cat in defaultIncomes) {
-      await db.rawInsert(
-          "INSERT INTO categories(name, icon, color, type, is_editable) VALUES(?, ?, ?, 'INCOME', 0)",
-          [cat['name'], cat['icon'], cat['color']]);
+    for (var cat in categories) {
+      await db.insert('categories', {
+        'id': cat['id'],
+        'name': cat['name'],
+        'icon': cat['icon'],
+        'color': cat['color'],
+        'type': cat['type'],
+        'is_editable': 0
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -359,5 +369,7 @@ class LocalDatabase {
     await db.delete('fixed_expenses');
     await db.delete('categories');
     await db.delete('sqlite_sequence');
+    // Garantizamos que las categorías maestras se re-siembren instantáneamente para evitar fallos de Foreign Key
+    await _seedCategories(db);
   }
 }

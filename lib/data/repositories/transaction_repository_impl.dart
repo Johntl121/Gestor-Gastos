@@ -257,11 +257,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Either<Failure, void>> createAccount(AccountEntity account) async {
+  Future<Either<Failure, int>> createAccount(AccountEntity account) async {
     try {
       final db = await localDatabase.database;
-      await db.insert('accounts', {
-        'id': account.id, // Respetar ID si se proporciona (como en onboarding)
+      final map = <String, dynamic>{
         'name': account.name,
         'type': account.isCash ? 'CASH' : 'DIGITAL',
         'balance': account.initialBalance,
@@ -269,8 +268,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
         'currencySymbol': account.currencySymbol,
         'iconCode': account.iconCode,
         'includeInTotal': account.includeInTotal ? 1 : 0
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-      return const Right(null);
+      };
+      if (account.id > 0) {
+        map['id'] = account.id;
+      }
+      final id = await db.insert('accounts', map, conflictAlgorithm: ConflictAlgorithm.replace);
+      return Right(id);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
     }

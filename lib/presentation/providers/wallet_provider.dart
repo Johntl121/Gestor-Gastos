@@ -179,16 +179,20 @@ class WalletProvider extends ChangeNotifier {
     await loadWalletData();
   }
 
-  Future<void> createAccount(AccountEntity account) async {
+  Future<int> createAccount(AccountEntity account) async {
     final result =
         await createAccountUseCase(CreateAccountParams(account: account));
-    result.fold(
+    return result.fold(
       (fail) {
         debugPrint("Error creating account: $fail");
         errorMessage = fail.message;
         notifyListeners();
+        return account.id;
       },
-      (_) => loadWalletData(),
+      (insertedId) {
+        loadWalletData();
+        return insertedId;
+      },
     );
   }
 

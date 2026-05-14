@@ -20,13 +20,13 @@ class CreateAccountParams {
   CreateAccountParams({required this.account});
 }
 
-class CreateAccountUseCase implements UseCase<void, CreateAccountParams> {
+class CreateAccountUseCase implements UseCase<int, CreateAccountParams> {
   final TransactionRepository repository;
 
   CreateAccountUseCase(this.repository);
 
   @override
-  Future<Either<Failure, void>> call(CreateAccountParams params) async {
+  Future<Either<Failure, int>> call(CreateAccountParams params) async {
     return await repository.createAccount(params.account);
   }
 }
