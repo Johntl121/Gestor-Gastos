@@ -13,6 +13,7 @@ import '../../domain/usecases/update_account_usecase.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../data/models/goal_model.dart';
 import '../../data/repositories/transaction_data_source.dart';
+import '../../core/constants/app_constants.dart';
 
 class WalletProvider extends ChangeNotifier {
   final GetAccountBalanceUseCase getAccountBalance;
@@ -42,12 +43,18 @@ class WalletProvider extends ChangeNotifier {
   double _budgetLimit = 2400.00;
   List<GoalEntity> _goals = [];
   String _currencySymbol = 'S/';
+  String? errorMessage;
 
   List<AccountEntity> get accounts => _accounts;
   BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
   double get budgetLimit => _budgetLimit;
   List<GoalEntity> get goals => _goals;
   String get currencySymbol => _currencySymbol;
+
+  void clearError() {
+    errorMessage = null;
+    notifyListeners();
+  }
 
   // Mock Exchange Rates
   static const Map<String, double> exchangeRatesToPEN = {
@@ -176,7 +183,11 @@ class WalletProvider extends ChangeNotifier {
     final result =
         await createAccountUseCase(CreateAccountParams(account: account));
     result.fold(
-      (fail) => debugPrint("Error creating account: $fail"),
+      (fail) {
+        debugPrint("Error creating account: $fail");
+        errorMessage = fail.message;
+        notifyListeners();
+      },
       (_) => loadWalletData(),
     );
   }
@@ -185,7 +196,11 @@ class WalletProvider extends ChangeNotifier {
     final result =
         await updateAccountUseCase(UpdateAccountParams(account: account));
     result.fold(
-      (fail) => debugPrint("Error updating account: $fail"),
+      (fail) {
+        debugPrint("Error updating account: $fail");
+        errorMessage = fail.message;
+        notifyListeners();
+      },
       (_) => loadWalletData(),
     );
   }
@@ -193,7 +208,11 @@ class WalletProvider extends ChangeNotifier {
   Future<void> deleteAccount(int id) async {
     final result = await deleteAccountUseCase(DeleteAccountParams(id: id));
     result.fold(
-      (fail) => debugPrint("Error deleting account: $fail"),
+      (fail) {
+        debugPrint("Error deleting account: $fail");
+        errorMessage = fail.message;
+        notifyListeners();
+      },
       (_) => loadWalletData(),
     );
   }
@@ -303,7 +322,7 @@ class WalletProvider extends ChangeNotifier {
 
     final transaction = TransactionEntity(
         accountId: sourceAccountId,
-        categoryId: 14,
+        categoryId: AppConstants.giftCategoryId,
         amount: -amount,
         date: DateTime.now(),
         description: "Meta: ${goal.name}",
@@ -335,7 +354,7 @@ class WalletProvider extends ChangeNotifier {
 
     final transaction = TransactionEntity(
         accountId: accountId,
-        categoryId: 8, // Compras
+        categoryId: AppConstants.shoppingCategoryId, // Compras
         amount: -goal.targetAmount,
         date: DateTime.now(),
         description: "Meta Cumplida: ${goal.name}",

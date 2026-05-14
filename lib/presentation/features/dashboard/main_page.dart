@@ -54,6 +54,8 @@ class _MainPageState extends State<MainPage> {
   }
 
   late final List<Widget> _pages;
+  late final TransactionProvider _transactionProvider;
+  late final WalletProvider _walletProvider;
 
   @override
   void initState() {
@@ -65,6 +67,55 @@ class _MainPageState extends State<MainPage> {
       const WalletPage(),
     ];
     _initializeStartupConfig();
+
+    _transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+    _walletProvider = Provider.of<WalletProvider>(context, listen: false);
+
+    _transactionProvider.addListener(_onTransactionErrorChanged);
+    _walletProvider.addListener(_onWalletErrorChanged);
+  }
+
+  @override
+  void dispose() {
+    _transactionProvider.removeListener(_onTransactionErrorChanged);
+    _walletProvider.removeListener(_onWalletErrorChanged);
+    super.dispose();
+  }
+
+  void _onTransactionErrorChanged() {
+    if (_transactionProvider.errorMessage != null) {
+      final msg = _transactionProvider.errorMessage!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg, style: const TextStyle(color: Colors.white)),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          _transactionProvider.clearError();
+        }
+      });
+    }
+  }
+
+  void _onWalletErrorChanged() {
+    if (_walletProvider.errorMessage != null) {
+      final msg = _walletProvider.errorMessage!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg, style: const TextStyle(color: Colors.white)),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          _walletProvider.clearError();
+        }
+      });
+    }
   }
 
   void _onItemTapped(int index) {

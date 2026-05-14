@@ -11,6 +11,7 @@ import '../../data/repositories/transaction_data_source.dart';
 import '../../core/services/notification_service.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import '../../core/constants/app_categories.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/icon_mapper.dart';
 
 class TransactionProvider extends ChangeNotifier {
@@ -33,10 +34,16 @@ class TransactionProvider extends ChangeNotifier {
   List<TransactionEntity> _transactions = [];
   List<Subscription> _subscriptions = [];
   bool _isLoading = false;
+  String? errorMessage;
 
   List<TransactionEntity> get transactions => _transactions;
   List<Subscription> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
+
+  void clearError() {
+    errorMessage = null;
+    notifyListeners();
+  }
 
   Future<void> loadTransactions() async {
     _isLoading = true;
@@ -141,6 +148,7 @@ class TransactionProvider extends ChangeNotifier {
     result.fold(
       (fail) {
         debugPrint("❌ ERROR AL GUARDAR TRANSACCIÓN: ${fail.message}");
+        errorMessage = fail.message;
         _isLoading = false;
         notifyListeners();
       },
@@ -157,6 +165,7 @@ class TransactionProvider extends ChangeNotifier {
 
     result.fold(
       (fail) {
+        errorMessage = fail.message;
         _isLoading = false;
         notifyListeners();
       },
@@ -172,6 +181,7 @@ class TransactionProvider extends ChangeNotifier {
         await deleteTransactionUseCase(DeleteTransactionParams(id: id));
     result.fold(
       (fail) {
+        errorMessage = fail.message;
         loadTransactions();
       },
       (_) => loadTransactions(),
@@ -186,7 +196,7 @@ class TransactionProvider extends ChangeNotifier {
   }) async {
     final transaction = TransactionEntity(
       accountId: sourceAccountId,
-      categoryId: 8,
+      categoryId: AppConstants.transferCategoryId,
       amount: amount.abs(),
       date: DateTime.now(),
       description: "Transferencia",

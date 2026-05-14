@@ -18,6 +18,7 @@ import 'presentation/providers/wallet_provider.dart';
 import 'presentation/providers/stats_provider.dart';
 
 import 'core/services/notification_service.dart';
+import 'core/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,14 +146,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           // Dark Theme
           final darkTheme = ThemeData(
             brightness: Brightness.dark,
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
-            cardColor: const Color(0xFF1E293B),
-            primaryColor: Colors.cyanAccent,
+            scaffoldBackgroundColor: AppColors.darkBackground,
+            cardColor: AppColors.darkCard,
+            primaryColor: AppColors.accent,
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.cyanAccent,
+              seedColor: AppColors.accent,
               brightness: Brightness.dark,
-              primary: Colors.cyanAccent,
-              surface: const Color(0xFF1E293B),
+              primary: AppColors.accent,
+              surface: AppColors.darkCard,
             ),
             appBarTheme: const AppBarTheme(
               backgroundColor: Colors.transparent,
@@ -171,7 +172,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              backgroundColor: const Color(0xFF252B42),
+              backgroundColor: AppColors.darkSnackBar,
               contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
               elevation: 4,
             ),
