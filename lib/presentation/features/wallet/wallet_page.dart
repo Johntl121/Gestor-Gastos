@@ -288,278 +288,214 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  // --- Proxy Decorator for Drag & Drop ---
-  Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (BuildContext context, Widget? child) {
-        return Material(
-          elevation: 0,
-          color: Colors.transparent,
-          child: Transform.scale(
-            scale: 1.05, // Efecto de escala
-            child: Opacity(
-              opacity: 0.9,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      blurRadius: 20, // Sombra aumentada
-                      spreadRadius: 2,
-                      offset: const Offset(0, 10),
-                    )
-                  ],
-                ),
-                child: child,
-              ),
-            ),
-          ),
-        );
-      },
-      child: child,
-    );
+  void _setDragging(bool dragging) {
+    if (_isDragging != dragging) {
+      setState(() {
+        _isDragging = dragging;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<WalletProvider>(
-      builder: (context, walletProvider, child) {
-        final goals = walletProvider.goals;
-        final theme = Theme.of(context);
-        final isDarkMode = theme.brightness == Brightness.dark;
-        final backgroundColor = theme.scaffoldBackgroundColor;
-        final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final backgroundColor = theme.scaffoldBackgroundColor;
+    final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
 
-        return Scaffold(
-          backgroundColor: backgroundColor,
-          appBar: AppBar(
-            backgroundColor: backgroundColor,
-            elevation: 0,
-            title: Text("Billetera",
-                style:
-                    TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-            centerTitle: true,
-            iconTheme: IconThemeData(color: textColor),
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        title: Text("Billetera",
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        iconTheme: IconThemeData(color: textColor),
+      ),
+      body: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          SingleChildScrollView(
+            physics: _isDragging
+                ? const NeverScrollableScrollPhysics()
+                : const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                // --- Accounts Section ---
+                _AccountsSection(
+                  onAddAccount: () => _showAddAccountSheet(context),
+                  onEditAccount: (acc) => _showAddAccountSheet(context, accountToEdit: acc),
+                ),
+
+                const SizedBox(height: 40),
+
+                // --- Goals Section ---
+                _GoalsSection(
+                  onAddGoal: () => _showGoalFormDialog(context),
+                  onEditGoal: (goal) => _showGoalFormDialog(context, toEdit: goal),
+                  onShowDetails: (goal) => _showGoalDetails(context, goal),
+                  onDraggingChanged: _setDragging,
+                ),
+
+                const SizedBox(height: 40),
+
+                // --- Fixed Expenses Section ---
+                _FixedExpensesSection(
+                  onAddExpense: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => const AddFixedExpenseSheet(),
+                    );
+                  },
+                  onEditExpense: (sub) {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => AddFixedExpenseSheet(subscriptionToEdit: sub),
+                    );
+                  },
+                  onPayExpense: (sub) => _showPaymentDialog(context, sub),
+                  onDraggingChanged: _setDragging,
+                  isDarkMode: isDarkMode,
+                ),
+
+                const SizedBox(height: 120),
+              ],
+            ),
           ),
-          body: Stack(
-            alignment: Alignment.topCenter,
-            children: [
-              SingleChildScrollView(
-                physics: _isDragging
-                    ? const NeverScrollableScrollPhysics()
-                    : const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    // --- Accounts PageView ---
-                    SizedBox(
-                      height: 200,
-                      child: PageView.builder(
-                        controller: PageController(viewportFraction: 0.9),
-                        itemCount: walletProvider.accounts.length + 1,
-                        itemBuilder: (context, index) {
-                          if (index < walletProvider.accounts.length) {
-                            final account = walletProvider.accounts[index];
-                            return GestureDetector(
-                              onTap: () => _showAddAccountSheet(context,
-                                  accountToEdit: account),
-                              child: _buildAccountCard(context, account),
-                            );
-                          } else {
-                            // Add Account Card
-                            return GestureDetector(
-                              onTap: () => _showAddAccountSheet(context),
-                              child: Container(
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                decoration: BoxDecoration(
-                                  color: isDarkMode
-                                      ? Colors.white10
-                                      : Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                      color: isDarkMode
-                                          ? Colors.white24
-                                          : Colors.grey.shade400,
-                                      style: BorderStyle.solid),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.add_circle_outline,
-                                          size: 45,
-                                          color: isDarkMode
-                                              ? Colors.white54
-                                              : Colors.grey),
-                                      const SizedBox(height: 8),
-                                      Text("Añadir Cuenta",
-                                          style: TextStyle(
-                                              color: isDarkMode
-                                                  ? Colors.white54
-                                                  : Colors.grey,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold))
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            colors: const [
+              Colors.cyan,
+              Colors.purple,
+              Colors.amber,
+              Colors.green
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- DECOMPOSED WIDGETS WITH CONST CONSTRUCTORS & SCOPED CONSUMERS ---
+
+Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+  return AnimatedBuilder(
+    animation: animation,
+    builder: (BuildContext context, Widget? child) {
+      return Material(
+        elevation: 0,
+        color: Colors.transparent,
+        child: Transform.scale(
+          scale: 1.05,
+          child: Opacity(
+            opacity: 0.9,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 10),
+                  )
+                ],
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    },
+    child: child,
+  );
+}
+
+class _AccountsSection extends StatelessWidget {
+  final VoidCallback onAddAccount;
+  final void Function(AccountEntity) onEditAccount;
+
+  const _AccountsSection({
+    required this.onAddAccount,
+    required this.onEditAccount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    return SizedBox(
+      height: 200,
+      child: Consumer<WalletProvider>(
+        builder: (context, walletProvider, _) {
+          final accounts = walletProvider.accounts;
+          return PageView.builder(
+            controller: PageController(viewportFraction: 0.9),
+            itemCount: accounts.length + 1,
+            itemBuilder: (context, index) {
+              if (index < accounts.length) {
+                final account = accounts[index];
+                return GestureDetector(
+                  onTap: () => onEditAccount(account),
+                  child: _AccountCard(account: account),
+                );
+              } else {
+                return GestureDetector(
+                  onTap: onAddAccount,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                          color: isDarkMode ? Colors.white24 : Colors.grey.shade400,
+                          style: BorderStyle.solid),
                     ),
-
-                    const SizedBox(height: 40),
-
-                    // --- Goals Section (Reorderable) ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            "Mis Metas (${goals.length})",
-                            style: TextStyle(
-                                color: textColor,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          GestureDetector(
-                            onTap: () => _showGoalFormDialog(context),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00E5FF),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.add,
-                                  color: Colors.white, size: 24),
-                            ),
-                          )
+                          Icon(Icons.add_circle_outline,
+                              size: 45,
+                              color: isDarkMode ? Colors.white54 : Colors.grey),
+                          const SizedBox(height: 8),
+                          Text("Añadir Cuenta",
+                              style: TextStyle(
+                                  color: isDarkMode ? Colors.white54 : Colors.grey,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold))
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-                    if (goals.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(40.0),
-                        child: Center(
-                            child: Text(
-                                "No tienes metas activas.\n¡Crea una para empezar a ahorrar!",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.blueGrey[200]
-                                        : Colors.grey))),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          proxyDecorator: _proxyDecorator,
-                          onReorder: (oldIndex, newIndex) {
-                            walletProvider.reorderGoals(oldIndex, newIndex);
-                          },
-                          onReorderStart: (_) =>
-                              setState(() => _isDragging = true),
-                          onReorderEnd: (_) =>
-                              setState(() => _isDragging = false),
-                          itemCount: goals.length,
-                          itemBuilder: (context, index) {
-                            final goal = goals[index];
-                            return Container(
-                              key: ValueKey(goal.id),
-                              child: GoalCard(
-                                name: goal.name,
-                                currentAmount: goal.currentAmount,
-                                targetAmount: goal.targetAmount,
-                                color: Color(goal.colorValue),
-                                icon: IconData(goal.iconCode,
-                                    fontFamily: 'MaterialIcons'),
-                                onTap: () => _showGoalDetails(context, goal),
-                                onEdit: () =>
-                                    _showGoalFormDialog(context, toEdit: goal),
-                                onDelete: () async {
-                                  // Lógica de borrado con confirmación
-                                  final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                              title:
-                                                  const Text("Eliminar Meta"),
-                                              content: const Text(
-                                                  "¿Estás seguro de eliminar esta meta? Esto no se puede deshacer."),
-                                              actions: [
-                                                TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            ctx, false),
-                                                    child:
-                                                        const Text("Cancelar")),
-                                                ElevatedButton(
-                                                    style: ElevatedButton
-                                                        .styleFrom(
-                                                            backgroundColor:
-                                                                Colors.red),
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            ctx, true),
-                                                    child:
-                                                        const Text("Eliminar"))
-                                              ]));
-                                  if (confirm == true) {
-                                    walletProvider
-                                        .deleteGoal(goal.id.toString());
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                    const SizedBox(height: 40),
-
-                    // --- Fixed Expenses Section (Reorderable) ---
-                    Consumer<TransactionProvider>(
-                      builder: (context, transactionProvider, _) {
-                        return _buildFixedExpensesSection(
-                            context, transactionProvider, isDarkMode);
-                      },
-                    ),
-
-                    const SizedBox(height: 120),
-                  ],
-                ),
-              ),
-              ConfettiWidget(
-                confettiController: _confettiController,
-                blastDirectionality: BlastDirectionality.explosive,
-                shouldLoop: false,
-                colors: const [
-                  Colors.cyan,
-                  Colors.purple,
-                  Colors.amber,
-                  Colors.green
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+                  ),
+                );
+              }
+            },
+          );
+        },
+      ),
     );
   }
+}
 
-  Widget _buildAccountCard(BuildContext context, AccountEntity account) {
-    IconData displayIcon = account.displayIcon;
+class _AccountCard extends StatelessWidget {
+  final AccountEntity account;
 
+  const _AccountCard({required this.account});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       padding: const EdgeInsets.all(24),
@@ -583,7 +519,7 @@ class _WalletPageState extends State<WalletPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Icon(
-                displayIcon,
+                account.displayIcon,
                 color: Colors.white70,
                 size: 34,
               ),
@@ -593,11 +529,18 @@ class _WalletPageState extends State<WalletPage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15)),
                 onSelected: (value) {
+                  final provider =
+                      Provider.of<WalletProvider>(context, listen: false);
                   if (value == 'edit') {
-                    _showAddAccountSheet(context, accountToEdit: account);
+                    // Call sheet via provider contextual reference or notify parent indirectly
+                    // Since context in popup menu is disconnected, let's open modal securely
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (ctx) => AddAccountSheet(accountToEdit: account),
+                    );
                   } else if (value == 'delete') {
-                    final provider =
-                        Provider.of<WalletProvider>(context, listen: false);
                     provider.softDeleteAccount(account);
                     ScaffoldMessenger.of(context)
                         .showSnackBar(SnackBar(
@@ -661,104 +604,245 @@ class _WalletPageState extends State<WalletPage> {
       ),
     );
   }
+}
 
-  Widget _buildFixedExpensesSection(
-      BuildContext context, TransactionProvider provider, bool isDarkMode) {
-    // Calculate Total
-    double totalFixed =
-        provider.subscriptions.fold(0, (sum, item) => sum + item.amount);
+class _GoalsSection extends StatelessWidget {
+  final VoidCallback onAddGoal;
+  final void Function(GoalEntity) onEditGoal;
+  final void Function(GoalEntity) onShowDetails;
+  final void Function(bool) onDraggingChanged;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Text(
-                "Gastos Fijos",
-                style: TextStyle(
-                    color: isDarkMode ? Colors.white : Colors.black,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "Total: ${CurrencyFormatter.format(totalFixed, Provider.of<WalletProvider>(context).currencySymbol)}",
-                  style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold),
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (ctx) => const AddFixedExpenseSheet(),
-                  );
-                },
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFD500F9), // Purple Accent
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFD500F9).withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        )
-                      ]),
-                  child: const Icon(Icons.add, color: Colors.white, size: 26),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 15),
-        if (provider.subscriptions.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-            child: SizedBox(
-              width: double.infinity,
-              child: Center(
-                child: Text(
-                  "No tienes gastos fijos registrados.\n¡Agrega uno para empezar!",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: isDarkMode ? Colors.grey : Colors.grey[600]),
-                ),
+  const _GoalsSection({
+    required this.onAddGoal,
+    required this.onEditGoal,
+    required this.onShowDetails,
+    required this.onDraggingChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
+
+    return Consumer<WalletProvider>(
+      builder: (context, walletProvider, _) {
+        final goals = walletProvider.goals;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Mis Metas (${goals.length})",
+                    style: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  GestureDetector(
+                    onTap: onAddGoal,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00E5FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 24),
+                    ),
+                  )
+                ],
               ),
             ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              proxyDecorator: _proxyDecorator,
-              onReorderStart: (_) => setState(() => _isDragging = true),
-              onReorderEnd: (_) => setState(() => _isDragging = false),
-              itemCount: provider.subscriptions.length,
-              onReorder: (oldIndex, newIndex) {
-                provider.reorderSubscriptions(oldIndex, newIndex);
-              },
-              itemBuilder: (context, index) {
-                final sub = provider.subscriptions[index];
-                final account =
-                    Provider.of<WalletProvider>(context, listen: false)
+            const SizedBox(height: 20),
+            if (goals.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: Center(
+                  child: Text(
+                    "No tienes metas activas.\n¡Crea una para empezar a ahorrar!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.blueGrey[200] : Colors.grey),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  proxyDecorator: _proxyDecorator,
+                  onReorder: (oldIndex, newIndex) {
+                    walletProvider.reorderGoals(oldIndex, newIndex);
+                  },
+                  onReorderStart: (_) => onDraggingChanged(true),
+                  onReorderEnd: (_) => onDraggingChanged(false),
+                  itemCount: goals.length,
+                  itemBuilder: (context, index) {
+                    final goal = goals[index];
+                    return Container(
+                      key: ValueKey(goal.id),
+                      child: GoalCard(
+                        name: goal.name,
+                        currentAmount: goal.currentAmount,
+                        targetAmount: goal.targetAmount,
+                        color: Color(goal.colorValue),
+                        icon: IconData(goal.iconCode, fontFamily: 'MaterialIcons'),
+                        onTap: () => onShowDetails(goal),
+                        onEdit: () => onEditGoal(goal),
+                        onDelete: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("Eliminar Meta"),
+                              content: const Text(
+                                  "¿Estás seguro de eliminar esta meta? Esto no se puede deshacer."),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text("Cancelar")),
+                                ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text("Eliminar"))
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            walletProvider.deleteGoal(goal.id.toString());
+                          }
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FixedExpensesSection extends StatelessWidget {
+  final VoidCallback onAddExpense;
+  final void Function(Subscription) onEditExpense;
+  final void Function(Subscription) onPayExpense;
+  final void Function(bool) onDraggingChanged;
+  final bool isDarkMode;
+
+  const _FixedExpensesSection({
+    required this.onAddExpense,
+    required this.onEditExpense,
+    required this.onPayExpense,
+    required this.onDraggingChanged,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<TransactionProvider>(
+      builder: (context, provider, _) {
+        final subscriptions = provider.subscriptions;
+        double totalFixed =
+            subscriptions.fold(0, (sum, item) => sum + item.amount);
+
+        // Fetch primary currency securely using Selector or brief reading
+        final currencySymbol =
+            Provider.of<WalletProvider>(context, listen: false).accounts.isNotEmpty
+                ? Provider.of<WalletProvider>(context, listen: false).accounts.first.currencySymbol
+                : 'S/';
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Text(
+                    "Gastos Fijos",
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "Total: ${CurrencyFormatter.format(totalFixed, currencySymbol)}",
+                      style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: onAddExpense,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFD500F9),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD500F9).withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            )
+                          ]),
+                      child: const Icon(Icons.add, color: Colors.white, size: 26),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 15),
+            if (subscriptions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Center(
+                    child: Text(
+                      "No tienes gastos fijos registrados.\n¡Agrega uno para empezar!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  proxyDecorator: _proxyDecorator,
+                  onReorderStart: (_) => onDraggingChanged(true),
+                  onReorderEnd: (_) => onDraggingChanged(false),
+                  itemCount: subscriptions.length,
+                  onReorder: (oldIndex, newIndex) {
+                    provider.reorderSubscriptions(oldIndex, newIndex);
+                  },
+                  itemBuilder: (context, index) {
+                    final sub = subscriptions[index];
+                    final account = Provider.of<WalletProvider>(context, listen: false)
                         .accounts
                         .firstWhere((a) => a.id == sub.accountToCharge,
                             orElse: () => const AccountEntity(
@@ -769,50 +853,44 @@ class _WalletPageState extends State<WalletPage> {
                                 colorValue: 0xFF9E9E9E,
                                 iconCode: 0));
 
-                return Container(
-                  key: ValueKey(sub.id),
-                  child: FixedExpenseCard(
-                    subscription: sub,
-                    account: account,
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (ctx) => AddFixedExpenseSheet(subscriptionToEdit: sub),
-                      );
-                    },
-                    onPay: () => _showPaymentDialog(context, sub),
-                    onDelete: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text("¿Eliminar gasto fijo?"),
-                          content: Text(
-                              "¿Ya no pagas ${sub.name}? Esto dejará de notificarte."),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                child: const Text("Cancelar")),
-                            ElevatedButton(
-                                onPressed: () {
-                                  provider
-                                      .removeSubscription(sub.id.toString());
-                                  Navigator.pop(ctx);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red),
-                                child: const Text("Eliminar"))
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
+                    return Container(
+                      key: ValueKey(sub.id),
+                      child: FixedExpenseCard(
+                        subscription: sub,
+                        account: account,
+                        onTap: () => onEditExpense(sub),
+                        onPay: () => onPayExpense(sub),
+                        onDelete: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("¿Eliminar gasto fijo?"),
+                              content: Text(
+                                  "¿Ya no pagas ${sub.name}? Esto dejará de notificarte."),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text("Cancelar")),
+                                ElevatedButton(
+                                    onPressed: () {
+                                      provider.removeSubscription(sub.id.toString());
+                                      Navigator.pop(ctx);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red),
+                                    child: const Text("Eliminar"))
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -7,7 +7,6 @@ import 'package:table_calendar/table_calendar.dart';
 // Providers
 import '../../providers/transaction_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../../providers/ui_provider.dart';
 
 // Entities
 import '../../../domain/entities/transaction_entity.dart';
@@ -26,12 +25,10 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  // Config: Filter Item Structure is now in app_filters.dart
-
   Map<String, dynamic> _selectedFilter = {
     'label': 'Todos',
     'type': 'all'
-  }; // Default
+  };
 
   bool _isCalendarView = false;
   DateTime _focusedDay = DateTime.now();
@@ -41,19 +38,12 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    // Ensure transactions are loaded, though Main layout usually does this.
-    // Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Consume multiple providers using Consumer or individual lookups.
-    // Consumer3 is cleaner but standard Provider.of is fine for clarity too.
-    final transactionProvider = Provider.of<TransactionProvider>(context);
-    final walletProvider = Provider.of<WalletProvider>(context);
-    final uiProvider = Provider.of<UiProvider>(context);
-
-    final isDarkMode = uiProvider.isDarkMode;
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
     final backgroundColor =
         isDarkMode ? const Color(0xFF15202B) : const Color(0xFFF5F7FA);
     final textColor = isDarkMode ? Colors.white : Colors.black;
@@ -91,296 +81,356 @@ class _HistoryPageState extends State<HistoryPage> {
             child: IconButton(
               icon: Icon(Icons.search, color: iconColor, size: 24),
               onPressed: () {
+                final txList = Provider.of<TransactionProvider>(context, listen: false).transactions;
                 showSearch(
                   context: context,
-                  delegate: TransactionSearchDelegate(
-                      transactionProvider.transactions),
+                  delegate: TransactionSearchDelegate(txList),
                 );
               },
             ),
           )
         ],
       ),
-      body: Builder(
-        builder: (context) {
-          if (_isCalendarView) {
-            return _buildCalendarView(transactionProvider, isDarkMode);
-          }
-
-          final grouped = <String, List<TransactionEntity>>{};
-          final now = DateTime.now();
-
-          // Apply Filter
-          var displayedTransactions = transactionProvider.transactions;
-          final type = _selectedFilter['type'];
-          final value = _selectedFilter['value'];
-
-          if (type == 'type') {
-            displayedTransactions =
-                displayedTransactions.where((t) => t.type == value).toList();
-          } else if (type == 'account') {
-            displayedTransactions = displayedTransactions
-                .where((t) => t.accountId == value)
-                .toList();
-          } else if (type == 'category') {
-            displayedTransactions = displayedTransactions
-                .where((t) => t.description == value)
-                .toList();
-          }
-
-          for (var t in displayedTransactions) {
-            String key;
-            final isToday = t.date.year == now.year &&
-                t.date.month == now.month &&
-                t.date.day == now.day;
-            final isYesterday = t.date.year == now.year &&
-                t.date.month == now.month &&
-                t.date.day == now.day - 1;
-
-            if (isToday) {
-              key = 'HOY';
-            } else if (isYesterday) {
-              key = 'AYER';
-            } else {
-              key = DateFormat('MMM d', 'es').format(t.date).toUpperCase();
-            }
-
-            if (!grouped.containsKey(key)) {
-              grouped[key] = [];
-            }
-            grouped[key]!.add(t);
-          }
-
-          // 1. Filtros Horizontales Potenciados
-          final dynamicFilters =
-              AppFilters.getHistoryFilters(walletProvider.accounts);
-
-          return Column(
-            children: [
-              SizedBox(
-                height: 60,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  itemCount: dynamicFilters.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final filter = dynamicFilters[index];
-
-                    // Separator Logic
-                    if (filter['type'] == 'separator') {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 1,
-                        height: 20,
-                        color: isDarkMode ? Colors.white24 : Colors.black12,
-                      );
-                    }
-
-                    final isSelected =
-                        filter['label'] == _selectedFilter['label'];
-                    final color = filter['color'] as Color;
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedFilter = filter;
-                        });
-                      },
-                      child: _buildFilterChip(
-                          filter['label'], isSelected, color, isDarkMode),
-                    );
+      body: _isCalendarView
+          ? _CalendarViewSection(
+              focusedDay: _focusedDay,
+              selectedDay: _selectedDay,
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay;
+                });
+              },
+            )
+          : Column(
+              children: [
+                // --- Static Filters Bar ---
+                _FiltersBar(
+                  selectedFilter: _selectedFilter,
+                  onFilterChanged: (newFilter) {
+                    setState(() {
+                      _selectedFilter = newFilter;
+                    });
                   },
                 ),
+
+                // --- Real Grouped Transactions List ---
+                Expanded(
+                  child: _TransactionListView(selectedFilter: _selectedFilter),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+// --- TOP LEVEL HELPER FOR TRANSACTION DETAILS MODAL ---
+
+void _showTransactionDetails(BuildContext context, TransactionEntity t,
+    WalletProvider walletProvider, bool isDarkMode) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF15202B) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2),
               ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Detalles de Transacción",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black87)),
+                  IconButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                AddTransactionPage(transactionToEdit: t),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit, color: Colors.blueAccent))
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: t.amount > 0
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.redAccent.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            t.amount > 0
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward,
+                            size: 40,
+                            color: t.amount > 0
+                                ? Colors.green
+                                : Colors.redAccent,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "${walletProvider.currencySymbol} ${t.amount.abs().toStringAsFixed(2)}",
+                          style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color:
+                                  isDarkMode ? Colors.white : Colors.black87),
+                        ),
+                        Text(
+                          t.description,
+                          style: TextStyle(
+                              fontSize: 16,
+                              color: isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  _DetailRowWidget(
+                      icon: Icons.calendar_today,
+                      label: "Fecha",
+                      value: DateFormat('d MMM y, h:mm a').format(t.date),
+                      isDarkMode: isDarkMode),
+                  _DetailRowWidget(
+                      icon: Icons.account_balance,
+                      label: "Cuenta",
+                      value: walletProvider.getAccountName(t.accountId),
+                      isDarkMode: isDarkMode),
+                  _DetailRowWidget(
+                      icon: Icons.category,
+                      label: "Categoría",
+                      value: t.description,
+                      isDarkMode: isDarkMode),
+                  if (t.note != null && t.note!.isNotEmpty)
+                    _DetailRowWidget(
+                        icon: Icons.notes,
+                        label: "Nota",
+                        value: t.note!,
+                        isDarkMode: isDarkMode),
 
-              // 2. Lista Agrupada Real
-              Expanded(
-                child: grouped.isEmpty
-                    ? Center(
-                        child: Text("No hay transacciones",
-                            style: TextStyle(color: Colors.grey[600])))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(
-                            left: 16, right: 16, top: 10, bottom: 24),
-                        itemCount: grouped.keys.length,
-                        itemBuilder: (context, index) {
-                          final key = grouped.keys.elementAt(index);
-                          final transactions = grouped[key]!;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSectionHeader(key),
-                              ...transactions.map((t) => Dismissible(
-                                    key: Key(t.id.toString()),
-                                    direction: DismissDirection.endToStart,
-                                    background: Container(
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 20),
-                                      color: Colors.redAccent,
-                                      child: const Icon(Icons.delete,
-                                          color: Colors.white),
-                                    ),
-                                    onDismissed: (direction) async {
-                                      final deletedTransaction = t;
-                                      if (t.id != null) {
-                                        // Delete from Transaction Provider
-                                        await transactionProvider
-                                            .deleteTransaction(t.id!);
-                                        // Update Wallet Balance
-                                        await walletProvider.loadWalletData();
-
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .clearSnackBars();
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(SnackBar(
-                                            content: const Text(
-                                                'Transacción eliminada'),
-                                            action: SnackBarAction(
-                                                label: 'DESHACER',
-                                                textColor: Colors.cyanAccent,
-                                                onPressed: () async {
-                                                  // Undo: Add back and refresh wallet
-                                                  await transactionProvider
-                                                      .addTransaction(
-                                                          deletedTransaction);
-                                                  await walletProvider
-                                                      .loadWalletData();
-                                                }),
-                                            duration:
-                                                const Duration(seconds: 4),
-                                          ));
-                                        }
-                                      }
-                                    },
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        _showTransactionDetails(context, t,
-                                            walletProvider, isDarkMode);
-                                      },
-                                      child: Builder(builder: (context) {
-                                        // Forced Visual Fix for legacy data
-                                        bool isTransfer = t.type ==
-                                                TransactionType.transfer ||
-                                            t.description
-                                                .toLowerCase()
-                                                .contains('transferencia');
-
-                                        String title = t.description;
-                                        String subtitle =
-                                            DateFormat('h:mm a').format(t.date);
-
-                                        // Amount & Color Formatting
-                                        bool isIncome = t.amount > 0;
-                                        String symbol = walletProvider.accounts
-                                                .where(
-                                                    (a) => a.id == t.accountId)
-                                                .firstOrNull
-                                                ?.currencySymbol ??
-                                            walletProvider.currencySymbol;
-
-                                        final account = walletProvider.accounts
-                                            .where((a) => a.id == t.accountId)
-                                            .firstOrNull;
-
-                                        Color accountColor = account != null
-                                            ? Color(account.colorValue)
-                                            : Colors.grey;
-                                        String accountName = account?.name ??
-                                            'Cuenta Desconocida';
-                                        IconData accountIcon = account != null
-                                            ? account.displayIcon
-                                            : Icons.account_balance_wallet;
-
-
-                                        String amount;
-                                        Color color;
-                                        IconData icon;
-
-                                        if (isTransfer) {
-                                          final source = walletProvider
-                                              .getAccountName(t.accountId);
-                                          final dest = t.destinationAccountId !=
-                                                  null
-                                              ? walletProvider.getAccountName(
-                                                  t.destinationAccountId!)
-                                              : 'Destino';
-
-                                          title = t.description.isNotEmpty
-                                              ? t.description
-                                              : "Transferencia";
-                                          subtitle =
-                                              "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
-
-                                          amount = "⇄ ${CurrencyFormatter.format(t.amount.abs(), symbol)}";
-                                          color = isDarkMode
-                                              ? Colors.white70
-                                              : const Color(0xFF64B5F6);
-                                          icon = Icons.swap_horiz;
-                                        } else {
-                                            amount = CurrencyFormatter.formatWithSign(t.amount, symbol);
-
-                                          color = isIncome
-                                              ? (isDarkMode
-                                                  ? Colors.greenAccent
-                                                  : Colors.green)
-                                              : Colors.redAccent;
-
-                                          if (t.colorValue != null) {
-                                            color = Color(t.colorValue!);
-                                          }
-
-                                          icon = AppCategories.getIcon(t.categoryId);
-                                          
-                                          if (t.iconCode != null) {
-                                            icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');
-                                          }
-
-                                          if (t.note != null &&
-                                              t.note!.isNotEmpty) {
-                                            subtitle += " • ${t.note!}";
-                                          } else {
-                                            subtitle +=
-                                                " • ${isIncome ? 'Ingreso' : 'Gasto'}";
-                                          }
-                                        }
-
-                                        return _buildTransactionItem(
-                                            title: title,
-                                            subtitle: subtitle,
-                                            amount: amount,
-                                            accountName: accountName,
-                                            accountColor: accountColor,
-                                            icon: icon,
-                                            color: color,
-                                            isIncome: isIncome,
-                                            type: isTransfer
-                                                ? TransactionType.transfer
-                                                : t.type,
-                                            isDarkMode: isDarkMode,
-                                            accountIcon: accountIcon);
-                                      }),
-                                    ),
-                                  ))
-                            ],
-                          );
-                        },
+                  if (t.imagePath != null &&
+                      File(t.imagePath!).existsSync()) ...[
+                    const SizedBox(height: 20),
+                    const Text("Adjunto",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        File(t.imagePath!),
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
-              )
-            ],
-          );
-        },
+                    )
+                  ]
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(
+                            color: Colors.redAccent.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.swipe,
+                                      color: Colors.orangeAccent, size: 20),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                      child: Text(
+                                          "Desliza en la lista para eliminar")),
+                                ],
+                              )));
+                    },
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    label: const Text("Eliminar Transacción",
+                        style: TextStyle(color: Colors.redAccent))),
+              ),
+            )
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _DetailRowWidget extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isDarkMode;
+
+  const _DetailRowWidget({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDarkMode ? Colors.white10 : Colors.grey[100],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon,
+                size: 20,
+                color: isDarkMode ? Colors.white70 : Colors.grey[700]),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color:
+                            isDarkMode ? Colors.grey[400] : Colors.grey[600])),
+                const SizedBox(height: 2),
+                Text(value,
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: isDarkMode ? Colors.white : Colors.black87)),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
+}
 
-  Widget _buildFilterChip(
-      String label, bool isSelected, Color activeColor, bool isDarkMode,
-      {IconData? icon}) {
+// --- DECOMPOSED WIDGETS WITH CONST CONSTRUCTORS ---
+
+class _FiltersBar extends StatelessWidget {
+  final Map<String, dynamic> selectedFilter;
+  final ValueChanged<Map<String, dynamic>> onFilterChanged;
+
+  const _FiltersBar({
+    required this.selectedFilter,
+    required this.onFilterChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Consumer<WalletProvider>(
+      builder: (context, walletProvider, _) {
+        final dynamicFilters =
+            AppFilters.getHistoryFilters(walletProvider.accounts);
+
+        return SizedBox(
+          height: 60,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            itemCount: dynamicFilters.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final filter = dynamicFilters[index];
+
+              if (filter['type'] == 'separator') {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 1,
+                  height: 20,
+                  color: isDarkMode ? Colors.white24 : Colors.black12,
+                );
+              }
+
+              final isSelected = filter['label'] == selectedFilter['label'];
+              final color = filter['color'] as Color;
+
+              return GestureDetector(
+                onTap: () => onFilterChanged(filter),
+                child: _FilterChipWidget(
+                  label: filter['label'],
+                  isSelected: isSelected,
+                  activeColor: color,
+                  isDarkMode: isDarkMode,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FilterChipWidget extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final Color activeColor;
+  final bool isDarkMode;
+
+  const _FilterChipWidget({
+    required this.label,
+    required this.isSelected,
+    required this.activeColor,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -400,7 +450,6 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       child: Row(
         children: [
-          // Filter Label
           Text(
             label,
             style: TextStyle(
@@ -413,44 +462,251 @@ class _HistoryPageState extends State<HistoryPage> {
           if (isSelected) ...[
             const SizedBox(width: 4),
             const Icon(Icons.check, color: Colors.white, size: 16)
-          ] else if (icon != null) ...[
-            const SizedBox(width: 4),
-            Icon(icon,
-                color: isDarkMode ? Colors.white70 : Colors.black54, size: 16)
           ]
         ],
       ),
     );
   }
+}
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Text(
-        title,
-        style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2),
+class _TransactionListView extends StatelessWidget {
+  final Map<String, dynamic> selectedFilter;
+
+  const _TransactionListView({required this.selectedFilter});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    return Consumer2<TransactionProvider, WalletProvider>(
+      builder: (context, transactionProvider, walletProvider, _) {
+        final grouped = <String, List<TransactionEntity>>{};
+        final now = DateTime.now();
+
+        var displayedTransactions = transactionProvider.transactions;
+        final type = selectedFilter['type'];
+        final value = selectedFilter['value'];
+
+        if (type == 'type') {
+          displayedTransactions =
+              displayedTransactions.where((t) => t.type == value).toList();
+        } else if (type == 'account') {
+          displayedTransactions = displayedTransactions
+              .where((t) => t.accountId == value)
+              .toList();
+        } else if (type == 'category') {
+          displayedTransactions = displayedTransactions
+              .where((t) => t.description == value)
+              .toList();
+        }
+
+        for (var t in displayedTransactions) {
+          String key;
+          final isToday = t.date.year == now.year &&
+              t.date.month == now.month &&
+              t.date.day == now.day;
+          final isYesterday = t.date.year == now.year &&
+              t.date.month == now.month &&
+              t.date.day == now.day - 1;
+
+          if (isToday) {
+            key = 'HOY';
+          } else if (isYesterday) {
+            key = 'AYER';
+          } else {
+            key = DateFormat('MMM d', 'es').format(t.date).toUpperCase();
+          }
+
+          if (!grouped.containsKey(key)) {
+            grouped[key] = [];
+          }
+          grouped[key]!.add(t);
+        }
+
+        if (grouped.isEmpty) {
+          return Center(
+            child: Text("No hay transacciones",
+                style: TextStyle(color: Colors.grey[600])),
+          );
+        }
+
+        return ListView.builder(
+          padding:
+              const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 24),
+          itemCount: grouped.keys.length,
+          itemBuilder: (context, index) {
+            final key = grouped.keys.elementAt(index);
+            final transactions = grouped[key]!;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    key,
+                    style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2),
+                  ),
+                ),
+                ...transactions.map((t) => _DismissibleTransactionCard(
+                      transaction: t,
+                      walletProvider: walletProvider,
+                      transactionProvider: transactionProvider,
+                      isDarkMode: isDarkMode,
+                    )),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _DismissibleTransactionCard extends StatelessWidget {
+  final TransactionEntity transaction;
+  final WalletProvider walletProvider;
+  final TransactionProvider transactionProvider;
+  final bool isDarkMode;
+
+  const _DismissibleTransactionCard({
+    required this.transaction,
+    required this.walletProvider,
+    required this.transactionProvider,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: Key(transaction.id.toString()),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Colors.redAccent,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) async {
+        final deletedTransaction = transaction;
+        if (transaction.id != null) {
+          await transactionProvider.deleteTransaction(transaction.id!);
+          await walletProvider.loadWalletData();
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text('Transacción eliminada'),
+              action: SnackBarAction(
+                  label: 'DESHACER',
+                  textColor: Colors.cyanAccent,
+                  onPressed: () async {
+                    await transactionProvider
+                        .addTransaction(deletedTransaction);
+                    await walletProvider.loadWalletData();
+                  }),
+              duration: const Duration(seconds: 4),
+            ));
+          }
+        }
+      },
+      child: GestureDetector(
+        onTap: () {
+          _showTransactionDetails(
+              context, transaction, walletProvider, isDarkMode);
+        },
+        child: _TransactionItemCard(
+          transaction: transaction,
+          walletProvider: walletProvider,
+          isDarkMode: isDarkMode,
+        ),
       ),
     );
   }
+}
 
-  Widget _buildTransactionItem({
-    required String title,
-    required String subtitle,
-    required String amount,
-    required String accountName,
-    required Color accountColor,
-    required IconData icon,
-    required Color color,
-    required bool isIncome,
-    required bool isDarkMode,
-    IconData? accountIcon,
-    bool hasAttachment = false,
-    TransactionType type = TransactionType.expense,
-  }) {
+class _TransactionItemCard extends StatelessWidget {
+  final TransactionEntity transaction;
+  final WalletProvider walletProvider;
+  final bool isDarkMode;
+
+  const _TransactionItemCard({
+    required this.transaction,
+    required this.walletProvider,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = transaction;
+    bool isTransfer = t.type == TransactionType.transfer ||
+        t.description.toLowerCase().contains('transferencia');
+
+    String title = t.description;
+    String subtitle = DateFormat('h:mm a').format(t.date);
+
+    bool isIncome = t.amount > 0;
+    String symbol = walletProvider.accounts
+            .where((a) => a.id == t.accountId)
+            .firstOrNull
+            ?.currencySymbol ??
+        walletProvider.currencySymbol;
+
+    final account = walletProvider.accounts
+        .where((a) => a.id == t.accountId)
+        .firstOrNull;
+
+    Color accountColor =
+        account != null ? Color(account.colorValue) : Colors.grey;
+    String accountName = account?.name ?? 'Cuenta Desconocida';
+    IconData accountIcon = account != null
+        ? account.displayIcon
+        : Icons.account_balance_wallet;
+
+    String amount;
+    Color color;
+    IconData icon;
+
+    if (isTransfer) {
+      final source = walletProvider.getAccountName(t.accountId);
+      final dest = t.destinationAccountId != null
+          ? walletProvider.getAccountName(t.destinationAccountId!)
+          : 'Destino';
+
+      title = t.description.isNotEmpty ? t.description : "Transferencia";
+      subtitle = "${DateFormat('h:mm a').format(t.date)} • $source ➔ $dest";
+
+      amount = "⇄ ${CurrencyFormatter.format(t.amount.abs(), symbol)}";
+      color = isDarkMode ? Colors.white70 : const Color(0xFF64B5F6);
+      icon = Icons.swap_horiz;
+    } else {
+      amount = CurrencyFormatter.formatWithSign(t.amount, symbol);
+
+      color = isIncome
+          ? (isDarkMode ? Colors.greenAccent : Colors.green)
+          : Colors.redAccent;
+
+      if (t.colorValue != null) {
+        color = Color(t.colorValue!);
+      }
+
+      icon = AppCategories.getIcon(t.categoryId);
+
+      if (t.iconCode != null) {
+        icon = IconData(t.iconCode!, fontFamily: 'MaterialIcons');
+      }
+
+      if (t.note != null && t.note!.isNotEmpty) {
+        subtitle += " • ${t.note!}";
+      } else {
+        subtitle += " • ${isIncome ? 'Ingreso' : 'Gasto'}";
+      }
+    }
+
     final cardColor = isDarkMode ? const Color(0xFF1F2937) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
     final subTextColor = isDarkMode ? Colors.blueGrey[200] : Colors.grey[600];
@@ -472,31 +728,31 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       child: Row(
         children: [
-          // Leading Icon
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: type == TransactionType.expense 
-                  ? Colors.redAccent.withValues(alpha: 0.15) 
+              color: (isTransfer ? TransactionType.transfer : t.type) ==
+                      TransactionType.expense
+                  ? Colors.redAccent.withValues(alpha: 0.15)
                   : color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: type == TransactionType.expense
+                color: (isTransfer ? TransactionType.transfer : t.type) ==
+                        TransactionType.expense
                     ? Colors.redAccent.withValues(alpha: 0.1)
                     : color.withValues(alpha: 0.1),
               ),
             ),
             child: Icon(
-              icon, 
-              color: type == TransactionType.expense 
-                  ? Colors.redAccent 
-                  : color, 
+              icon,
+              color: (isTransfer ? TransactionType.transfer : t.type) ==
+                      TransactionType.expense
+                  ? Colors.redAccent
+                  : color,
               size: 24,
             ),
           ),
           const SizedBox(width: 16),
-
-          // Title & Subtitle
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,15 +774,13 @@ class _HistoryPageState extends State<HistoryPage> {
               ],
             ),
           ),
-
-          // Amount & Payment Method
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (hasAttachment)
+                  if (t.imagePath != null && t.imagePath!.isNotEmpty)
                     const Padding(
                         padding: EdgeInsets.only(right: 6),
                         child: Icon(Icons.attach_file,
@@ -534,14 +788,16 @@ class _HistoryPageState extends State<HistoryPage> {
                   Text(
                     amount,
                     style: TextStyle(
-                        color: type == TransactionType.expense ? Colors.redAccent : color,
+                        color: (isTransfer ? TransactionType.transfer : t.type) ==
+                                TransactionType.expense
+                            ? Colors.redAccent
+                            : color,
                         fontWeight: FontWeight.bold,
                         fontSize: 15),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
-              // Account Badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -552,12 +808,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      accountIcon ??
-                          (accountName == "Bancaria"
-                              ? Icons.credit_card
-                              : (accountName == "Ahorros"
-                                  ? Icons.savings
-                                  : Icons.payments)),
+                      accountIcon,
                       size: 10,
                       color: accountColor,
                     ),
@@ -578,180 +829,211 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
     );
   }
+}
 
-  Widget _buildCalendarView(TransactionProvider provider, bool isDarkMode) {
+class _CalendarViewSection extends StatelessWidget {
+  final DateTime focusedDay;
+  final DateTime? selectedDay;
+  final void Function(DateTime, DateTime) onDaySelected;
+
+  const _CalendarViewSection({
+    required this.focusedDay,
+    required this.selectedDay,
+    required this.onDaySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkMode ? Colors.white : Colors.black;
-    // Calendar Text Styles need adaption
-    return Column(
-      children: [
-        TableCalendar(
-          locale: 'es_ES',
-          firstDay: DateTime.utc(2020, 1, 1),
-          lastDay: DateTime.utc(2030, 12, 31),
-          focusedDay: _focusedDay,
-          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-          onDaySelected: (selectedDay, focusedDay) {
-            setState(() {
-              _selectedDay = selectedDay;
-              _focusedDay = focusedDay;
-            });
-          },
-          eventLoader: (day) {
-            // Para los puntos del calendario, usamos la lista en memoria (sincrona)
-            // Esto es necesario porque TableCalendar no soporta eventLoader asíncrono.
-            return provider.transactions.where((t) => 
-              t.date.year == day.year && 
-              t.date.month == day.month && 
-              t.date.day == day.day
-            ).toList();
-          },
-          calendarStyle: CalendarStyle(
-            defaultTextStyle: TextStyle(color: textColor),
-            weekendTextStyle:
-                TextStyle(color: isDarkMode ? Colors.white70 : Colors.black54),
-            outsideTextStyle:
-                TextStyle(color: isDarkMode ? Colors.white24 : Colors.black26),
-            todayDecoration: BoxDecoration(
-              color: isDarkMode
-                  ? Colors.white.withValues(alpha: 0.1)
-                  : Colors.black.withValues(alpha: 0.05),
-              shape: BoxShape.circle,
-            ),
-            selectedDecoration: const BoxDecoration(
-              color: Color(0xFF64B5F6),
-              shape: BoxShape.circle,
-            ),
-            markerDecoration: const BoxDecoration(
-              color: Colors.redAccent,
-              shape: BoxShape.circle,
-            ),
-          ),
-          headerStyle: HeaderStyle(
-            titleCentered: true,
-            formatButtonVisible: false,
-            titleTextStyle: TextStyle(
-                color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
-            leftChevronIcon: Icon(Icons.chevron_left, color: textColor),
-            rightChevronIcon: Icon(Icons.chevron_right, color: textColor),
-          ),
-          calendarBuilders: CalendarBuilders(
-            markerBuilder: (context, date, events) {
-              if (events.isEmpty) return null;
-              final hasExpense = (events as List<TransactionEntity>)
-                  .any((t) => t.amount < 0 && t.amount.abs() > 50);
-              // Simple Dot
-              return Positioned(
-                bottom: 1,
-                child: Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: hasExpense ? Colors.redAccent : Colors.greenAccent,
-                    shape: BoxShape.circle,
-                  ),
+
+    return Consumer<TransactionProvider>(
+      builder: (context, provider, _) {
+        return Column(
+          children: [
+            TableCalendar(
+              locale: 'es_ES',
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: focusedDay,
+              selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+              onDaySelected: onDaySelected,
+              eventLoader: (day) {
+                return provider.transactions
+                    .where((t) =>
+                        t.date.year == day.year &&
+                        t.date.month == day.month &&
+                        t.date.day == day.day)
+                    .toList();
+              },
+              calendarStyle: CalendarStyle(
+                defaultTextStyle: TextStyle(color: textColor),
+                weekendTextStyle: TextStyle(
+                    color: isDarkMode ? Colors.white70 : Colors.black54),
+                outsideTextStyle: TextStyle(
+                    color: isDarkMode ? Colors.white24 : Colors.black26),
+                todayDecoration: BoxDecoration(
+                  color: isDarkMode
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
                 ),
-              );
-            },
-          ),
-        ),
-        Divider(color: isDarkMode ? Colors.white24 : Colors.black12),
-        // Day Details
-        Expanded(
-          child: _selectedDay == null
-              ? const Center(
-                  child: Text("Selecciona un día",
-                      style: TextStyle(color: Colors.grey)))
-              : FutureBuilder<List<TransactionEntity>>(
-                  future: provider.getTransactionsForDay(_selectedDay!),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    
-                    final dayTransactions = snapshot.data ?? [];
-                    
-                    if (dayTransactions.isEmpty) {
-                      return Center(
-                          child: Text(
-                              "Sin movimientos el ${DateFormat('d MMM', 'es').format(_selectedDay!)}",
-                              style: const TextStyle(color: Colors.grey)));
-                    }
-                    return ListView(
-                      padding: const EdgeInsets.only(
-                          left: 16, right: 16, top: 16, bottom: 100),
-                      children: dayTransactions.map((t) {
-                        return Dismissible(
-                          key: Key(t.id.toString()),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            color: Colors.redAccent,
-                            child: const Icon(Icons.delete, color: Colors.white),
-                          ),
-                          onDismissed: (direction) async {
-                            if (t.id != null) {
-                              final deletedTransaction = t;
-                              await provider.deleteTransaction(t.id!);
-                              if (context.mounted) {
-                                Provider.of<WalletProvider>(context,
-                                        listen: false)
-                                    .loadWalletData();
-    
-                                ScaffoldMessenger.of(context).clearSnackBars();
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(SnackBar(
-                                  content: const Text('Transacción eliminada'),
-                                  action: SnackBarAction(
-                                      label: 'DESHACER',
-                                      textColor: Colors.cyanAccent,
-                                      onPressed: () async {
-                                        await provider
-                                            .addTransaction(deletedTransaction);
-                                        if (context.mounted) {
-                                          Provider.of<WalletProvider>(context,
-                                                  listen: false)
-                                              .loadWalletData();
-                                        }
-                                      }),
-                                  duration: const Duration(seconds: 4),
-                                ));
-                              }
-                            }
-                          },
-                          child: GestureDetector(
-                            onTap: () {
-                              _showTransactionDetails(
-                                  context,
-                                  t,
-                                  Provider.of<WalletProvider>(context,
-                                      listen: false),
-                                  isDarkMode);
-                            },
-                            child: _buildTransactionTileForCalendar(t, isDarkMode,
-                                context),
-                          ),
+                selectedDecoration: const BoxDecoration(
+                  color: Color(0xFF64B5F6),
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: const BoxDecoration(
+                  color: Colors.redAccent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              headerStyle: HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                titleTextStyle: TextStyle(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+                leftChevronIcon: Icon(Icons.chevron_left, color: textColor),
+                rightChevronIcon: Icon(Icons.chevron_right, color: textColor),
+              ),
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, date, events) {
+                  if (events.isEmpty) return null;
+                  final hasExpense = (events as List<TransactionEntity>)
+                      .any((t) => t.amount < 0 && t.amount.abs() > 50);
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: hasExpense
+                            ? Colors.redAccent
+                            : Colors.greenAccent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            Divider(color: isDarkMode ? Colors.white24 : Colors.black12),
+            Expanded(
+              child: selectedDay == null
+                  ? const Center(
+                      child: Text("Selecciona un día",
+                          style: TextStyle(color: Colors.grey)))
+                  : FutureBuilder<List<TransactionEntity>>(
+                      future: provider.getTransactionsForDay(selectedDay!),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+
+                        final dayTransactions = snapshot.data ?? [];
+
+                        if (dayTransactions.isEmpty) {
+                          return Center(
+                              child: Text(
+                                  "Sin movimientos el ${DateFormat('d MMM', 'es').format(selectedDay!)}",
+                                  style: const TextStyle(color: Colors.grey)));
+                        }
+                        return ListView(
+                          padding: const EdgeInsets.only(
+                              left: 16, right: 16, top: 16, bottom: 100),
+                          children: dayTransactions.map((t) {
+                            return Dismissible(
+                              key: Key(t.id.toString()),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                color: Colors.redAccent,
+                                child: const Icon(Icons.delete,
+                                    color: Colors.white),
+                              ),
+                              onDismissed: (direction) async {
+                                if (t.id != null) {
+                                  final deletedTransaction = t;
+                                  await provider.deleteTransaction(t.id!);
+                                  if (context.mounted) {
+                                    Provider.of<WalletProvider>(context,
+                                            listen: false)
+                                        .loadWalletData();
+
+                                    ScaffoldMessenger.of(context)
+                                        .clearSnackBars();
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(SnackBar(
+                                      content: const Text(
+                                          'Transacción eliminada'),
+                                      action: SnackBarAction(
+                                          label: 'DESHACER',
+                                          textColor: Colors.cyanAccent,
+                                          onPressed: () async {
+                                            await provider.addTransaction(
+                                                deletedTransaction);
+                                            if (context.mounted) {
+                                              Provider.of<WalletProvider>(
+                                                      context,
+                                                      listen: false)
+                                                  .loadWalletData();
+                                            }
+                                          }),
+                                      duration: const Duration(seconds: 4),
+                                    ));
+                                  }
+                                }
+                              },
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showTransactionDetails(
+                                      context,
+                                      t,
+                                      Provider.of<WalletProvider>(context,
+                                          listen: false),
+                                      isDarkMode);
+                                },
+                                child: _CalendarTransactionTile(
+                                  transaction: t,
+                                  isDarkMode: isDarkMode,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         );
-                      }).toList(),
-                    );
-                  }),
-        ),
-      ],
+                      }),
+            ),
+          ],
+        );
+      },
     );
   }
+}
 
-  // Optimized Tile for Calendar reuse
-  Widget _buildTransactionTileForCalendar(
-      TransactionEntity t, bool isDarkMode, BuildContext context) {
-    final walletProvider = Provider.of<WalletProvider>(context,
-        listen: false); // Listen false is safe here for building logic
+class _CalendarTransactionTile extends StatelessWidget {
+  final TransactionEntity transaction;
+  final bool isDarkMode;
+
+  const _CalendarTransactionTile({
+    required this.transaction,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = transaction;
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
     bool isTransfer = t.type == TransactionType.transfer ||
         t.description.toLowerCase().contains('transferencia');
     String title = t.description;
     String subtitle = DateFormat('h:mm a').format(t.date);
     bool isIncome = t.amount > 0;
-    String symbol = walletProvider
-        .currencySymbol; // Símbolo genérico para calendario para simplificar
+    String symbol = walletProvider.currencySymbol;
 
     String amountString = CurrencyFormatter.formatWithSign(t.amount, symbol);
     Color color = isIncome
@@ -794,217 +1076,5 @@ class _HistoryPageState extends State<HistoryPage> {
           Text(amountString,
               style: TextStyle(color: color, fontWeight: FontWeight.bold))
         ]));
-  }
-
-  void _showTransactionDetails(BuildContext context, TransactionEntity t,
-      WalletProvider walletProvider, bool isDarkMode) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF15202B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Detalles de Transacción",
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode ? Colors.white : Colors.black87)),
-                    IconButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AddTransactionPage(transactionToEdit: t),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.edit, color: Colors.blueAccent))
-                  ],
-                ),
-              ),
-              const Divider(),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    // Amount Hero
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: t.amount > 0
-                                  ? Colors.green.withValues(alpha: 0.1)
-                                  : Colors.redAccent.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              t.amount > 0
-                                  ? Icons.arrow_upward
-                                  : Icons.arrow_downward,
-                              size: 40,
-                              color: t.amount > 0
-                                  ? Colors.green
-                                  : Colors.redAccent,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "${walletProvider.currencySymbol} ${t.amount.abs().toStringAsFixed(2)}",
-                            style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black87),
-                          ),
-                          Text(
-                            t.description,
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: isDarkMode
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    // Details Grid
-                    _buildDetailRow(
-                        Icons.calendar_today,
-                        "Fecha",
-                        DateFormat('d MMM y, h:mm a').format(t.date),
-                        isDarkMode),
-                    _buildDetailRow(Icons.account_balance, "Cuenta",
-                        walletProvider.getAccountName(t.accountId), isDarkMode),
-                    _buildDetailRow(
-                        Icons.category,
-                        "Categoría",
-                        t.description, // Often the description is the category name in this simple app
-                        isDarkMode),
-                    if (t.note != null && t.note!.isNotEmpty)
-                      _buildDetailRow(Icons.notes, "Nota", t.note!, isDarkMode),
-
-                    if (t.imagePath != null &&
-                        File(t.imagePath!).existsSync()) ...[
-                      const SizedBox(height: 20),
-                      const Text("Adjunto",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(t.imagePath!),
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    ]
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide(
-                              color: Colors.redAccent.withValues(alpha: 0.5)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16))),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // Trigger delete from here if desired, or let the list handle it.
-                        // For now, let's keep deletion on the list slide action.
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.swipe, color: Colors.orangeAccent, size: 20),
-                                    SizedBox(width: 8),
-                                    Expanded(child: Text("Desliza en la lista para eliminar")),
-                                  ],
-                                )));
-                      },
-                      icon: const Icon(Icons.delete_outline,
-                          color: Colors.redAccent),
-                      label: const Text("Eliminar Transacción",
-                          style: TextStyle(color: Colors.redAccent))),
-                ),
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(
-      IconData icon, String label, String value, bool isDarkMode) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.white10 : Colors.grey[100],
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon,
-                size: 20,
-                color: isDarkMode ? Colors.white70 : Colors.grey[700]),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color:
-                            isDarkMode ? Colors.grey[400] : Colors.grey[600])),
-                const SizedBox(height: 2),
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: isDarkMode ? Colors.white : Colors.black87)),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
   }
 }
