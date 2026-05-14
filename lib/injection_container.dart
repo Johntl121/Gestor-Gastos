@@ -76,7 +76,7 @@ Future<void> init() async {
   //! Proveedores (Refactored)
 
   // 1. UI Provider
-  sl.registerLazySingleton(() => UiProvider());
+  sl.registerLazySingleton(() => UiProvider(localDataSource: sl()));
 
   // 2. Wallet Provider
   sl.registerLazySingleton(
@@ -100,6 +100,7 @@ Future<void> init() async {
       updateTransactionUseCase: sl(),
       deleteTransactionUseCase: sl(),
       getTransactionsByDateRange: sl(),
+      localDataSource: sl(),
     ),
   );
 
@@ -108,6 +109,7 @@ Future<void> init() async {
     () => StatsProvider(
       getBudgetMood: sl(),
       getTransactionsByDateRange: sl(),
+      localDataSource: sl(),
     ),
   );
 }

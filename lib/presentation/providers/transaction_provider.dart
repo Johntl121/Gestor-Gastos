@@ -6,7 +6,6 @@ import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/delete_transaction_usecase.dart';
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/update_transaction_usecase.dart';
-import '../../injection_container.dart';
 import '../../data/repositories/transaction_data_source.dart';
 import '../../core/services/notification_service.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
@@ -20,6 +19,7 @@ class TransactionProvider extends ChangeNotifier {
   final UpdateTransactionUseCase updateTransactionUseCase;
   final DeleteTransactionUseCase deleteTransactionUseCase;
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
+  final TransactionLocalDataSource localDataSource;
 
   TransactionProvider({
     required this.getTransactionsUseCase,
@@ -27,6 +27,7 @@ class TransactionProvider extends ChangeNotifier {
     required this.updateTransactionUseCase,
     required this.deleteTransactionUseCase,
     required this.getTransactionsByDateRange,
+    required this.localDataSource,
   }) {
     loadTransactions();
   }
@@ -59,10 +60,10 @@ class TransactionProvider extends ChangeNotifier {
     );
 
     // Migrar datos de SharedPreferences a SQLite si existen
-    await sl<TransactionLocalDataSource>().migrateDataFromPrefsToSql();
+    await localDataSource.migrateDataFromPrefsToSql();
     await _loadSubscriptions();
 
-    // Validar status (revisar si ya se pagó este ciclo)
+    // Validar status (revisar si ya se pagó este ciclo) con optimización O(N+M)
     _checkSubscriptionStatuses();
 
     _isLoading = false;
@@ -78,8 +79,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> _loadSubscriptions() async {
     try {
-      _subscriptions =
-          await sl<TransactionLocalDataSource>().getSubscriptions();
+      _subscriptions = await localDataSource.getSubscriptions();
     } catch (e) {
       debugPrint("Sub load error: $e");
     }
@@ -87,54 +87,46 @@ class TransactionProvider extends ChangeNotifier {
 
   void _checkSubscriptionStatuses() {
     bool changed = false;
+    final now = DateTime.now();
 
-    for (int i = 0; i < _subscriptions.length; i++) {
-      final sub = _subscriptions[i];
-      // Definimos la ventana de pago:
-      // Mensual: Desde el comienzo del mes de la dueDate hasta la dueDate.
-      // Anual: Desde el comienzo del año de la dueDate (o mes anterior?) -> Simplifiquemos a "Este mes/año".
+    // Set para suscripciones mensuales pagadas en el mes/año actual
+    final Set<String> paidMonthlyNames = {};
+    // Set para suscripciones anuales pagadas en el año actual
+    final Set<String> paidYearlyNames = {};
 
-      bool foundPayment = false;
-
-      // Buscamos una transacción que coincida
-      // Criterio: Misma descripción (nombre) y dentro del mes/año actual.
-      final now = DateTime.now();
-
-      for (var tx in _transactions) {
-        if (tx.type == TransactionType.expense && tx.description == sub.name) {
-          if (sub.frequency == ExpenseFrequency.monthly) {
-            // Para mensual: Debe ser del mismo MES y AÑO actual
-            if (tx.date.month == now.month && tx.date.year == now.year) {
-              foundPayment = true;
-              break;
-            }
-          } else {
-            // Para anual: Debe ser del mismo AÑO actual
-            if (tx.date.year == now.year) {
-              foundPayment = true;
-              break;
-            }
+    // Escaneo O(N) único sobre las transacciones
+    for (var tx in _transactions) {
+      if (tx.type == TransactionType.expense) {
+        if (tx.date.year == now.year) {
+          paidYearlyNames.add(tx.description);
+          if (tx.date.month == now.month) {
+            paidMonthlyNames.add(tx.description);
           }
         }
       }
+    }
 
-      if (sub.isPaid != foundPayment) {
-        // Actualizamos solo si cambió
-        _subscriptions[i] = sub.copyWith(isPaid: foundPayment);
+    // Escaneo O(M) sobre las suscripciones
+    for (int i = 0; i < _subscriptions.length; i++) {
+      final sub = _subscriptions[i];
+      final bool isPaid = sub.frequency == ExpenseFrequency.monthly
+          ? paidMonthlyNames.contains(sub.name)
+          : paidYearlyNames.contains(sub.name);
+
+      if (sub.isPaid != isPaid) {
+        _subscriptions[i] = sub.copyWith(isPaid: isPaid);
         changed = true;
       }
     }
 
     if (changed) {
-      // Guardamos el estado actualizado en SQLite
       _saveAllSubscriptionsToDb();
     }
   }
 
   Future<void> _saveAllSubscriptionsToDb() async {
-    final ds = sl<TransactionLocalDataSource>();
     for (var sub in _subscriptions) {
-      await ds.saveSubscription(sub);
+      await localDataSource.saveSubscription(sub);
     }
   }
 
@@ -218,7 +210,7 @@ class TransactionProvider extends ChangeNotifier {
       _subscriptions.add(subscription);
     }
     notifyListeners();
-    await sl<TransactionLocalDataSource>().saveSubscription(subscription);
+    await localDataSource.saveSubscription(subscription);
 
     // Schedule notification based on frequency
     if (subscription.frequency == ExpenseFrequency.monthly) {
@@ -244,7 +236,7 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
-    await sl<TransactionLocalDataSource>().deleteSubscription(id);
+    await localDataSource.deleteSubscription(id);
     await NotificationService().cancelNotification(id.hashCode);
   }
 
@@ -271,7 +263,7 @@ class TransactionProvider extends ChangeNotifier {
       final updatedSub = subscription.copyWith(isPaid: true);
       _subscriptions[index] = updatedSub;
       // Guardar en SQLite inmediatamente
-      await sl<TransactionLocalDataSource>().saveSubscription(updatedSub);
+      await localDataSource.saveSubscription(updatedSub);
       notifyListeners();
     }
 
@@ -286,11 +278,6 @@ class TransactionProvider extends ChangeNotifier {
     final item = _subscriptions.removeAt(oldIndex);
     _subscriptions.insert(newIndex, item);
     notifyListeners();
-    // En SQLite el orden se maneja de forma natural o por IDs, 
-    // pero si queremos persistir el orden exacto de una lista JSON 
-    // necesitaríamos otra estrategia. Por ahora, al ser SQLite, el orden es irrelevante 
-    // a menos que añadamos una columna 'order'.
-    // Como simplificación técnica, no re-guardamos todo para reordenar.
   }
 
   Future<List<TransactionEntity>> getTransactionsForDay(DateTime day) async {

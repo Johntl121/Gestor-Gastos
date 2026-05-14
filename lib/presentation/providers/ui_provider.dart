@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../injection_container.dart';
 import '../../data/models/subscription.dart';
 import '../../data/repositories/transaction_data_source.dart';
 
 class UiProvider extends ChangeNotifier {
+  final TransactionLocalDataSource localDataSource;
+
   // Theme
   bool _isDarkMode = true;
   bool get isDarkMode => _isDarkMode;
@@ -42,26 +43,24 @@ class UiProvider extends ChangeNotifier {
   bool _enableNotifications = true;
   bool get enableNotifications => _enableNotifications;
 
-  UiProvider() {
+  UiProvider({required this.localDataSource}) {
     _loadUiData();
   }
 
   Future<void> _loadUiData() async {
-    final dataSource = sl<TransactionLocalDataSource>();
-    
     // 1. Migrar PIN si existe en texto plano (SharedPreferences)
-    await dataSource.migratePinIfNeeded();
+    await localDataSource.migratePinIfNeeded();
 
-    _userName = dataSource.getUserName() ?? 'Usuario';
-    _userAvatar = dataSource.getUserAvatar();
-    _profileImagePath = dataSource.getProfileImagePath();
+    _userName = localDataSource.getUserName() ?? 'Usuario';
+    _userAvatar = localDataSource.getUserAvatar();
+    _profileImagePath = localDataSource.getProfileImagePath();
     
     // 2. Cargar PIN de forma asíncrona desde almacenamiento seguro
-    _userPin = await dataSource.getSecurityPinAsync();
+    _userPin = await localDataSource.getSecurityPinAsync();
     
-    _isDarkMode = dataSource.getThemeMode();
-    _enableBiometrics = dataSource.getEnableBiometrics();
-    _enableNotifications = dataSource.getEnableNotifications();
+    _isDarkMode = localDataSource.getThemeMode();
+    _enableBiometrics = localDataSource.getEnableBiometrics();
+    _enableNotifications = localDataSource.getEnableNotifications();
 
     notifyListeners();
   }
@@ -79,39 +78,39 @@ class UiProvider extends ChangeNotifier {
   void toggleTheme(bool value) {
     _isDarkMode = value;
     notifyListeners();
-    sl<TransactionLocalDataSource>().saveThemeMode(value);
+    localDataSource.saveThemeMode(value);
   }
 
   Future<void> setUserName(String name) async {
     _userName = name;
     notifyListeners();
-    await sl<TransactionLocalDataSource>().saveUserName(name);
+    await localDataSource.saveUserName(name);
   }
 
   Future<void> setUserAvatar(String avatar) async {
     _userAvatar = avatar;
     _profileImagePath = null;
     notifyListeners();
-    await sl<TransactionLocalDataSource>().saveUserAvatar(avatar);
-    await sl<TransactionLocalDataSource>().saveProfileImagePath(null);
+    await localDataSource.saveUserAvatar(avatar);
+    await localDataSource.saveProfileImagePath(null);
   }
 
   Future<void> setProfileImagePath(String? path) async {
     _profileImagePath = path;
     notifyListeners();
-    await sl<TransactionLocalDataSource>().saveProfileImagePath(path);
+    await localDataSource.saveProfileImagePath(path);
   }
 
   void setPin(String pin) {
     _userPin = pin;
     notifyListeners();
-    sl<TransactionLocalDataSource>().saveSecurityPin(pin);
+    localDataSource.saveSecurityPin(pin);
   }
 
   void removePin() {
     _userPin = null;
     notifyListeners();
-    sl<TransactionLocalDataSource>().saveSecurityPin(null);
+    localDataSource.saveSecurityPin(null);
   }
 
   bool verifyPin(String input) {
@@ -121,12 +120,12 @@ class UiProvider extends ChangeNotifier {
   void toggleBiometrics(bool value) {
     _enableBiometrics = value;
     notifyListeners();
-    sl<TransactionLocalDataSource>().saveEnableBiometrics(value);
+    localDataSource.saveEnableBiometrics(value);
   }
 
   void toggleNotifications(bool value) {
     _enableNotifications = value;
     notifyListeners();
-    sl<TransactionLocalDataSource>().saveEnableNotifications(value);
+    localDataSource.saveEnableNotifications(value);
   }
 }
