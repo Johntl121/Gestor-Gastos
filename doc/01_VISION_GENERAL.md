@@ -48,27 +48,4 @@ A continuación, se detalla la pila tecnológica extraída del `pubspec.yaml` ac
 | **Configuración** | Tema oscuro/claro, seguridad PIN, exportación y reset de datos. |
 | **Onboarding** | Flujo de bienvenida para nuevos usuarios con configuración inicial. |
 
-## 4. Flujo de Usuario (User Journey)
 
-El siguiente diagrama ilustra el flujo principal de registro de transacciones mediante voz:
-
-```mermaid
-graph TD
-    A["Usuario Abre App"] --> B{"¿Método de Entrada?"}
-    B -->|Manual| C["Formulario Tradicional"]
-    B -->|Voz| D["Botón Micrófono"]
-    
-    D --> E["Speech-to-Text"]
-    E -->|Texto Raw| F["IA Service"]
-    
-    subgraph "Procesamiento Inteligente"
-        F --> G["Gemini API"]
-        G -->|Prompt Engineering| H{"Parsing JSON"}
-    end
-    
-    H -->|Éxito| I["Vista Previa Transacción"]
-    H -->|Fallo| J["Solicitar Corrección Manual"]
-    
-    I --> K["Guardar en SQLite"]
-    K --> L["Actualizar UI (Provider)"]
-```

@@ -314,3 +314,20 @@ Las Foreign Keys activan cascada:
 - `transactions.categoryId` → `ON DELETE CASCADE`
 - `fixed_expenses.accountToCharge` → `ON DELETE SET NULL`
 - `fixed_expenses.categoryId` → `ON DELETE CASCADE`
+
+## 5. Rendimiento Visual, Clean Code y Resiliencia
+
+### 5.1 Descomposición de UI (M8)
+Se implementa una política estricta de erradicación de `Consumer` globales en las raíces de los `Scaffold`. Para mitigar reconstrucciones (rebuilds) innecesarias del árbol de widgets, se utilizan sub-widgets encapsulados e independientes (por ejemplo, `_AccountsSection`, `_DonutChartSection`) combinados con "Scoped Consumers" o `Selector`.
+
+### 5.2 Caching de Renderizado
+Existe una directiva obligatoria de maximizar el uso de constructores e instancias `const` en todo el código UI. Esto aplica especialmente a elementos estáticos como `Padding`, `BoxDecoration` y `Text`, lo cual optimiza significativamente la fase de renderizado de Flutter.
+
+### 5.3 Centralización de Constantes
+Se ha erradicado el uso de "magic numbers" (IDs hardcodeados) y colores dispersos en el código. Todos estos valores están centralizados a través de las clases `AppConstants` y `AppColors`, mejorando la mantenibilidad y consistencia visual del sistema.
+
+### 5.4 Resiliencia y Manejo Funcional de Errores
+A nivel de la capa de dominio y datos, se emplea el patrón funcional `Either<Failure, T>` en los repositorios para modelar los flujos de éxito y error. A nivel de presentación, los `Providers` capturan los fallos y exponen una propiedad reactiva `String? errorMessage` para notificar de manera transparente a la UI ante cualquier excepción de base de datos.
+
+### 5.5 Mecanismo de Auto-reparación (Self-Healing)
+El sistema incluye mecanismos resilientes a nivel de base de datos. Ante la ejecución de un Factory Reset (donde se hace uso de `clearAllTables()`), el sistema re-siembra automáticamente las 15 categorías Core utilizando la instrucción `INSERT OR REPLACE`. Esto salvaguarda la integridad de las claves foráneas y previene estados corruptos en la aplicación post-reinicio.

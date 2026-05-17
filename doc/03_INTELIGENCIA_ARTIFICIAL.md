@@ -44,6 +44,31 @@ A continuación, ejemplos de cómo el sistema interpreta diferentes frases:
 | *"Transferí 20 soles a Ahorros"* | Transferencia | **20.00** | **Ahorros** | **Transferencia** |
 | *"Compré audífonos por 50"* | Gasto | **50.00** | `null` | **Tecnología/Varios** |
 
+### Flujo de Usuario (User Journey)
+
+El siguiente diagrama ilustra el flujo principal de registro de transacciones mediante voz:
+
+```mermaid
+graph TD
+    A["Usuario Abre App"] --> B{"¿Método de Entrada?"}
+    B -->|Manual| C["Formulario Tradicional"]
+    B -->|Voz| D["Botón Micrófono"]
+    
+    D --> E["Speech-to-Text"]
+    E -->|Texto Raw| F["IA Service"]
+    
+    subgraph "Procesamiento Inteligente"
+        F --> G["Gemini API"]
+        G -->|Prompt Engineering| H{"Parsing JSON"}
+    end
+    
+    H -->|Éxito| I["Vista Previa Transacción"]
+    H -->|Fallo| J["Solicitar Corrección Manual"]
+    
+    I --> K["Guardar en SQLite"]
+    K --> L["Actualizar UI (Provider)"]
+```
+
 ## 3. Flujo de Datos (Sequence Diagram)
 
 El siguiente diagrama de secuencia detalla el proceso desde que el usuario habla hasta que se guarda la transacción:
@@ -73,3 +98,14 @@ sequenceDiagram
     DB-->>UI: Éxito
     UI-->>User: Visualiza Nueva Transacción
 ```
+
+## 4. El Coach Financiero (Análisis de Estadísticas)
+
+### 4.1 Modelo de Escasez
+Para mitigar las limitaciones de la cuota gratuita de la API de Gemini (aproximadamente 20 peticiones/día), la aplicación compila agregaciones contables completas directamente desde SQLite. En lugar de enviar múltiples solicitudes, el sistema resume los ingresos versus gastos del mes y los envía en un solo prompt consolidado.
+
+### 4.2 Temporizadores y Persistencia
+Se utiliza `SharedPreferences` dentro del `StatsProvider` para almacenar marcas de tiempo (timestamps) del último análisis financiero realizado (Semanal o Mensual). Esto bloquea llamadas repetitivas innecesarias a la API de Gemini, protegiendo así la cuota de uso.
+
+### 4.3 Modo Administrador (Bypassing)
+En entornos de desarrollo y pruebas (`kDebugMode`), existe un menú o panel de administrador (detallado en el manual de administrador) que incluye la capacidad de limpiar estos temporizadores de almacenamiento caché mediante la función `resetCoachTimers()`. Esto permite evadir temporalmente la restricción de tiempo y facilita las pruebas de QA del Coach Financiero.
