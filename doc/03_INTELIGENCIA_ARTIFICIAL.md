@@ -101,11 +101,83 @@ sequenceDiagram
 
 ## 4. El Coach Financiero (Análisis de Estadísticas)
 
-### 4.1 Modelo de Escasez
-Para mitigar las limitaciones de la cuota gratuita de la API de Gemini (aproximadamente 20 peticiones/día), la aplicación compila agregaciones contables completas directamente desde SQLite. En lugar de enviar múltiples solicitudes, el sistema resume los ingresos versus gastos del mes y los envía en un solo prompt consolidado.
+### 4.1 Prompt Engineering (El Rol del Coach)
 
-### 4.2 Temporizadores y Persistencia
-Se utiliza `SharedPreferences` dentro del `StatsProvider` para almacenar marcas de tiempo (timestamps) del último análisis financiero realizado (Semanal o Mensual). Esto bloquea llamadas repetitivas innecesarias a la API de Gemini, protegiendo así la cuota de uso.
+El Coach Financiero opera como un "Asesor Personal de Élite". A diferencia de la entrada por voz que espera una respuesta JSON estricta, el Coach devuelve texto enriquecido en formato **Markdown**, el cual es renderizado en la UI para ofrecer una experiencia visual agradable (incluyendo negritas, listas y emojis).
 
-### 4.3 Modo Administrador (Bypassing)
-En entornos de desarrollo y pruebas (`kDebugMode`), existe un menú o panel de administrador (detallado en el manual de administrador) que incluye la capacidad de limpiar estos temporizadores de almacenamiento caché mediante la función `resetCoachTimers()`. Esto permite evadir temporalmente la restricción de tiempo y facilita las pruebas de QA del Coach Financiero.
+**Prompt del Sistema (Extracto Técnico):**
+```dart
+// lib/core/services/gemini_client.dart
+const systemInstruction = """
+Eres un Asesor Financiero personal de élite. Analiza los datos proporcionados y da insights accionables y directos.
+
+REGLAS ESTRICTAS:
+1. Basa tu análisis ÚNICAMENTE en los datos enviados. Cero alucinaciones.
+2. Tono: Profesional, motivador, conciso y de tú a tú.
+3. Usa SIEMPRE el símbolo de moneda indicado en los datos financieros del usuario.
+4. ALERTA ROJA: Si un Gasto Fijo vence pronto (hoy o mañana), menciónalo primero. ALERTA AMARILLA: Si los gastos superan el 80% del presupuesto.
+5. Comenta siempre el progreso de las Metas si existen.
+
+ESTRUCTURA MARKDOWN OBLIGATORIA: 
+- Usa emojis sutiles y resalta montos en negritas (ej: **S/ 500.00**). 
+- Usa encabezados claros:
+  🔴 Atención Inmediata (si aplica)
+  📊 Radiografía del Periodo
+  🎯 Tus Metas
+  💡 El Consejo del Coach
+""";
+```
+
+**Inyección Dinámica de Contexto:**
+Para evitar gastar tokens excesivos enviando miles de transacciones individuales, `StatsProvider` compila un resumen contable riguroso (`buildFinancialContextForAI()`). Inyecta en texto plano los **Totales de Ingresos/Gastos**, el **Top 5 de Categorías**, los **Gastos Fijos** activos y el progreso de las **Metas de Ahorro**.
+
+```dart
+// lib/presentation/providers/stats_provider.dart (Extracto)
+buffer.writeln("--- RESUMEN DEL PERIODO ---");
+buffer.writeln("Total Ingresos: \$currencySymbol \${totalIncome.toStringAsFixed(2)}");
+buffer.writeln("Total Gastos: \$currencySymbol \${totalExpense.toStringAsFixed(2)}");
+// ... se agregan Top 5 Categorías, Gastos Fijos y Metas ...
+```
+
+### 4.2 Flujo de Datos y Caché (Sequence Diagram)
+
+El siguiente diagrama ilustra el ciclo de vida completo del Coach Financiero, destacando la capa de persistencia en caché:
+
+```mermaid
+sequenceDiagram
+    participant User as Usuario
+    participant UI as StatsPage
+    participant Provider as StatsProvider
+    participant Cache as SharedPreferences
+    participant DB as SQLite
+    participant AI as Gemini API
+    
+    User->>UI: Solicita Consejo (Semanal/Mensual)
+    UI->>Provider: canRequestAnalysis(tipo)
+    Provider->>Cache: Verifica Timestamps
+    
+    alt Timer Expirado (Cache Miss)
+        Provider->>DB: getTransactions() / getSubscriptions() / getGoals()
+        DB-->>Provider: Datos agregados
+        Provider->>Provider: buildFinancialContextForAI()
+        Provider->>AI: POST generateContent (Prompt + Contexto)
+        AI-->>Provider: Markdown Response
+        Provider->>Cache: saveAdvice() & update Timestamp
+        Provider-->>UI: notifyListeners()
+        UI-->>User: Renderiza Markdown
+    else Timer Activo (Cache Hit)
+        Provider-->>UI: Retorna Markdown Guardado
+        UI-->>User: Renderiza Markdown instantáneo
+    end
+```
+
+### 4.3 Gestión de Cuota y Timers (Modelo de Escasez)
+
+**Modelo de Escasez:** 
+Para mitigar las limitaciones de la cuota gratuita de la API de Gemini (aproximadamente 20-50 peticiones/día dependiendo del tier), la aplicación realiza el procesamiento pesado (agregaciones, sumatorias, filtrado por fechas) directamente en el dispositivo usando **SQLite**. En lugar de enviar cada transacción individual a la IA (lo cual detonaría el límite de tokens y la cuota de red), el sistema envía un **único prompt consolidado** y pre-masticado.
+
+**Temporizadores y Persistencia:**
+Se utiliza `SharedPreferences` dentro del `StatsProvider` (`saveWeeklyAdvice` / `saveMonthlyAdvice`) para almacenar tanto el texto Markdown generado como la marca de tiempo (Timestamp) del análisis. Esto bloquea llamadas repetitivas innecesarias: un análisis "Semanal" se bloquea por 7 días, y uno "Mensual" por 30 días, protegiendo así la infraestructura.
+
+**Modo Administrador (Bypassing):**
+En entornos de desarrollo (`kDebugMode`), existe un panel de administrador oculto (detallado en el `04_MANUAL_ADMIN.md`) que incluye la capacidad de limpiar estos temporizadores de almacenamiento caché mediante la función `resetCoachTimers()`. Esto permite evadir temporalmente la restricción de tiempo y facilita las pruebas de QA del Coach Financiero sin tener que esperar días para una nueva solicitud.
