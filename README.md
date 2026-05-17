@@ -50,16 +50,20 @@ Entiende dónde se va tu dinero con un vistazo.
 *   **Exportación de Datos:** Genera reportes CSV de tus transacciones (Copiar al portapapeles) para análisis externo.
 *   **Offline First:** Todos los datos se guardan localmente en tu dispositivo usando **SQLite**. Cero rastreadores, cero nube.
 
-### 6. 🧠 Coach Financiero con IA (Nuevo)
-Tu asistente personal inteligente para tomar mejores decisiones.
-*   **Análisis Dual:**
-    *   📅 **Semanal (Flash):** Consejos rápidos y accionables para corregir el rumbo inmediato (Rumbo y Corrección).
-    *   🗓️ **Mensual (Profundo):** Reporte detallado de metas, ahorro acumulado y balance general con formato Markdown rico visualmente.
-*   **Interfaz Premium:** Respuestas renderizadas con negritas, emojis y secciones claras para una lectura agradable.
-*   **Cero Costo Innecesario:**
-    *   **Zero-Data State:** Protege la cuota de API bloqueando consultas si eres usuario nuevo, desactivando las animaciones hasta que haya data real.
-    *   **Persistencia Inteligente:** Guarda tus consejos localmente. Si ya pediste el análisis hoy, te lo muestra al instante.
-*   **Diseño Viva (Motion UI):** El botón del Coach presenta un estado _Idle_ (desactivado) y una animación de _Respiración Fluida (Pulse)_ para indicarte en tiempo real que tiene un análisis listo para ti.
+### 6. 🧠 Coach Financiero con IA (Gemini 2.5 Flash Lite)
+Tu asistente personal inteligente para tomar mejores decisiones, diseñado bajo un **Modelo de Escasez** para optimizar el uso de red y tokens.
+*   **Entrada de Transacciones por Voz:** Analiza lenguaje natural ("Gasté 15 soles en menú con Yape") y la IA infiere y extrae un JSON estructurado con la transacción.
+*   **Análisis Dual Estratégico:**
+    *   📅 **Semanal (Flash):** Consejos accionables para corregir el rumbo inmediato.
+    *   🗓️ **Mensual (Profundo):** Reporte detallado de metas, ahorro acumulado y balance general generado mediante un *Prompt Consolidado* (Agregación SQL) para evitar peticiones masivas repetitivas.
+*   **Interfaz Premium:** Respuestas renderizadas con formato **Markdown** rico visualmente (negritas, listas, emojis).
+*   **Caché y Persistencia:** A través de `SharedPreferences`, el Coach bloquea llamadas repetitivas almacenando las fechas y el texto del último análisis, blindando la cuota de la API.
+
+### 7. 🚀 Rendimiento Visual y Resiliencia (Arquitectura M8)
+*   **Descomposición de UI:** Política estricta de erradicación de `Consumer` globales en `Scaffold`, utilizando sub-widgets encapsulados e independientes (Scoped Selectors) para mitigar reconstrucciones innecesarias del árbol visual.
+*   **Caching de Renderizado:** Directiva obligatoria de instancias `const` y centralización de UI (eliminación de "magic numbers") mediante `AppConstants` y `AppColors`.
+*   **Self-Healing Database (SQLite v20):** Auto-reparación tras un Factory Reset (`clearAllTables()`) re-sembrando automáticamente las categorías Core para proteger la integridad de las Foreign Keys (`ON DELETE CASCADE`).
+*   **Manejo de Errores Funcional:** Implementación de `Either<Failure, T>` en la capa de datos.
 
 ---
 
@@ -68,11 +72,11 @@ Tu asistente personal inteligente para tomar mejores decisiones.
 Este proyecto utiliza las mejores prácticas de desarrollo en Flutter:
 
 *   **Frontend:** [Flutter](https://flutter.dev/) (Diseño responsivo y animaciones fluidas).
-*   **Arquitectura:** **Clean Architecture** (Capas separadas: Domain, Data, Presentation).
-*   **Inteligencia Artificial:** **Google Gemini API** (Análisis financiero) + `flutter_markdown_plus`.
-*   **Gestión de Estado:** `Provider` para una gestión reactiva y eficiente.
+*   **Arquitectura:** **Clean Architecture** (Capas separadas: Domain, Data, Presentation) con Manejo Funcional de errores (`dartz` Either).
+*   **Inteligencia Artificial:** **Google Gemini API** (Coach Financiero y Voz a JSON) + `flutter_markdown_plus`.
+*   **Gestión de Estado:** `Provider` (con Scoped Selectors para optimizar repintados).
 *   **Inyección de Dependencias:** `GetIt` para desacoplar componentes y facilitar testing.
-*   **Persistencia de Datos:** `sqflite` (SQLite) + `shared_preferences`.
+*   **Persistencia de Datos:** `sqflite` (SQLite v20) + `shared_preferences` (Caché).
 *   **Gráficos e UI:** `fl_chart` para visualizaciones, animaciones dinámicas (`TweenAnimationBuilder`).
 *   **Internacionalización:** Módulo `intl` y `flutter_localizations` fijados a Español (es_ES).
 
@@ -85,14 +89,14 @@ El código está organizado siguiendo estrictamente Clean Architecture para gara
 ```text
 lib/
 ├── core/                                   # Capa de Infraestructura y Utilidades Compartidas
-│   ├── constants/                          # Constantes globales de la app
-│   ├── errors/                             # Definición de Errores y Excepciones
-│   │   └── failure.dart                    # Clases base para manejo de fallos (ServerFailure, CacheFailure)
+│   ├── constants/                          # Constantes globales (AppConstants, AppColors, Categorías Core)
+│   ├── errors/                             # Definición de Errores y Excepciones (Failure)
+│   │   └── failure.dart                    # Clases base para manejo de fallos
 │   ├── services/                           # Servicios Externos e Implementaciones Técnicas
-│   │   ├── database_helper.dart            # Gestión de Base de Datos Local (SQLite)
-│   │   ├── gemini_client.dart              # Cliente para IA (Gemini): Análisis y Entrenador Financiero
-│   │   ├── notification_service.dart       # Gestión de Notificaciones Locales (gastos fijos)
-│   │   └── speech_service.dart             # Servicio de Reconocimiento de Voz (Voz a Texto)
+│   │   ├── database_helper.dart            # BD Local (SQLite v20 - Wipe & Rebuild, Self-Healing)
+│   │   ├── gemini_client.dart              # Cliente IA Gemini (Análisis Markdown y Parser de Voz JSON)
+│   │   ├── notification_service.dart       # Gestión de Notificaciones Locales
+│   │   └── speech_service.dart             # Servicio STT (Speech-to-Text)
 │   └── usecases/                           # Definiciones Base para Casos de Uso
 │       └── usecase.dart                    # Interfaz abstracta genérica
 │
@@ -195,7 +199,7 @@ Sigue estos pasos para correr el proyecto en tu entorno local:
 *   [x] **Temas & UI:** Soporte completo Light/Dark Mode y Modals unificados.
 *   [x] **Billetera Modificada:** Componentes reordenables, divisas interactivas y tarjetas bancarias.
 *   [x] **Localización:** Calendarios e interfaz en español (es_ES).
-*   [ ] **Refactor de Código:** Migrar propiedades deprecadas de Flutter 3.x (`withOpacity` a `withValues`).
+*   [x] **Refactor de Código:** Migrar propiedades deprecadas de Flutter 3.x (`withOpacity` a `withValues`).
 *   [ ] **Sincronización Opcional:** Backup cifrado en Google Drive.
 
 ---
