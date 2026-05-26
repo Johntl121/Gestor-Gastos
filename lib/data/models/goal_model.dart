@@ -7,9 +7,12 @@ class GoalModel extends GoalEntity {
     required super.targetAmount,
     required super.currentAmount,
     required super.iconCode,
+    super.iconName,
     required super.colorValue,
     super.isCompleted,
     super.deadline,
+    super.accountId,
+    super.categoryId,
   });
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
@@ -18,10 +21,17 @@ class GoalModel extends GoalEntity {
       name: json['name'],
       targetAmount: (json['targetAmount'] as num).toDouble(),
       currentAmount: (json['currentAmount'] as num).toDouble(),
-      iconCode: json['iconCode'],
-      colorValue: json['colorValue'],
-      isCompleted: json['isCompleted'] == null ? false : (json['isCompleted'] == 1 || json['isCompleted'] == true),
-      deadline: json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
+      iconCode: json['iconCode'] ?? 0xE838, // Icons.star fallback
+      iconName: json['iconName'],
+      colorValue: json['colorValue'] ?? 0xFF00BCD4, // Colors.cyan fallback
+      isCompleted: json['isCompleted'] == null
+          ? false
+          : (json['isCompleted'] == 1 || json['isCompleted'] == true),
+      deadline: json['deadline'] != null
+          ? DateTime.parse(json['deadline'])
+          : null,
+      accountId: json['accountId'],
+      categoryId: json['categoryId'],
     );
   }
 
@@ -32,9 +42,12 @@ class GoalModel extends GoalEntity {
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'iconCode': iconCode,
+      'iconName': iconName,
       'colorValue': colorValue,
       'isCompleted': isCompleted ? 1 : 0,
       'deadline': deadline?.toIso8601String(),
+      'accountId': accountId,
+      'categoryId': categoryId,
     };
   }
 
@@ -45,9 +58,12 @@ class GoalModel extends GoalEntity {
       targetAmount: entity.targetAmount,
       currentAmount: entity.currentAmount,
       iconCode: entity.iconCode,
+      iconName: entity.iconName,
       colorValue: entity.colorValue,
       isCompleted: entity.isCompleted,
       deadline: entity.deadline,
+      accountId: entity.accountId,
+      categoryId: entity.categoryId,
     );
   }
 }

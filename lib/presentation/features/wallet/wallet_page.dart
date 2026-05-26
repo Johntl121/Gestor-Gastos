@@ -71,6 +71,7 @@ class _WalletPageState extends State<WalletPage> {
   void _showGoalDetails(BuildContext context, GoalEntity goal) {
     showModalBottomSheet(
         context: context,
+        isScrollControlled: true,
         backgroundColor: Colors.transparent,
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -693,7 +694,9 @@ class _GoalsSection extends StatelessWidget {
                         currentAmount: goal.currentAmount,
                         targetAmount: goal.targetAmount,
                         color: Color(goal.colorValue),
-                        icon: IconData(goal.iconCode, fontFamily: 'MaterialIcons'),
+                        icon: goal.icon,
+                        deadline: goal.deadline,
+                        isCompleted: goal.isCompleted,
                         onTap: () => onShowDetails(goal),
                         onEdit: () => onEditGoal(goal),
                         onDelete: () async {

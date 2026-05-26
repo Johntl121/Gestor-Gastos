@@ -25,6 +25,12 @@ class AppFilters {
         'value': TransactionType.income,
         'color': Colors.greenAccent
       },
+      {
+        'label': '🏆 Logros',
+        'type': 'goal',
+        'value': 'Meta Cumplida',
+        'color': Colors.amber
+      },
       // Dynamic Accounts
       ...accounts.map((acc) => {
             'label': acc.name,

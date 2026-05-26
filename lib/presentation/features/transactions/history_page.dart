@@ -498,6 +498,10 @@ class _TransactionListView extends StatelessWidget {
           displayedTransactions = displayedTransactions
               .where((t) => t.description == value)
               .toList();
+        } else if (type == 'goal') {
+          displayedTransactions = displayedTransactions
+              .where((t) => t.description.contains(value))
+              .toList();
         }
 
         for (var t in displayedTransactions) {

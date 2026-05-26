@@ -304,9 +304,14 @@ class LocalDatabase {
         targetAmount REAL NOT NULL,
         currentAmount REAL DEFAULT 0.0,
         iconCode INTEGER,
+        iconName TEXT,
         colorValue INTEGER,
         isCompleted INTEGER DEFAULT 0,
-        deadline TEXT
+        deadline TEXT,
+        accountId INTEGER,
+        categoryId INTEGER,
+        FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE SET NULL,
+        FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE SET NULL
       )
     ''');
   }

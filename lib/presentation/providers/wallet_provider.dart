@@ -255,15 +255,20 @@ class WalletProvider extends ChangeNotifier {
 
   // --- Goals Section ---
 
-  void addGoal(String name, double targetAmount, int iconCode, int colorValue) async {
+  void addGoal(String name, double targetAmount, int iconCode, int colorValue,
+      {String? iconName, DateTime? deadline, int? accountId, int? categoryId}) async {
     final newGoal = GoalModel(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         targetAmount: targetAmount,
         currentAmount: 0,
         iconCode: iconCode,
+        iconName: iconName,
         colorValue: colorValue,
-        isCompleted: false);
+        isCompleted: false,
+        deadline: deadline,
+        accountId: accountId,
+        categoryId: categoryId);
     _goals.add(newGoal);
     notifyListeners();
     await localDataSource.saveGoal(newGoal);
@@ -324,14 +329,16 @@ class WalletProvider extends ChangeNotifier {
 
     final goal = _goals[index];
 
+    // CONTABILIDAD: TRANSFER desde la cuenta origen hacia la alcancía de la meta
     final transaction = TransactionEntity(
         accountId: sourceAccountId,
-        categoryId: AppConstants.giftCategoryId,
-        amount: -amount,
+        categoryId: AppConstants.transferCategoryId,
+        amount: amount,
         date: DateTime.now(),
-        description: "Meta: ${goal.name}",
-        note: "Ahorro procesado",
-        type: TransactionType.expense);
+        description: "Transferencia Meta: ${goal.name}",
+        note: "Ahorro depositado a meta",
+        type: TransactionType.transfer,
+        destinationAccountId: goal.accountId);
 
     await addTransactionUseCase(AddTransactionParams(transaction: transaction));
     await loadWalletData();
@@ -342,24 +349,35 @@ class WalletProvider extends ChangeNotifier {
         targetAmount: goal.targetAmount,
         currentAmount: goal.currentAmount + amount,
         iconCode: goal.iconCode,
+        iconName: goal.iconName,
         colorValue: goal.colorValue,
-        isCompleted: (goal.currentAmount + amount) >= goal.targetAmount);
+        isCompleted: goal.isCompleted,
+        deadline: goal.deadline,
+        accountId: goal.accountId,
+        categoryId: goal.categoryId);
 
     _goals[index] = updatedGoal;
     notifyListeners();
     await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
   }
 
-  Future<void> purchaseGoal(String goalId, {required int accountId}) async {
+  Future<void> purchaseGoal(String goalId, {int? categoryId}) async {
     final index = _goals.indexWhere((g) => g.id == goalId);
     if (index == -1) return;
 
     final goal = _goals[index];
 
+    // Determinar accountId: la alcancía de la meta, o la primera cuenta disponible
+    final purchaseAccountId = goal.accountId ?? (_accounts.isNotEmpty ? _accounts.first.id : 1);
+
+    // Determinar categoría: param override > meta.categoryId > default Compras
+    final finalCategoryId = categoryId ?? goal.categoryId ?? AppConstants.shoppingCategoryId;
+
+    // CONTABILIDAD: EXPENSE desde la alcancía de la meta
     final transaction = TransactionEntity(
-        accountId: accountId,
-        categoryId: AppConstants.shoppingCategoryId, // Compras
-        amount: -goal.targetAmount,
+        accountId: purchaseAccountId,
+        categoryId: finalCategoryId,
+        amount: -goal.currentAmount, // Gastar lo que realmente se ahorró
         date: DateTime.now(),
         description: "Meta Cumplida: ${goal.name}",
         note: "Compra realizada con éxito 🏆",
@@ -368,9 +386,23 @@ class WalletProvider extends ChangeNotifier {
     await addTransactionUseCase(AddTransactionParams(transaction: transaction));
     await loadWalletData();
 
-    _goals.removeAt(index);
+    // Marcar como completada (NO eliminar — futuro Muro de Trofeos)
+    final completedGoal = GoalEntity(
+        id: goal.id,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        iconCode: goal.iconCode,
+        iconName: goal.iconName,
+        colorValue: goal.colorValue,
+        isCompleted: true,
+        deadline: goal.deadline,
+        accountId: goal.accountId,
+        categoryId: goal.categoryId);
+
+    _goals[index] = completedGoal;
     notifyListeners();
-    await localDataSource.deleteGoal(goalId);
+    await localDataSource.saveGoal(GoalModel.fromEntity(completedGoal));
   }
 
   String getAccountName(int id) {

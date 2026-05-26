@@ -6,6 +6,8 @@ class GoalCard extends StatelessWidget {
   final double targetAmount;
   final Color color;
   final IconData icon;
+  final DateTime? deadline;
+  final bool isCompleted;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -17,6 +19,8 @@ class GoalCard extends StatelessWidget {
     required this.targetAmount,
     required this.color,
     required this.icon,
+    this.deadline,
+    this.isCompleted = false,
     this.onTap,
     this.onEdit,
     this.onDelete,
@@ -26,12 +30,10 @@ class GoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (currentAmount / targetAmount).clamp(0.0, 1.0);
     final percentage = (progress * 100).toInt();
-    final isCompleted = progress >= 1.0;
+    final isGoalCompleted = isCompleted || progress >= 1.0;
 
     // Colores para el estado normal vs completado
-    final displayColor = isCompleted
-        ? const Color(0xFFFFD700)
-        : color; // Oro brillante si completado
+    final displayColor = isGoalCompleted ? const Color(0xFFFFD700) : color;
 
     // Base dark color
     const baseColor = Color(0xFF1E2435);
@@ -39,18 +41,25 @@ class GoalCard extends StatelessWidget {
     final tintColor =
         Color.alphaBlend(displayColor.withValues(alpha: 0.08), baseColor);
 
+    // Shimmer cuando está > 80% y no completado
+    final isNearCompletion = progress > 0.8 && !isGoalCompleted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: baseColor,
         borderRadius: BorderRadius.circular(24),
-        border: isCompleted
+        border: isGoalCompleted
             ? Border.all(color: const Color(0xFFFFD700), width: 2.0)
-            : null,
+            : isNearCompletion
+                ? Border.all(color: displayColor.withValues(alpha: 0.4), width: 1.5)
+                : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
+            color: isNearCompletion
+                ? displayColor.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.3),
+            blurRadius: isNearCompletion ? 16 : 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -72,7 +81,7 @@ class GoalCard extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Header: Icon + Title
+                    // Header: Icon + Title + Deadline
                     Row(
                       children: [
                         Container(
@@ -80,24 +89,42 @@ class GoalCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: displayColor.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
+                            boxShadow: isNearCompletion
+                                ? [
+                                    BoxShadow(
+                                      color: displayColor.withValues(alpha: 0.3),
+                                      blurRadius: 12,
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Icon(
-                            isCompleted ? Icons.emoji_events : icon,
+                            isGoalCompleted ? Icons.emoji_events : icon,
                             color: displayColor,
                             size: 25,
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              // Deadline chip sutil
+                              if (deadline != null && !isGoalCompleted) ...[
+                                const SizedBox(height: 4),
+                                _buildDeadlineChip(),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -113,8 +140,9 @@ class GoalCard extends StatelessWidget {
                         Text(
                           "S/ ${currentAmount.toStringAsFixed(0)} / S/ ${targetAmount.toStringAsFixed(0)}",
                           style: TextStyle(
-                            color:
-                                isCompleted ? displayColor : Colors.grey[400],
+                            color: isGoalCompleted
+                                ? displayColor
+                                : Colors.grey[400],
                             fontSize: 17,
                             fontWeight: FontWeight.w500,
                           ),
@@ -139,12 +167,13 @@ class GoalCard extends StatelessWidget {
                         value: progress,
                         minHeight: 12,
                         backgroundColor: Colors.black26,
-                        valueColor: AlwaysStoppedAnimation<Color>(displayColor),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(displayColor),
                       ),
                     ),
 
                     // Mensaje de Victoria
-                    if (isCompleted) ...[
+                    if (isGoalCompleted) ...[
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -153,7 +182,7 @@ class GoalCard extends StatelessWidget {
                               color: Color(0xFFFFD700), size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            "¡Meta Alcanzada!",
+                            isCompleted ? "🏆 Compra Realizada" : "¡Meta Alcanzada!",
                             style: TextStyle(
                               color: displayColor,
                               fontWeight: FontWeight.bold,
@@ -164,8 +193,8 @@ class GoalCard extends StatelessWidget {
                           const Icon(Icons.star,
                               color: Color(0xFFFFD700), size: 18),
                         ],
-                      )
-                    ]
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -175,11 +204,54 @@ class GoalCard extends StatelessWidget {
                 top: 8,
                 right: 4,
                 child: _buildActionMenu(context),
-              )
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDeadlineChip() {
+    final days = deadline!.difference(DateTime.now()).inDays;
+    final isOverdue = days < 0;
+    final isToday = days == 0;
+
+    String text;
+    Color chipColor;
+
+    if (isOverdue) {
+      text = "Vencida";
+      chipColor = Colors.redAccent;
+    } else if (isToday) {
+      text = "¡Hoy!";
+      chipColor = Colors.amber;
+    } else if (days <= 7) {
+      text = "$days día${days == 1 ? '' : 's'}";
+      chipColor = Colors.orange;
+    } else if (days <= 30) {
+      text = "$days días";
+      chipColor = Colors.cyan;
+    } else {
+      final months = (days / 30).floor();
+      text = "$months mes${months == 1 ? '' : 'es'}";
+      chipColor = Colors.grey;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.schedule, size: 12, color: chipColor.withValues(alpha: 0.7)),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: TextStyle(
+            color: chipColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -188,7 +260,7 @@ class GoalCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       icon: const Icon(Icons.more_vert, size: 20, color: Colors.white24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      color: const Color(0xFF1E293B), // Dark menu background
+      color: const Color(0xFF1E293B),
       onSelected: (value) {
         if (value == 'edit' && onEdit != null) onEdit!();
         if (value == 'delete' && onDelete != null) onDelete!();
