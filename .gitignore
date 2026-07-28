@@ -48,3 +48,18 @@ app.*.map-symbol
 # Local configuration file (secrets)
 /assets/config/
 .env
+
+# Secrets and API Keys
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks
+
+# Coverage
+coverage/
+
+# Desktop / OS
+Thumbs.db
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
