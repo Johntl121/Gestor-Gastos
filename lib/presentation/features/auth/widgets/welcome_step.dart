@@ -37,7 +37,7 @@ class WelcomeStep extends StatelessWidget {
           _buildAvatarPicker(isDark),
           const SizedBox(height: 40),
           Text(
-            "Bienvenido",
+            "¡Bienvenido!",
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 32,
@@ -47,7 +47,7 @@ class WelcomeStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            "Configura tu identidad financiera para empezar.",
+            "Configura tu identidad financiera para empezar...",
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colorScheme.onSurface.withValues(alpha: 0.7),
