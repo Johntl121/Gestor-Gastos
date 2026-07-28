@@ -247,6 +247,36 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     final note = _noteController.text.trim();
 
     try {
+      // Validar fondos insuficientes
+      if (_selectedSourceAccountId != null &&
+          (_transactionType == TransactionType.expense ||
+           _transactionType == TransactionType.transfer)) {
+        try {
+          final sourceAccount = walletProvider.accounts.firstWhere(
+            (acc) => acc.id == _selectedSourceAccountId,
+          );
+          
+          double amountToDeduct = amount;
+          if (widget.transactionToEdit != null && widget.transactionToEdit!.type == _transactionType) {
+            // Si es edición, calculamos la diferencia
+            final oldAmount = widget.transactionToEdit!.amount.abs();
+            amountToDeduct = amount - oldAmount;
+          }
+
+          if (amountToDeduct > sourceAccount.currentBalance) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Fondos insuficientes en la cuenta."),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+            return; // Bloquea la transacción
+          }
+        } catch (e) {
+          // Ignorar si no se encuentra la cuenta aquí, se maneja después
+        }
+      }
+
       if (_transactionType == TransactionType.transfer) {
         // Handle Transfer Logic
         if (_selectedSourceAccountId != null &&
