@@ -335,23 +335,23 @@ class LocalDatabase {
   Future<void> _seedCategories(Database db) async {
     final categories = [
       // Gastos (1 al 10)
-      {'id': 1, 'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFFB8C00, 'type': 'EXPENSE'},
-      {'id': 2, 'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B, 'type': 'EXPENSE'},
-      {'id': 3, 'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3, 'type': 'EXPENSE'},
-      {'id': 4, 'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00, 'type': 'EXPENSE'},
-      {'id': 5, 'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688, 'type': 'EXPENSE'},
-      {'id': 6, 'name': 'Educación', 'icon': 'school', 'color': 0xFF795548, 'type': 'EXPENSE'},
-      {'id': 7, 'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5, 'type': 'EXPENSE'},
-      {'id': 8, 'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63, 'type': 'EXPENSE'},
-      {'id': 9, 'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFFF5722, 'type': 'EXPENSE'},
-      {'id': 10, 'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFF9E9E9E, 'type': 'EXPENSE'},
+      {'id': 1, 'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFF28B82, 'type': 'EXPENSE'},
+      {'id': 2, 'name': 'Vivienda', 'icon': 'home', 'color': 0xFF81C995, 'type': 'EXPENSE'},
+      {'id': 3, 'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF8AB4F8, 'type': 'EXPENSE'},
+      {'id': 4, 'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFFDE293, 'type': 'EXPENSE'},
+      {'id': 5, 'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF80DEEA, 'type': 'EXPENSE'},
+      {'id': 6, 'name': 'Educación', 'icon': 'school', 'color': 0xFFD7CCC8, 'type': 'EXPENSE'},
+      {'id': 7, 'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFFC58AF9, 'type': 'EXPENSE'},
+      {'id': 8, 'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFF48FB1, 'type': 'EXPENSE'},
+      {'id': 9, 'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFE57373, 'type': 'EXPENSE'},
+      {'id': 10, 'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFFB0BEC5, 'type': 'EXPENSE'},
       
       // Ingresos (11 al 15)
-      {'id': 11, 'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFF2E7D32, 'type': 'INCOME'},
-      {'id': 12, 'name': 'Negocio', 'icon': 'work', 'color': 0xFF0D47A1, 'type': 'INCOME'},
-      {'id': 13, 'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFF9C27B0, 'type': 'INCOME'},
-      {'id': 14, 'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFF4081, 'type': 'INCOME'},
-      {'id': 15, 'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF607D8B, 'type': 'INCOME'},
+      {'id': 11, 'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFFA5D6A7, 'type': 'INCOME'},
+      {'id': 12, 'name': 'Negocio', 'icon': 'work', 'color': 0xFF9FA8DA, 'type': 'INCOME'},
+      {'id': 13, 'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFFCE93D8, 'type': 'INCOME'},
+      {'id': 14, 'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFFAB91, 'type': 'INCOME'},
+      {'id': 15, 'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF90A4AE, 'type': 'INCOME'},
     ];
 
     for (var cat in categories) {
