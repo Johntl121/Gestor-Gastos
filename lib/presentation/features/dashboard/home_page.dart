@@ -962,23 +962,28 @@ class _RecentTransactionsList extends StatelessWidget {
                           ),
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        onDismissed: (_) {
+                        onDismissed: (_) async {
                           final deleted = transaction;
                           if (transaction.id != null) {
-                            txProvider.deleteTransaction(transaction.id!);
-                            ScaffoldMessenger.of(context).clearSnackBars();
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: const Text(
-                                  'Transacción eliminada de recientes'),
-                              action: SnackBarAction(
-                                label: 'DESHACER',
-                                textColor: Colors.cyanAccent,
-                                onPressed: () {
-                                  txProvider.addTransaction(deleted);
-                                },
-                              ),
-                              duration: const Duration(seconds: 4),
-                            ));
+                            await txProvider.deleteTransaction(transaction.id!);
+                            await walletProvider.loadWalletData();
+                            
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: const Text(
+                                    'Transacción eliminada de recientes'),
+                                action: SnackBarAction(
+                                  label: 'DESHACER',
+                                  textColor: Colors.cyanAccent,
+                                  onPressed: () async {
+                                    await txProvider.addTransaction(deleted);
+                                    await walletProvider.loadWalletData();
+                                  },
+                                ),
+                                duration: const Duration(seconds: 4),
+                              ));
+                            }
                           }
                         },
                         child: _buildTransactionItem(
