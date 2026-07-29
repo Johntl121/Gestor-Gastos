@@ -273,26 +273,26 @@ Al crear la base de datos por primera vez (`_onCreate` → `_seedData`), se inse
 
 | ID | Nombre | Ícono | Color |
 | :--- | :--- | :--- | :--- |
-| 1 | Alimentación | `restaurant` | 🟠 `0xFFFB8C00` |
-| 2 | Vivienda | `home` | 🔘 `0xFF607D8B` |
-| 3 | Transporte | `directions_bus` | 🔵 `0xFF2196F3` |
-| 4 | Servicios | `bolt` | 🟠 `0xFFF57C00` |
-| 5 | Salud | `local_hospital` | 🟢 `0xFF009688` |
-| 6 | Educación | `school` | 🟤 `0xFF795548` |
-| 7 | Entretenimiento | `movie` | 🔵 `0xFF3F51B5` |
-| 8 | Compras | `shopping_bag` | 🩷 `0xFFE91E63` |
-| 9 | Deudas | `money_off` | 🟠 `0xFFFF5722` |
-| 10 | Otros Gastos | `grid_view` | ⚫ `0xFF9E9E9E` |
+| 1 | Alimentación | `restaurant` | 🔴 `0xFFF28B82` |
+| 2 | Vivienda | `home` | 🟢 `0xFF81C995` |
+| 3 | Transporte | `directions_bus` | 🔵 `0xFF8AB4F8` |
+| 4 | Servicios | `bolt` | 🟡 `0xFFFDE293` |
+| 5 | Salud | `local_hospital` | 🔵 `0xFF80DEEA` |
+| 6 | Educación | `school` | ⚪ `0xFFD7CCC8` |
+| 7 | Entretenimiento | `movie` | 🟣 `0xFFC58AF9` |
+| 8 | Compras | `shopping_bag` | 🔴 `0xFFF48FB1` |
+| 9 | Deudas | `money_off` | 🔴 `0xFFE57373` |
+| 10 | Otros Gastos | `grid_view` | ⚪ `0xFFB0BEC5` |
 
 #### Categorías de Ingreso (5)
 
 | ID | Nombre | Ícono | Color |
 | :--- | :--- | :--- | :--- |
-| 11 | Sueldo | `monetization_on` | 🟢 `0xFF2E7D32` |
-| 12 | Negocio | `work` | 🔵 `0xFF0D47A1` |
-| 13 | Inversiones | `trending_up` | 🟣 `0xFF9C27B0` |
-| 14 | Regalos | `card_giftcard` | 🩷 `0xFFFF4081` |
-| 15 | Otros Ingresos | `category` | 🔘 `0xFF607D8B` |
+| 11 | Sueldo | `monetization_on` | 🟢 `0xFFA5D6A7` |
+| 12 | Negocio | `work` | 🔵 `0xFF9FA8DA` |
+| 13 | Inversiones | `trending_up` | 🟣 `0xFFCE93D8` |
+| 14 | Regalos | `card_giftcard` | 🟠 `0xFFFFAB91` |
+| 15 | Otros Ingresos | `category` | ⚪ `0xFF90A4AE` |
 
 > **Nota sobre `is_editable`:** Las categorías Core se insertan con `is_editable = 0`. El campo tiene un `DEFAULT 1` en el esquema DDL, lo cual permite que categorías futuras creadas por el usuario sean editables por defecto.
 
@@ -323,8 +323,8 @@ Se implementa una política estricta de erradicación de `Consumer` globales en 
 ### 5.2 Caching de Renderizado
 Existe una directiva obligatoria de maximizar el uso de constructores e instancias `const` en todo el código UI. Esto aplica especialmente a elementos estáticos como `Padding`, `BoxDecoration` y `Text`, lo cual optimiza significativamente la fase de renderizado de Flutter.
 
-### 5.3 Centralización de Constantes
-Se ha erradicado el uso de "magic numbers" (IDs hardcodeados) y colores dispersos en el código. Todos estos valores están centralizados a través de las clases `AppConstants` y `AppColors`, mejorando la mantenibilidad y consistencia visual del sistema.
+### 5.3 Centralización de Constantes y Estética
+Se ha erradicado el uso de "magic numbers" (IDs hardcodeados) y colores dispersos en el código. Todos estos valores están centralizados a través de las clases `AppConstants` y `AppColors`, mejorando la mantenibilidad. Además, el sistema utiliza una **paleta de colores pastel y de baja saturación** para las categorías y componentes visuales, lo cual evita el cansancio visual, minimiza contrastes agresivos ("clash") y se adapta de forma premium a la arquitectura Dark Mode nativa del aplicativo.
 
 ### 5.4 Resiliencia y Manejo Funcional de Errores
 A nivel de la capa de dominio y datos, se emplea el patrón funcional `Either<Failure, T>` en los repositorios para modelar los flujos de éxito y error. A nivel de presentación, los `Providers` capturan los fallos y exponen una propiedad reactiva `String? errorMessage` para notificar de manera transparente a la UI ante cualquier excepción de base de datos.
