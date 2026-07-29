@@ -350,36 +350,36 @@ Estas preferencias se pierden al reiniciar la app.
 
 ### 🔴 CRÍTICO — Resolver inmediatamente
 
-| # | Problema | Archivo | Fix |
-| :--- | :--- | :--- | :--- |
-| C1 | `clearAllTables()` no borra `categories` → duplicados tras Factory Reset | `database_helper.dart:354-361` | Agregar `await db.delete('categories');` antes de `sqlite_sequence` |
-| C2 | `purchaseGoal` usa `accountId: 3` hardcodeado → crash si no existe | `wallet_provider.dart:336` | Recibir `accountId` como parámetro obligatorio |
-| C3 | `getBalanceBreakdown()` clasifica cuentas por ID mágico (1, 3) → datos incorrectos si los IDs cambian | `transaction_repository_impl.dart:91-97` | Usar `account.isCash` / `account.type` en vez de IDs |
+| Estado | # | Problema | Archivo | Fix |
+| :---: | :--- | :--- | :--- | :--- |
+| [x] | C1 | `clearAllTables()` no borra `categories` → duplicados tras Factory Reset | `database_helper.dart:354-361` | Agregar `await db.delete('categories');` antes de `sqlite_sequence` |
+| [x] | C2 | `purchaseGoal` usa `accountId: 3` hardcodeado → crash si no existe | `wallet_provider.dart:336` | Recibir `accountId` como parámetro obligatorio |
+| [x] | C3 | `getBalanceBreakdown()` clasifica cuentas por ID mágico (1, 3) → datos incorrectos si los IDs cambian | `transaction_repository_impl.dart:91-97` | Usar `account.isCash` / `account.type` en vez de IDs |
 
 ### 🟡 MODERADO — Resolver a corto plazo
 
-| # | Problema | Archivo |
-| :--- | :--- | :--- |
-| M1 | `setBudgetLimit()` no persiste el valor | `wallet_provider.dart:221` |
-| M2 | `setCurrency()` no persiste el valor | `wallet_provider.dart:227` |
-| M3 | `toggleBiometrics()` y `toggleNotifications()` no persisten | `ui_provider.dart:119-127` |
-| M4 | Colores y IDs de categoría hardcodeados en toda la UI | Múltiples archivos |
-| M5 | Errores de BD nunca se muestran al usuario (solo `debugPrint`) | Todos los providers |
-| M6 | `_checkSubscriptionStatuses()` tiene complejidad O(N×M) | `transaction_provider.dart:81-124` |
-| M7 | Providers acceden a `sl<>()` internamente (fuga de capa DI) | 4 providers |
-| M8 | Widgets monolíticos de 30-43KB sin decomposición | `home_page.dart`, `wallet_page.dart`, `history_page.dart` |
+| Estado | # | Problema | Archivo |
+| :---: | :--- | :--- | :--- |
+| [x] | M1 | `setBudgetLimit()` no persiste el valor | `wallet_provider.dart:221` |
+| [x] | M2 | `setCurrency()` no persiste el valor | `wallet_provider.dart:227` |
+| [x] | M3 | `toggleBiometrics()` y `toggleNotifications()` no persisten | `ui_provider.dart:119-127` |
+| [x] | M4 | Colores y IDs de categoría hardcodeados en toda la UI | Múltiples archivos |
+| [x] | M5 | Errores de BD nunca se muestran al usuario (solo `debugPrint`) | Todos los providers |
+| [x] | M6 | `_checkSubscriptionStatuses()` tiene complejidad O(N×M) | `transaction_provider.dart:81-124` |
+| [x] | M7 | Providers acceden a `sl<>()` internamente (fuga de capa DI) | 4 providers |
+| [x] | M8 | Widgets monolíticos de 30-43KB sin descomposición | `home_page.dart`, `wallet_page.dart`, `history_page.dart` |
 
 ### 🟢 MEJORA — Mantenibilidad y escalabilidad futura
 
-| # | Problema | Archivo |
-| :--- | :--- | :--- |
-| G1 | `TransactionLocalDataSource` es una God Class (12+ responsabilidades) | `transaction_data_source.dart` |
-| G2 | Sin paginación SQL (carga todas las transacciones en RAM) | `transaction_data_source.dart:84-91` |
-| G3 | Faltan índices para `categoryId` y `type` en `transactions` | `database_helper.dart` |
-| G4 | Internacionalización hardcodeada (strings en español directo) | Todas las páginas |
-| G5 | `TransactionRepository` centraliza Transacciones + Cuentas (debería separarse) | `transaction_repository.dart` |
-| G6 | `reorderSubscriptions()` y `reorderGoals()` no persisten el orden | `transaction_provider.dart:272`, `wallet_provider.dart:286` |
-| G7 | Exchange rates hardcodeados como constante estática | `wallet_provider.dart:53-60` |
+| Estado | # | Problema | Archivo |
+| :---: | :--- | :--- | :--- |
+| [ ] | G1 | `TransactionLocalDataSource` es una God Class (12+ responsabilidades) | `transaction_data_source.dart` |
+| [ ] | G2 | Sin paginación SQL (carga todas las transacciones en RAM) | `transaction_data_source.dart:84-91` |
+| [ ] | G3 | Faltan índices para `categoryId` y `type` en `transactions` | `database_helper.dart` |
+| [ ] | G4 | Internacionalización hardcodeada (strings en español directo) | Todas las páginas |
+| [ ] | G5 | `TransactionRepository` centraliza Transacciones + Cuentas (debería separarse) | `transaction_repository.dart` |
+| [ ] | G6 | `reorderSubscriptions()` y `reorderGoals()` no persisten el orden | `transaction_provider.dart:272`, `wallet_provider.dart:286` |
+| [ ] | G7 | Exchange rates hardcodeados como constante estática | `wallet_provider.dart:53-60` |
 
 ---
 
