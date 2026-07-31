@@ -22,7 +22,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 20, // Incrementado a 20 para Wipe & Rebuild (Clean Slate)
+      version: 21, // Incrementado a 21 para índices de DB
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -217,6 +217,16 @@ class LocalDatabase {
       // Recrear esquema desde cero
       await _onCreate(db, newVersion);
     }
+
+    // --- MIGRACIÓN V21: ÍNDICES DE VELOCIDAD ---
+    if (oldVersion < 21) {
+      try {
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId)");
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)");
+      } catch (e) {
+        // Ignorar si ya existen
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -270,6 +280,8 @@ class LocalDatabase {
 
     await db.execute("CREATE INDEX idx_transactions_date ON transactions(date)");
     await db.execute("CREATE INDEX idx_transactions_accountId ON transactions(accountId)");
+    await db.execute("CREATE INDEX idx_transactions_categoryId ON transactions(categoryId)");
+    await db.execute("CREATE INDEX idx_transactions_type ON transactions(type)");
 
     await _createFixedExpensesTable(db);
     await _createGoalsTable(db);
