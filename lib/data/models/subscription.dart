@@ -13,6 +13,7 @@ class Subscription {
   final int? customColor;
   final int accountToCharge; // 1: Cash, 2: Bank, 3: Savings
   final int categoryId;
+  final int orderIndex;
 
   Subscription({
     required this.id,
@@ -25,6 +26,7 @@ class Subscription {
     this.customColor,
     this.accountToCharge = 2, // Default to Bank
     this.categoryId = 9, // Default to Suscripciones
+    this.orderIndex = 0,
   });
 
   // Getter inteligente: nextDueDate
@@ -68,6 +70,7 @@ class Subscription {
       'custom_color': customColor,
       'accountToCharge': accountToCharge,
       'categoryId': categoryId,
+      'orderIndex': orderIndex,
     };
   }
 
@@ -83,6 +86,7 @@ class Subscription {
       customColor: json['custom_color'],
       accountToCharge: json['accountToCharge'] ?? 2,
       categoryId: json['categoryId'] ?? 9,
+      orderIndex: json['orderIndex'] ?? 0,
     );
   }
 
@@ -97,6 +101,7 @@ class Subscription {
     int? customColor,
     int? accountToCharge,
     int? categoryId,
+    int? orderIndex,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -109,6 +114,7 @@ class Subscription {
       customColor: customColor ?? this.customColor,
       accountToCharge: accountToCharge ?? this.accountToCharge,
       categoryId: categoryId ?? this.categoryId,
+      orderIndex: orderIndex ?? this.orderIndex,
     );
   }
 }

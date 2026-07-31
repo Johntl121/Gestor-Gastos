@@ -13,6 +13,7 @@ class GoalModel extends GoalEntity {
     super.deadline,
     super.accountId,
     super.categoryId,
+    super.orderIndex,
   });
 
   factory GoalModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +33,7 @@ class GoalModel extends GoalEntity {
           : null,
       accountId: json['accountId'],
       categoryId: json['categoryId'],
+      orderIndex: json['orderIndex'] ?? 0,
     );
   }
 
@@ -48,6 +50,7 @@ class GoalModel extends GoalEntity {
       'deadline': deadline?.toIso8601String(),
       'accountId': accountId,
       'categoryId': categoryId,
+      'orderIndex': orderIndex,
     };
   }
 
@@ -64,6 +67,7 @@ class GoalModel extends GoalEntity {
       deadline: entity.deadline,
       accountId: entity.accountId,
       categoryId: entity.categoryId,
+      orderIndex: entity.orderIndex,
     );
   }
 }

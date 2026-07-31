@@ -4,6 +4,7 @@ import '../constants/app_categories.dart';
 
 class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._internal();
+  static const int _databaseVersion = 22;
   static Database? _database;
 
   factory LocalDatabase() {
@@ -22,7 +23,7 @@ class LocalDatabase {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
     return await openDatabase(
       path,
-      version: 21, // Incrementado a 21 para índices de DB
+      version: _databaseVersion,
       onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
@@ -227,6 +228,16 @@ class LocalDatabase {
         // Ignorar si ya existen
       }
     }
+
+    // --- MIGRACIÓN V22: PERSISTENCIA DE ORDENAMIENTO ---
+    if (oldVersion < 22) {
+      try {
+        await db.execute("ALTER TABLE goals ADD COLUMN orderIndex INTEGER DEFAULT 0");
+        await db.execute("ALTER TABLE fixed_expenses ADD COLUMN orderIndex INTEGER DEFAULT 0");
+      } catch (e) {
+        // Ignorar si ya existen
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -302,6 +313,7 @@ class LocalDatabase {
         custom_color INTEGER,
         accountToCharge INTEGER,
         categoryId INTEGER NOT NULL,
+        orderIndex INTEGER DEFAULT 0,
         FOREIGN KEY (accountToCharge) REFERENCES accounts (id) ON DELETE SET NULL,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )
@@ -322,6 +334,7 @@ class LocalDatabase {
         deadline TEXT,
         accountId INTEGER,
         categoryId INTEGER,
+        orderIndex INTEGER DEFAULT 0,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE SET NULL,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE SET NULL
       )

@@ -247,11 +247,13 @@ class TransactionProvider extends ChangeNotifier {
     final idx = _subscriptions.indexWhere((s) => s.id == subscription.id);
     if (idx != -1) {
       _subscriptions[idx] = subscription;
+      await subscriptionLocalDataSource.saveSubscription(subscription);
     } else {
-      _subscriptions.add(subscription);
+      final subWithOrder = subscription.copyWith(orderIndex: _subscriptions.length);
+      _subscriptions.add(subWithOrder);
+      await subscriptionLocalDataSource.saveSubscription(subWithOrder);
     }
     notifyListeners();
-    await subscriptionLocalDataSource.saveSubscription(subscription);
 
     // Schedule notification based on frequency
     if (subscription.frequency == ExpenseFrequency.monthly) {
@@ -318,6 +320,12 @@ class TransactionProvider extends ChangeNotifier {
     }
     final item = _subscriptions.removeAt(oldIndex);
     _subscriptions.insert(newIndex, item);
+    
+    for (int i = 0; i < _subscriptions.length; i++) {
+      _subscriptions[i] = _subscriptions[i].copyWith(orderIndex: i);
+      subscriptionLocalDataSource.saveSubscription(_subscriptions[i]);
+    }
+    
     notifyListeners();
   }
 

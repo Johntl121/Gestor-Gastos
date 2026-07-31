@@ -13,6 +13,7 @@ class GoalEntity {
   final DateTime? deadline;
   final int? accountId; // Cuenta "Alcancía" destino
   final int? categoryId; // Categoría inferida por Smart Icon
+  final int orderIndex; // Índice de ordenamiento
 
   GoalEntity({
     required this.id,
@@ -26,6 +27,7 @@ class GoalEntity {
     this.deadline,
     this.accountId,
     this.categoryId,
+    this.orderIndex = 0,
   });
 
   /// Resuelve el ícono: prioriza `iconName` (Smart Icon) sobre `iconCode` (legacy)
@@ -58,5 +60,34 @@ class GoalEntity {
     final months = deadline!.difference(DateTime.now()).inDays / 30.0;
     if (months <= 0) return null;
     return remainingAmount / months;
+  }
+  GoalEntity copyWith({
+    String? id,
+    String? name,
+    double? targetAmount,
+    double? currentAmount,
+    int? iconCode,
+    String? iconName,
+    int? colorValue,
+    bool? isCompleted,
+    DateTime? deadline,
+    int? accountId,
+    int? categoryId,
+    int? orderIndex,
+  }) {
+    return GoalEntity(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      targetAmount: targetAmount ?? this.targetAmount,
+      currentAmount: currentAmount ?? this.currentAmount,
+      iconCode: iconCode ?? this.iconCode,
+      iconName: iconName ?? this.iconName,
+      colorValue: colorValue ?? this.colorValue,
+      isCompleted: isCompleted ?? this.isCompleted,
+      deadline: deadline ?? this.deadline,
+      accountId: accountId ?? this.accountId,
+      categoryId: categoryId ?? this.categoryId,
+      orderIndex: orderIndex ?? this.orderIndex,
+    );
   }
 }

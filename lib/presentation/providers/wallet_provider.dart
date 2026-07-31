@@ -271,7 +271,9 @@ class WalletProvider extends ChangeNotifier {
         isCompleted: false,
         deadline: deadline,
         accountId: accountId,
-        categoryId: categoryId);
+        categoryId: categoryId,
+        orderIndex: _goals.length,
+    );
     _goals.add(newGoal);
     notifyListeners();
     await goalLocalDataSource.saveGoal(newGoal);
@@ -321,8 +323,13 @@ class WalletProvider extends ChangeNotifier {
     }
     final GoalEntity item = _goals.removeAt(oldIndex);
     _goals.insert(newIndex, item);
+    
+    for (int i = 0; i < _goals.length; i++) {
+      _goals[i] = _goals[i].copyWith(orderIndex: i);
+      goalLocalDataSource.saveGoal(GoalModel.fromEntity(_goals[i]));
+    }
+    
     notifyListeners();
-    // Al igual que con subs, el orden en SQLite relacional es por ID o timestamp unless we add an order col.
   }
 
   Future<void> depositToGoal(
