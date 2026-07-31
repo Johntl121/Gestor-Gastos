@@ -161,7 +161,10 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () => _showCurrencyPicker(context),
+                      // Bloqueamos cambio de moneda en edición para no alterar historial
+                      onTap: widget.accountToEdit == null 
+                          ? () => _showCurrencyPicker(context) 
+                          : null,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomLeft: Radius.circular(16),
@@ -195,6 +198,8 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                       color: Colors.grey.withValues(alpha: 0.3)),
                   Expanded(
                     child: TextField(
+                      // Bloqueamos edición directa del saldo para mantener consistencia contable
+                      enabled: widget.accountToEdit == null,
                       controller: _balanceController,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
