@@ -303,7 +303,7 @@ class StatsProvider extends ChangeNotifier {
     if (goals.isNotEmpty) {
       buffer.writeln("--- METAS DE AHORRO ---");
       for (var g in goals) {
-        buffer.writeln("- ${g.name}: ${currencySymbol} ${g.currentAmount.toStringAsFixed(2)} / ${currencySymbol} ${g.targetAmount.toStringAsFixed(2)}");
+        buffer.writeln("- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
       }
     }
 

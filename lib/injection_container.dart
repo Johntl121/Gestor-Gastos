@@ -12,6 +12,8 @@ import 'core/services/secure_storage_service.dart';
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
 import 'data/repositories/transaction_repository_impl.dart';
+import 'domain/repositories/account_repository.dart';
+import 'data/repositories/account_repository_impl.dart';
 
 // Casos de Uso
 import 'domain/usecases/add_transaction_usecase.dart';
@@ -69,6 +71,12 @@ Future<void> init() async {
     () => TransactionRepositoryImpl(
       localDatabase: sl(),
       transactionLocalDataSource: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<AccountRepository>(
+    () => AccountRepositoryImpl(
+      localDatabase: sl(),
       preferencesLocalDataSource: sl(),
     ),
   );
@@ -76,7 +84,7 @@ Future<void> init() async {
   //! Casos de Uso
   sl.registerLazySingleton(() => AddTransactionUseCase(sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
-  sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl()));
+  sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => GetMonthlyBudgetUseCase(sl()));
   sl.registerLazySingleton(() => UpdateTransactionUseCase(sl()));

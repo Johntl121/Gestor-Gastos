@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
-import '../repositories/transaction_repository.dart';
+import '../repositories/account_repository.dart';
 
 class DeleteAccountParams {
   final int id;
@@ -9,7 +9,7 @@ class DeleteAccountParams {
 }
 
 class DeleteAccountUseCase implements UseCase<void, DeleteAccountParams> {
-  final TransactionRepository repository;
+  final AccountRepository repository;
 
   DeleteAccountUseCase(this.repository);
 

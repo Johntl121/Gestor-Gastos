@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
 import '../entities/account_entity.dart';
-import '../repositories/transaction_repository.dart';
+import '../repositories/account_repository.dart';
 
 class GetAccountsUseCase implements UseCase<List<AccountEntity>, NoParams> {
-  final TransactionRepository repository;
+  final AccountRepository repository;
 
   GetAccountsUseCase(this.repository);
 
@@ -21,7 +21,7 @@ class CreateAccountParams {
 }
 
 class CreateAccountUseCase implements UseCase<int, CreateAccountParams> {
-  final TransactionRepository repository;
+  final AccountRepository repository;
 
   CreateAccountUseCase(this.repository);
 

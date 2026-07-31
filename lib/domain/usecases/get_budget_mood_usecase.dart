@@ -2,17 +2,19 @@ import 'package:dartz/dartz.dart';
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
 import '../entities/budget_mood.dart';
+import '../repositories/account_repository.dart';
 import '../repositories/transaction_repository.dart';
 
 class GetBudgetMoodUseCase implements UseCase<BudgetMood, NoParams> {
-  final TransactionRepository repository;
+  final TransactionRepository transactionRepository;
+  final AccountRepository accountRepository;
 
-  GetBudgetMoodUseCase(this.repository);
+  GetBudgetMoodUseCase(this.transactionRepository, this.accountRepository);
 
   @override
   Future<Either<Failure, BudgetMood>> call(NoParams params) async {
-    final expensesResult = await repository.getCurrentMonthExpenses();
-    final budgetResult = await repository.getMonthlyBudget();
+    final expensesResult = await transactionRepository.getCurrentMonthExpenses();
+    final budgetResult = await accountRepository.getMonthlyBudget();
 
     return expensesResult.fold(
       (failure) => Left(failure),

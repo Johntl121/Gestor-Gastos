@@ -2,10 +2,10 @@ import 'package:dartz/dartz.dart';
 
 import '../../core/errors/failure.dart';
 import '../../core/usecases/usecase.dart';
-import '../repositories/transaction_repository.dart';
+import '../repositories/account_repository.dart';
 
 class GetMonthlyBudgetUseCase implements UseCase<double, NoParams> {
-  final TransactionRepository repository;
+  final AccountRepository repository;
 
   GetMonthlyBudgetUseCase(this.repository);
 
