@@ -9,8 +9,9 @@ import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/stats_provider.dart';
+import '../../../data/datasources/preferences_local_data_source.dart';
+import '../../../core/services/database_helper.dart';
 import '../../../injection_container.dart' as sl;
-import '../../../data/repositories/transaction_data_source.dart';
 import '../../../core/constants/app_categories.dart';
 import '../../../core/utils/currency_formatter.dart';
 import '../../../core/constants/icon_mapper.dart';
@@ -48,8 +49,9 @@ class _HomePageState extends State<HomePage> {
             _buildDevButton(
                 ctx, "⚠️ Reset App Data (Development)", Colors.redAccent,
                 () async {
-              Navigator.pop(ctx);
-              await sl.sl<TransactionLocalDataSource>().clearAllData();
+              // Limpiar datos
+              await sl.sl<PreferencesLocalDataSource>().clearAllPreferences();
+              await sl.sl<LocalDatabase>().clearAllTables();
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(

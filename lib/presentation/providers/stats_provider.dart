@@ -7,7 +7,9 @@ import '../../data/models/subscription.dart';
 import '../../core/usecases/usecase.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../data/repositories/transaction_data_source.dart';
+import '../../data/datasources/preferences_local_data_source.dart';
+import '../../data/datasources/subscription_local_data_source.dart';
+import '../../data/datasources/goal_local_data_source.dart';
 
 // Enums for Stats
 enum PeriodType { week, month, year }
@@ -39,12 +41,16 @@ class _InternalGroup {
 class StatsProvider extends ChangeNotifier {
   final GetBudgetMoodUseCase getBudgetMood;
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
-  final TransactionLocalDataSource localDataSource;
+  final PreferencesLocalDataSource preferencesLocalDataSource;
+  final SubscriptionLocalDataSource subscriptionLocalDataSource;
+  final GoalLocalDataSource goalLocalDataSource;
 
   StatsProvider({
     required this.getBudgetMood,
     required this.getTransactionsByDateRange,
-    required this.localDataSource,
+    required this.preferencesLocalDataSource,
+    required this.subscriptionLocalDataSource,
+    required this.goalLocalDataSource,
   }) {
     loadStatsData();
   }
@@ -88,7 +94,7 @@ class StatsProvider extends ChangeNotifier {
   String? get monthlyAdvice => _monthlyAdvice;
 
   // Currency Support
-  String get currencySymbol => localDataSource.getCurrency();
+  String get currencySymbol => preferencesLocalDataSource.getCurrency();
 
   /// Devuelve el advice correspondiente al modo seleccionado en el Sheet
   String? currentAdvice(String mode) =>
@@ -251,8 +257,8 @@ class StatsProvider extends ChangeNotifier {
   // --- AI Context Builder ---
 
   Future<String> buildFinancialContextForAI() async {
-    final currencySymbol = localDataSource.getCurrency();
-    final budgetLimit = localDataSource.getBudgetLimit();
+    // unused variable removed
+    final budgetLimit = preferencesLocalDataSource.getBudgetLimit();
     
     // 1. Totales (usando transacciones ya en memoria para el periodo seleccionado)
     double totalIncome = 0;
@@ -283,7 +289,7 @@ class StatsProvider extends ChangeNotifier {
     buffer.writeln();
 
     // 3. Gastos Fijos (Desde SQLite)
-    final subscriptions = await localDataSource.getSubscriptions();
+    final subscriptions = await subscriptionLocalDataSource.getSubscriptions();
     if (subscriptions.isNotEmpty) {
       buffer.writeln("--- GASTOS FIJOS ACTIVOS ---");
       for (var s in subscriptions) {
@@ -293,11 +299,11 @@ class StatsProvider extends ChangeNotifier {
     }
 
     // 4. Metas de Ahorro (Desde SQLite)
-    final goals = await localDataSource.getGoals();
+    final goals = await goalLocalDataSource.getGoals();
     if (goals.isNotEmpty) {
       buffer.writeln("--- METAS DE AHORRO ---");
       for (var g in goals) {
-        buffer.writeln("- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
+        buffer.writeln("- ${g.name}: ${currencySymbol} ${g.currentAmount.toStringAsFixed(2)} / ${currencySymbol} ${g.targetAmount.toStringAsFixed(2)}");
       }
     }
 

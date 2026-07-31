@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_provider.dart';
-import '../../../data/repositories/transaction_data_source.dart';
+import '../../../../data/datasources/preferences_local_data_source.dart';
 import '../../../injection_container.dart' as sl;
 
 /// LockScreen: Bloquea el acceso a la app hasta validar el PIN.
@@ -50,7 +50,7 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
 
     // Get stored PIN directly from DataSource (Async version for SecureStorage)
-    final dataSource = sl.sl<TransactionLocalDataSource>();
+    final dataSource = sl.sl<PreferencesLocalDataSource>();
     final storedPin = await dataSource.getSecurityPinAsync();
 
     // Verify

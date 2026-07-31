@@ -3,7 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Fuentes de Datos
 import 'core/services/database_helper.dart';
-import 'data/repositories/transaction_data_source.dart';
+import 'data/datasources/preferences_local_data_source.dart';
+import 'data/datasources/goal_local_data_source.dart';
+import 'data/datasources/subscription_local_data_source.dart';
+import 'data/datasources/transaction_local_data_source.dart';
 import 'core/services/secure_storage_service.dart';
 
 // Repositorios
@@ -42,13 +45,23 @@ Future<void> init() async {
   // Storage Seguro para datos sensibles (PIN)
   sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
 
-  //! Fuentes de Datos
-  sl.registerLazySingleton<TransactionLocalDataSource>(
-    () => TransactionLocalDataSourceImpl(
+  sl.registerLazySingleton<PreferencesLocalDataSource>(
+    () => PreferencesLocalDataSourceImpl(
       sharedPreferences: sl(),
-      localDatabase: sl(),
-      secureStorage: sl(), // Nueva inyección
+      secureStorage: sl(),
     ),
+  );
+
+  sl.registerLazySingleton<GoalLocalDataSource>(
+    () => GoalLocalDataSourceImpl(localDatabase: sl()),
+  );
+
+  sl.registerLazySingleton<SubscriptionLocalDataSource>(
+    () => SubscriptionLocalDataSourceImpl(localDatabase: sl()),
+  );
+
+  sl.registerLazySingleton<TransactionLocalDataSource>(
+    () => TransactionLocalDataSourceImpl(localDatabase: sl()),
   );
 
   //! Repositorio
@@ -56,6 +69,7 @@ Future<void> init() async {
     () => TransactionRepositoryImpl(
       localDatabase: sl(),
       transactionLocalDataSource: sl(),
+      preferencesLocalDataSource: sl(),
     ),
   );
 
@@ -76,7 +90,7 @@ Future<void> init() async {
   //! Proveedores (Refactored)
 
   // 1. UI Provider
-  sl.registerLazySingleton(() => UiProvider(localDataSource: sl()));
+  sl.registerLazySingleton(() => UiProvider(preferencesLocalDataSource: sl()));
 
   // 2. Wallet Provider
   sl.registerLazySingleton(
@@ -88,7 +102,8 @@ Future<void> init() async {
       deleteAccountUseCase: sl(),
       getMonthlyBudgetUseCase: sl(),
       addTransactionUseCase: sl(),
-      localDataSource: sl(),
+      preferencesLocalDataSource: sl(),
+      goalLocalDataSource: sl(),
     ),
   );
 
@@ -100,7 +115,8 @@ Future<void> init() async {
       updateTransactionUseCase: sl(),
       deleteTransactionUseCase: sl(),
       getTransactionsByDateRange: sl(),
-      localDataSource: sl(),
+      preferencesLocalDataSource: sl(),
+      subscriptionLocalDataSource: sl(),
     ),
   );
 
@@ -109,7 +125,9 @@ Future<void> init() async {
     () => StatsProvider(
       getBudgetMood: sl(),
       getTransactionsByDateRange: sl(),
-      localDataSource: sl(),
+      preferencesLocalDataSource: sl(),
+      subscriptionLocalDataSource: sl(),
+      goalLocalDataSource: sl(),
     ),
   );
 }

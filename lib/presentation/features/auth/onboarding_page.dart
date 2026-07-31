@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../../data/repositories/transaction_data_source.dart';
+
+import '../../../../data/datasources/preferences_local_data_source.dart';
+import '../../../../core/services/database_helper.dart';
 import '../../../injection_container.dart' as sl;
 import '../../../domain/entities/transaction_entity.dart';
 import '../../../domain/entities/account_entity.dart';
@@ -12,7 +14,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:io';
-import '../../../core/services/database_helper.dart';
 import 'widgets/welcome_step.dart';
 import '../../providers/ui_provider.dart';
 import '../../../core/constants/app_onboarding_data.dart';
@@ -151,13 +152,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final transactionProvider =
         Provider.of<TransactionProvider>(context, listen: false);
     final uiProvider = Provider.of<UiProvider>(context, listen: false);
-    final dataSource = sl.sl<TransactionLocalDataSource>();
+    final dataSource = sl.sl<PreferencesLocalDataSource>();
     final navigator = Navigator.of(context);
 
     try {
       // 0. RESET EVERYTHING (Ensures fresh start)
-      await LocalDatabase().clearAllTables(); // Fix: Wipe SQLite
-      await dataSource.clearAllData(); // Wipe Prefs
+      await LocalDatabase().clearAllTables();      // 1. Limpiar datos viejos
+      await dataSource.clearAllPreferences();
+      await sl.sl<LocalDatabase>().clearAllTables(); // Wipe Prefs
 
       // 1. Save Currency
       await dataSource.saveCurrency(_selectedCurrency);

@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../../data/repositories/transaction_data_source.dart';
+import '../../../../data/datasources/preferences_local_data_source.dart';
+import '../../../../core/services/database_helper.dart';
 import '../../../injection_container.dart' as sl;
 
 import 'dart:io';
@@ -822,8 +823,9 @@ class SettingsPage extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx); // Close Dialog
 
-              // Clear All Data via UseCase or DataSource
-              await sl.sl<TransactionLocalDataSource>().clearAllData();
+              // Clear All Data via Preferences and Database
+              await sl.sl<PreferencesLocalDataSource>().clearAllPreferences();
+              await sl.sl<LocalDatabase>().clearAllTables();
 
               // Refresh Providers to clear UI state
               if (context.mounted) {

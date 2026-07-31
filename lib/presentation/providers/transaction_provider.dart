@@ -6,7 +6,8 @@ import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/delete_transaction_usecase.dart';
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/update_transaction_usecase.dart';
-import '../../data/repositories/transaction_data_source.dart';
+import '../../data/datasources/preferences_local_data_source.dart';
+import '../../data/datasources/subscription_local_data_source.dart';
 import '../../core/services/notification_service.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import '../../core/constants/app_categories.dart';
@@ -19,7 +20,8 @@ class TransactionProvider extends ChangeNotifier {
   final UpdateTransactionUseCase updateTransactionUseCase;
   final DeleteTransactionUseCase deleteTransactionUseCase;
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
-  final TransactionLocalDataSource localDataSource;
+  final PreferencesLocalDataSource preferencesLocalDataSource;
+  final SubscriptionLocalDataSource subscriptionLocalDataSource;
 
   TransactionProvider({
     required this.getTransactionsUseCase,
@@ -27,7 +29,8 @@ class TransactionProvider extends ChangeNotifier {
     required this.updateTransactionUseCase,
     required this.deleteTransactionUseCase,
     required this.getTransactionsByDateRange,
-    required this.localDataSource,
+    required this.preferencesLocalDataSource,
+    required this.subscriptionLocalDataSource,
   }) {
     loadTransactions();
   }
@@ -60,7 +63,7 @@ class TransactionProvider extends ChangeNotifier {
     );
 
     // Migrar datos de SharedPreferences a SQLite si existen
-    await localDataSource.migrateDataFromPrefsToSql();
+    // Migrar datos (removed)
     await _loadSubscriptions();
 
     // Validar status (revisar si ya se pagó este ciclo) con optimización O(N+M)
@@ -79,7 +82,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> _loadSubscriptions() async {
     try {
-      _subscriptions = await localDataSource.getSubscriptions();
+      _subscriptions = await subscriptionLocalDataSource.getSubscriptions();
     } catch (e) {
       debugPrint("Sub load error: $e");
     }
@@ -126,7 +129,7 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> _saveAllSubscriptionsToDb() async {
     for (var sub in _subscriptions) {
-      await localDataSource.saveSubscription(sub);
+      await subscriptionLocalDataSource.saveSubscription(sub);
     }
   }
 
@@ -210,7 +213,7 @@ class TransactionProvider extends ChangeNotifier {
       _subscriptions.add(subscription);
     }
     notifyListeners();
-    await localDataSource.saveSubscription(subscription);
+    await subscriptionLocalDataSource.saveSubscription(subscription);
 
     // Schedule notification based on frequency
     if (subscription.frequency == ExpenseFrequency.monthly) {
@@ -236,7 +239,7 @@ class TransactionProvider extends ChangeNotifier {
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
-    await localDataSource.deleteSubscription(id);
+    await subscriptionLocalDataSource.deleteSubscription(id);
     await NotificationService().cancelNotification(id.hashCode);
   }
 
@@ -263,7 +266,7 @@ class TransactionProvider extends ChangeNotifier {
       final updatedSub = subscription.copyWith(isPaid: true);
       _subscriptions[index] = updatedSub;
       // Guardar en SQLite inmediatamente
-      await localDataSource.saveSubscription(updatedSub);
+      await subscriptionLocalDataSource.saveSubscription(updatedSub);
       notifyListeners();
     }
 

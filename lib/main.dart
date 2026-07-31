@@ -6,7 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'data/repositories/transaction_data_source.dart';
+import 'data/datasources/preferences_local_data_source.dart';
 import 'presentation/features/dashboard/main_page.dart';
 import 'presentation/features/auth/intro_page.dart';
 import 'presentation/features/auth/lock_screen.dart';
@@ -37,7 +37,7 @@ void main() async {
   // We'll call requestPermissions inside the UI to avoid blocking the first frame
 
   // Check First Time
-  final isFirstTime = di.sl<TransactionLocalDataSource>().isFirstTime();
+  final isFirstTime = di.sl<PreferencesLocalDataSource>().isFirstTime();
 
   runApp(MyApp(isFirstTime: isFirstTime));
 }
@@ -61,7 +61,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _checkInitialLock() async {
-    final pin = await di.sl<TransactionLocalDataSource>().getSecurityPinAsync();
+    final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
     if (pin != null && pin.isNotEmpty) {
       setState(() {
         _isLocked = true;
@@ -79,7 +79,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
       // App went to background: Lock if PIN is enabled
-      final pin = await di.sl<TransactionLocalDataSource>().getSecurityPinAsync();
+      final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
       if (pin != null && pin.isNotEmpty) {
         setState(() {
           _isLocked = true;

@@ -6,17 +6,20 @@ import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../../core/services/database_helper.dart';
-import 'transaction_data_source.dart';
+import '../datasources/transaction_local_data_source.dart';
+import '../datasources/preferences_local_data_source.dart';
 import '../models/transaction_model.dart';
 import '../models/account_model.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final LocalDatabase localDatabase;
   final TransactionLocalDataSource transactionLocalDataSource;
+  final PreferencesLocalDataSource preferencesLocalDataSource;
 
   TransactionRepositoryImpl({
     required this.localDatabase,
     required this.transactionLocalDataSource,
+    required this.preferencesLocalDataSource,
   });
 
   @override
@@ -125,7 +128,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Either<Failure, double>> getMonthlyBudget() async {
     try {
-      final budget = transactionLocalDataSource.getBudgetLimit();
+      final budget = preferencesLocalDataSource.getBudgetLimit();
       return Right(budget);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

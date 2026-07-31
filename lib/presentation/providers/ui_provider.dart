@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../data/models/subscription.dart';
-import '../../data/repositories/transaction_data_source.dart';
+import '../../data/datasources/preferences_local_data_source.dart';
 
 class UiProvider extends ChangeNotifier {
-  final TransactionLocalDataSource localDataSource;
+  final PreferencesLocalDataSource preferencesLocalDataSource;
 
   // Theme
   bool _isDarkMode = true;
@@ -43,24 +43,24 @@ class UiProvider extends ChangeNotifier {
   bool _enableNotifications = true;
   bool get enableNotifications => _enableNotifications;
 
-  UiProvider({required this.localDataSource}) {
+  UiProvider({required this.preferencesLocalDataSource}) {
     _loadUiData();
   }
 
   Future<void> _loadUiData() async {
     // 1. Migrar PIN si existe en texto plano (SharedPreferences)
-    await localDataSource.migratePinIfNeeded();
+    await preferencesLocalDataSource.migratePinIfNeeded();
 
-    _userName = localDataSource.getUserName() ?? 'Usuario';
-    _userAvatar = localDataSource.getUserAvatar();
-    _profileImagePath = localDataSource.getProfileImagePath();
+    _userName = preferencesLocalDataSource.getUserName() ?? 'Usuario';
+    _userAvatar = preferencesLocalDataSource.getUserAvatar();
+    _profileImagePath = preferencesLocalDataSource.getProfileImagePath();
     
     // 2. Cargar PIN de forma asíncrona desde almacenamiento seguro
-    _userPin = await localDataSource.getSecurityPinAsync();
+    _userPin = await preferencesLocalDataSource.getSecurityPinAsync();
     
-    _isDarkMode = localDataSource.getThemeMode();
-    _enableBiometrics = localDataSource.getEnableBiometrics();
-    _enableNotifications = localDataSource.getEnableNotifications();
+    _isDarkMode = preferencesLocalDataSource.getThemeMode();
+    _enableBiometrics = preferencesLocalDataSource.getEnableBiometrics();
+    _enableNotifications = preferencesLocalDataSource.getEnableNotifications();
 
     notifyListeners();
   }
@@ -75,57 +75,57 @@ class UiProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleTheme(bool value) {
+  Future<void> toggleTheme(bool value) async {
     _isDarkMode = value;
     notifyListeners();
-    localDataSource.saveThemeMode(value);
+    await preferencesLocalDataSource.saveThemeMode(value);
   }
 
   Future<void> setUserName(String name) async {
     _userName = name;
     notifyListeners();
-    await localDataSource.saveUserName(name);
+    await preferencesLocalDataSource.saveUserName(name);
   }
 
   Future<void> setUserAvatar(String avatar) async {
     _userAvatar = avatar;
     _profileImagePath = null;
     notifyListeners();
-    await localDataSource.saveUserAvatar(avatar);
-    await localDataSource.saveProfileImagePath(null);
+    await preferencesLocalDataSource.saveUserAvatar(avatar);
+    await preferencesLocalDataSource.saveProfileImagePath(null);
   }
 
   Future<void> setProfileImagePath(String? path) async {
     _profileImagePath = path;
     notifyListeners();
-    await localDataSource.saveProfileImagePath(path);
+    await preferencesLocalDataSource.saveProfileImagePath(path);
   }
 
-  void setPin(String pin) {
+  Future<void> setPin(String pin) async {
     _userPin = pin;
     notifyListeners();
-    localDataSource.saveSecurityPin(pin);
+    await preferencesLocalDataSource.saveSecurityPin(pin);
   }
 
-  void removePin() {
+  Future<void> removePin() async {
     _userPin = null;
     notifyListeners();
-    localDataSource.saveSecurityPin(null);
+    await preferencesLocalDataSource.saveSecurityPin(null);
   }
 
   bool verifyPin(String input) {
     return _userPin == input;
   }
 
-  void toggleBiometrics(bool value) {
+  Future<void> toggleBiometrics(bool value) async {
     _enableBiometrics = value;
     notifyListeners();
-    localDataSource.saveEnableBiometrics(value);
+    await preferencesLocalDataSource.saveEnableBiometrics(value);
   }
 
-  void toggleNotifications(bool value) {
+  Future<void> toggleNotifications(bool value) async {
     _enableNotifications = value;
     notifyListeners();
-    localDataSource.saveEnableNotifications(value);
+    await preferencesLocalDataSource.saveEnableNotifications(value);
   }
 }

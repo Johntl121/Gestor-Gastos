@@ -28,7 +28,7 @@ La estructura de 4 capas (`core/`, `domain/`, `data/`, `presentation/`) es corre
 | :--- | :--- | :--- |
 | `TransactionLocalDataSource` | Transacciones CRUD + Subscriptions CRUD + Goals CRUD + Preferencias de usuario (nombre, moneda, PIN, tema, avatar, imagen) + Migración de datos + Clear all | 🔴 **God Class** — 12+ responsabilidades |
 | `TransactionRepositoryImpl` | Transacciones + Cuentas CRUD + Balance Breakdown + Monthly Expenses + Monthly Budget | 🟡 Excede contrato original |
-| `WalletProvider` | Cuentas + Metas + Moneda + Presupuesto + Exchange Rates + Soft Delete + Depósitos + Compras | 🟡 Candidata a split |
+| `WalletProvider` | Cuentas + Metas + Moneda + Presupuesto + Exchange Rates + Soft Delete + Depósitos + Compras | 🟡 Candidata a split- [x] **[G1] Refactorizar la "God Class"** |
 
 **Recomendación prioritaria:**  Dividir `TransactionLocalDataSource` en:
 - `TransactionDataSource` — Solo transacciones

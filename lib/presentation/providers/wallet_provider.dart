@@ -12,7 +12,8 @@ import '../../domain/usecases/get_monthly_budget_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../data/models/goal_model.dart';
-import '../../data/repositories/transaction_data_source.dart';
+import '../../data/datasources/preferences_local_data_source.dart';
+import '../../data/datasources/goal_local_data_source.dart';
 import '../../core/constants/app_constants.dart';
 
 class WalletProvider extends ChangeNotifier {
@@ -23,7 +24,8 @@ class WalletProvider extends ChangeNotifier {
   final DeleteAccountUseCase deleteAccountUseCase;
   final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
   final AddTransactionUseCase addTransactionUseCase;
-  final TransactionLocalDataSource localDataSource;
+  final PreferencesLocalDataSource preferencesLocalDataSource;
+  final GoalLocalDataSource goalLocalDataSource;
 
   WalletProvider({
     required this.getAccountBalance,
@@ -33,7 +35,8 @@ class WalletProvider extends ChangeNotifier {
     required this.deleteAccountUseCase,
     required this.getMonthlyBudgetUseCase,
     required this.addTransactionUseCase,
-    required this.localDataSource,
+    required this.preferencesLocalDataSource,
+    required this.goalLocalDataSource,
   }) {
     // Initialization is now explicit via initApp()
   }
@@ -84,7 +87,7 @@ class WalletProvider extends ChangeNotifier {
     debugPrint("🔄 Inicializando WalletProvider...");
 
     // Migrar datos de SharedPreferences a SQLite si existen
-    await localDataSource.migrateDataFromPrefsToSql();
+    // Migration check (now removed)
 
     // Solo cargamos datos. La creación inicial es responsabilidad del Onboarding.
     await loadWalletData();
@@ -162,11 +165,11 @@ class WalletProvider extends ChangeNotifier {
     );
 
     // 4. Load Goals
-    final cachedGoals = await localDataSource.getGoals();
+    final cachedGoals = await goalLocalDataSource.getGoals();
     _goals = List<GoalEntity>.from(cachedGoals);
 
     // 5. Load Currency Symbol
-    _currencySymbol = localDataSource.getCurrency();
+    _currencySymbol = preferencesLocalDataSource.getCurrency();
 
     notifyListeners();
   }
@@ -244,13 +247,13 @@ class WalletProvider extends ChangeNotifier {
   Future<void> setBudgetLimit(double newLimit) async {
     _budgetLimit = newLimit;
     notifyListeners();
-    await localDataSource.saveBudgetLimit(newLimit);
+    await preferencesLocalDataSource.saveBudgetLimit(newLimit);
   }
 
   Future<void> setCurrency(String symbol) async {
     _currencySymbol = symbol;
     notifyListeners();
-    await localDataSource.saveCurrency(symbol);
+    await preferencesLocalDataSource.saveCurrency(symbol);
   }
 
   // --- Goals Section ---
@@ -271,7 +274,7 @@ class WalletProvider extends ChangeNotifier {
         categoryId: categoryId);
     _goals.add(newGoal);
     notifyListeners();
-    await localDataSource.saveGoal(newGoal);
+    await goalLocalDataSource.saveGoal(newGoal);
   }
 
   // Eliminado _saveGoals ya que usaremos persistencia individual por meta-id
@@ -281,7 +284,7 @@ class WalletProvider extends ChangeNotifier {
     if (index != -1) {
       _goals[index] = updatedGoal;
       notifyListeners();
-      await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
+      await goalLocalDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
     }
   }
 
@@ -309,7 +312,7 @@ class WalletProvider extends ChangeNotifier {
 
     _goals.removeAt(index);
     notifyListeners();
-    await localDataSource.deleteGoal(id);
+    await goalLocalDataSource.deleteGoal(id);
   }
 
   void reorderGoals(int oldIndex, int newIndex) {
@@ -358,7 +361,7 @@ class WalletProvider extends ChangeNotifier {
 
     _goals[index] = updatedGoal;
     notifyListeners();
-    await localDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
+    await goalLocalDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
   }
 
   Future<void> purchaseGoal(String goalId, {int? categoryId}) async {
@@ -402,7 +405,7 @@ class WalletProvider extends ChangeNotifier {
 
     _goals[index] = completedGoal;
     notifyListeners();
-    await localDataSource.saveGoal(GoalModel.fromEntity(completedGoal));
+    await goalLocalDataSource.saveGoal(GoalModel.fromEntity(completedGoal));
   }
 
   String getAccountName(int id) {
