@@ -481,11 +481,11 @@ class _DonutChartSection extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = WalletProvider
-                    .exchangeRatesToPEN[acc?.currencySymbol ?? 'S/'] ??
+            final sourceRate = walletProvider
+                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
                 1.0;
             final targetRate =
-                WalletProvider.exchangeRatesToPEN[currency] ?? 1.0;
+                walletProvider.exchangeRates[currency] ?? 1.0;
             monthSpent += (t.amount.abs() * sourceRate) / targetRate;
           }
         }
@@ -675,11 +675,11 @@ class _BalanceSummary extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = WalletProvider
-                    .exchangeRatesToPEN[acc?.currencySymbol ?? 'S/'] ??
+            final sourceRate = walletProvider
+                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
                 1.0;
             final targetRate =
-                WalletProvider.exchangeRatesToPEN[currency] ?? 1.0;
+                walletProvider.exchangeRates[currency] ?? 1.0;
             final convertedAmount = (t.amount * sourceRate) / targetRate;
 
             if (t.amount > 0) {
@@ -694,11 +694,11 @@ class _BalanceSummary extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = WalletProvider
-                    .exchangeRatesToPEN[acc?.currencySymbol ?? 'S/'] ??
+            final sourceRate = walletProvider
+                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
                 1.0;
             final targetRate =
-                WalletProvider.exchangeRatesToPEN[currency] ?? 1.0;
+                walletProvider.exchangeRates[currency] ?? 1.0;
             monthSpent += (t.amount.abs() * sourceRate) / targetRate;
           }
         }

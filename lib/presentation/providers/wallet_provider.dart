@@ -46,6 +46,7 @@ class WalletProvider extends ChangeNotifier {
   double _budgetLimit = 2400.00;
   List<GoalEntity> _goals = [];
   String _currencySymbol = 'S/';
+  Map<String, double> _exchangeRates = {};
   String? errorMessage;
 
   List<AccountEntity> get accounts => _accounts;
@@ -53,33 +54,30 @@ class WalletProvider extends ChangeNotifier {
   double get budgetLimit => _budgetLimit;
   List<GoalEntity> get goals => _goals;
   String get currencySymbol => _currencySymbol;
+  Map<String, double> get exchangeRates => _exchangeRates;
 
   void clearError() {
     errorMessage = null;
     notifyListeners();
   }
 
-  // Mock Exchange Rates
-  static const Map<String, double> exchangeRatesToPEN = {
-    'S/': 1.0,
-    '\$': 3.75,
-    '€': 4.10,
-    '¥': 0.025,
-    '₽': 0.040,
-    '₿': 350000.0,
-  };
-
   /// Cálculo Dinámico: Suma los saldos convirtiéndolos a la moneda preferida del usuario
   double get totalBalance {
     final targetSymbol = _currencySymbol;
-    final targetRate = exchangeRatesToPEN[targetSymbol] ?? 1.0;
+    final targetRate = _exchangeRates[targetSymbol] ?? 1.0;
 
     return _accounts.where((a) => a.includeInTotal).fold(0.0, (sum, acc) {
-      final sourceRate = exchangeRatesToPEN[acc.currencySymbol] ?? 1.0;
+      final sourceRate = _exchangeRates[acc.currencySymbol] ?? 1.0;
       // Convertimos: (Monto * RateOrigen) / RateDestino
       final convertedAmount = (acc.currentBalance * sourceRate) / targetRate;
       return sum + convertedAmount;
     });
+  }
+
+  Future<void> updateExchangeRate(String currency, double newRate) async {
+    _exchangeRates[currency] = newRate;
+    await preferencesLocalDataSource.saveExchangeRates(_exchangeRates);
+    notifyListeners();
   }
 
   /// Singleton de Inicialización
@@ -168,8 +166,9 @@ class WalletProvider extends ChangeNotifier {
     final cachedGoals = await goalLocalDataSource.getGoals();
     _goals = List<GoalEntity>.from(cachedGoals);
 
-    // 5. Load Currency Symbol
+    // 5. Load Currency Symbol and Rates
     _currencySymbol = preferencesLocalDataSource.getCurrency();
+    _exchangeRates = preferencesLocalDataSource.getExchangeRates();
 
     notifyListeners();
   }

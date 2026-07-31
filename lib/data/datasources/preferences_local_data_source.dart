@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/secure_storage_service.dart';
@@ -12,6 +13,7 @@ const String keyProfileImagePath = 'PROFILE_IMAGE_PATH';
 const String keyThemeMode = 'THEME_MODE';
 const String keyEnableBiometrics = 'ENABLE_BIOMETRICS';
 const String keyEnableNotifications = 'ENABLE_NOTIFICATIONS';
+const String keyExchangeRates = 'EXCHANGE_RATES';
 
 abstract class PreferencesLocalDataSource {
   bool isFirstTime();
@@ -37,6 +39,8 @@ abstract class PreferencesLocalDataSource {
   bool getEnableNotifications();
   Future<void> clearAllPreferences();
   Future<void> migratePinIfNeeded();
+  Future<void> saveExchangeRates(Map<String, double> rates);
+  Map<String, double> getExchangeRates();
 }
 
 class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
@@ -141,5 +145,33 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
     final currentTheme = getThemeMode();
     await sharedPreferences.clear();
     await saveThemeMode(currentTheme);
+  }
+
+  @override
+  Future<void> saveExchangeRates(Map<String, double> rates) async {
+    final String jsonString = jsonEncode(rates);
+    await sharedPreferences.setString(keyExchangeRates, jsonString);
+  }
+
+  @override
+  Map<String, double> getExchangeRates() {
+    final String? jsonString = sharedPreferences.getString(keyExchangeRates);
+    if (jsonString != null) {
+      try {
+        final Map<String, dynamic> decoded = jsonDecode(jsonString);
+        return decoded.map((key, value) => MapEntry(key, (value as num).toDouble()));
+      } catch (e) {
+        debugPrint("Error al parsear exchange rates: $e");
+      }
+    }
+    // Default values if none exist
+    return {
+      'S/': 1.0,
+      '\$': 3.75,
+      '€': 4.10,
+      '¥': 0.025,
+      '₽': 0.040,
+      '₿': 350000.0,
+    };
   }
 }
