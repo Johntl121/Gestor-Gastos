@@ -17,6 +17,7 @@ import '../transactions/history_page.dart';
 import '../wallet/wallet_page.dart';
 import '../transactions/add_transaction_page.dart';
 import '../../../core/constants/app_categories.dart';
+import '../../../core/constants/app_strings.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -636,7 +637,7 @@ class _MainPageState extends State<MainPage> {
                 icon: currentIndex == 0
                     ? Icons.home_rounded
                     : Icons.home_outlined,
-                label: 'Inicio',
+                label: AppStrings.navHome,
                 isActive: currentIndex == 0,
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,
@@ -683,7 +684,7 @@ class _MainPageState extends State<MainPage> {
                 icon: currentIndex == 2
                     ? Icons.history_rounded
                     : Icons.history_outlined,
-                label: 'Historial',
+                label: AppStrings.navHistory,
                 isActive: currentIndex == 2,
                 activeColor: activeColor,
                 inactiveColor: inactiveColor,

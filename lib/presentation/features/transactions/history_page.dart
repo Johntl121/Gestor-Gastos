@@ -14,6 +14,7 @@ import '../../../core/utils/currency_formatter.dart';
 
 import '../../../core/constants/app_filters.dart';
 import '../../../core/constants/app_categories.dart';
+import '../../../core/constants/app_strings.dart';
 import 'transaction_search_delegate.dart';
 import 'add_transaction_page.dart';
 
@@ -56,7 +57,7 @@ class _HistoryPageState extends State<HistoryPage> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          "Historial",
+          AppStrings.historyTitle,
           style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -557,7 +558,7 @@ class _TransactionListViewState extends State<_TransactionListView> {
 
         if (grouped.isEmpty) {
           return Center(
-            child: Text("No hay transacciones",
+            child: Text(AppStrings.historyNoTransactions,
                 style: TextStyle(color: Colors.grey[600])),
           );
         }

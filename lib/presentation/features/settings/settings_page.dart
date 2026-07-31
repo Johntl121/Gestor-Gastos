@@ -7,6 +7,7 @@ import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../../../data/datasources/preferences_local_data_source.dart';
 import '../../../../core/services/database_helper.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../injection_container.dart' as sl;
 
 import 'dart:io';
@@ -35,7 +36,7 @@ class SettingsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text("Configuración",
+        title: Text(AppStrings.settingsTitle,
             style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.transparent,

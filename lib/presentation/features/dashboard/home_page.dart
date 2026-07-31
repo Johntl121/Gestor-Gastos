@@ -14,6 +14,7 @@ import '../../../core/services/database_helper.dart';
 import '../../../injection_container.dart' as sl;
 import '../../../core/constants/app_categories.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/icon_mapper.dart';
 
 import '../settings/settings_page.dart';
@@ -704,7 +705,7 @@ class _BalanceSummary extends StatelessWidget {
 
         return Column(
           children: [
-            Text("SALDO DISPONIBLE",
+            Text(AppStrings.homeAvailableBalance.toUpperCase(),
                 style: TextStyle(
                     color: subTextColor,
                     fontSize: 12,
@@ -924,14 +925,14 @@ class _RecentTransactionsList extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Actividad Reciente",
+                Text(AppStrings.homeRecentTransactions,
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                         color: textColor)),
                 GestureDetector(
                   onTap: onSeeAllPressed,
-                  child: const Text("Ver todo",
+                  child: const Text(AppStrings.homeSeeAll,
                       style: TextStyle(
                           color: Colors.tealAccent,
                           fontWeight: FontWeight.w600)),
