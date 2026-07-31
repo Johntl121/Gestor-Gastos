@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/usecases/usecase.dart';
 import '../../data/models/subscription.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
@@ -39,10 +38,18 @@ class TransactionProvider extends ChangeNotifier {
   List<Subscription> _subscriptions = [];
   bool _isLoading = false;
   String? errorMessage;
+  
+  // Paginación
+  int _offset = 0;
+  final int _limit = 50;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
 
   List<TransactionEntity> get transactions => _transactions;
   List<Subscription> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
   void clearError() {
     errorMessage = null;
@@ -53,12 +60,16 @@ class TransactionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final result = await getTransactionsUseCase(NoParams());
+    _offset = 0;
+    _hasMore = true;
+
+    final result = await getTransactionsUseCase(GetTransactionsParams(limit: _limit, offset: _offset));
     result.fold(
       (fail) => debugPrint("Error loading transactions: $fail"),
       (list) {
         _transactions = list;
         _transactions.sort((a, b) => b.date.compareTo(a.date));
+        if (list.length < _limit) _hasMore = false;
       },
     );
 
@@ -70,6 +81,33 @@ class TransactionProvider extends ChangeNotifier {
     _checkSubscriptionStatuses();
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadMoreTransactions() async {
+    if (_isLoadingMore || !_hasMore) return;
+    
+    _isLoadingMore = true;
+    notifyListeners();
+
+    _offset += _limit;
+    final result = await getTransactionsUseCase(GetTransactionsParams(limit: _limit, offset: _offset));
+    
+    result.fold(
+      (fail) {
+        debugPrint("Error loading more transactions: $fail");
+        _offset -= _limit; // revert offset
+      },
+      (list) {
+        if (list.length < _limit) {
+          _hasMore = false;
+        }
+        _transactions.addAll(list);
+        _transactions.sort((a, b) => b.date.compareTo(a.date));
+      },
+    );
+
+    _isLoadingMore = false;
     notifyListeners();
   }
 

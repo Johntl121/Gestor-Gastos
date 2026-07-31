@@ -469,10 +469,38 @@ class _FilterChipWidget extends StatelessWidget {
   }
 }
 
-class _TransactionListView extends StatelessWidget {
+class _TransactionListView extends StatefulWidget {
   final Map<String, dynamic> selectedFilter;
 
   const _TransactionListView({required this.selectedFilter});
+
+  @override
+  State<_TransactionListView> createState() => _TransactionListViewState();
+}
+
+class _TransactionListViewState extends State<_TransactionListView> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      final provider = Provider.of<TransactionProvider>(context, listen: false);
+      if (!provider.isLoadingMore && provider.hasMore) {
+        provider.loadMoreTransactions();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -484,8 +512,8 @@ class _TransactionListView extends StatelessWidget {
         final now = DateTime.now();
 
         var displayedTransactions = transactionProvider.transactions;
-        final type = selectedFilter['type'];
-        final value = selectedFilter['value'];
+        final type = widget.selectedFilter['type'];
+        final value = widget.selectedFilter['value'];
 
         if (type == 'type') {
           displayedTransactions =
@@ -535,10 +563,18 @@ class _TransactionListView extends StatelessWidget {
         }
 
         return ListView.builder(
+          controller: _scrollController,
           padding:
               const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 24),
-          itemCount: grouped.keys.length,
+          itemCount: grouped.keys.length + (transactionProvider.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
+            if (index == grouped.keys.length) {
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
             final key = grouped.keys.elementAt(index);
             final transactions = grouped[key]!;
 

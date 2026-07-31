@@ -3,7 +3,7 @@ import '../../core/services/database_helper.dart';
 import '../models/transaction_model.dart';
 
 abstract class TransactionLocalDataSource {
-  Future<List<TransactionModel>> getTransactions();
+  Future<List<TransactionModel>> getTransactions({int limit = 50, int offset = 0});
   Future<List<TransactionModel>> getTransactionsByDateRange(DateTime start, DateTime end);
   Future<void> saveTransaction(TransactionModel transaction);
   Future<void> updateTransaction(TransactionModel transaction);
@@ -23,10 +23,11 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   ''';
 
   @override
-  Future<List<TransactionModel>> getTransactions() async {
+  Future<List<TransactionModel>> getTransactions({int limit = 50, int offset = 0}) async {
     final db = await localDatabase.database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
-      '$_transactionJoinQuery ORDER BY t.date DESC'
+      '$_transactionJoinQuery ORDER BY t.date DESC LIMIT ? OFFSET ?',
+      [limit, offset]
     );
     
     return maps.map((m) => TransactionModel.fromJson(m)).toList();

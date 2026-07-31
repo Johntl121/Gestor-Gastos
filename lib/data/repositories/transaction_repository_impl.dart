@@ -136,9 +136,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Either<Failure, List<TransactionEntity>>> getTransactions() async {
+  Future<Either<Failure, List<TransactionEntity>>> getTransactions({int limit = 50, int offset = 0}) async {
     try {
-      final transactionModels = await transactionLocalDataSource.getTransactions();
+      final transactionModels = await transactionLocalDataSource.getTransactions(limit: limit, offset: offset);
       return Right(transactionModels);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
