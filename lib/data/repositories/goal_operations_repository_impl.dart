@@ -1,5 +1,4 @@
 import 'package:dartz/dartz.dart';
-import 'package:sqflite/sqflite.dart';
 import '../../core/errors/failure.dart';
 import '../../core/services/database_helper.dart';
 import '../../domain/entities/transaction_entity.dart';
@@ -44,8 +43,9 @@ class GoalOperationsRepositoryImpl implements GoalOperationsRepository {
         final updated = await txn.rawUpdate(
             'UPDATE goals SET currentAmount = currentAmount + ? WHERE id = ?',
             [transaction.amount, goalId]);
-        if (updated == 0)
+        if (updated == 0) {
           throw Exception("Error al actualizar el progreso de la meta");
+        }
       });
 
       return const Right(null);
@@ -60,8 +60,9 @@ class GoalOperationsRepositoryImpl implements GoalOperationsRepository {
     try {
       final db = await localDatabase.database;
 
-      if (transaction.accountId <= 0)
+      if (transaction.accountId <= 0) {
         throw Exception("Cuenta alcancía inválida");
+      }
 
       await db.transaction((txn) async {
         // 1. Verificar meta

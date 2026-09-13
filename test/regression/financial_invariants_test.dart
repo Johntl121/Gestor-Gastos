@@ -44,7 +44,7 @@ void main() {
   group('INV-01: Edición de cuenta no altera saldo', () {
     test('Editar color e icono de cuenta conserva su saldo', () async {
       // 1. Crear cuenta
-      final newAccount = AccountEntity(
+      const newAccount = AccountEntity(
         id: 0,
         name: 'Cuenta Inicial',
         isCash: true,
@@ -95,7 +95,7 @@ void main() {
   group('INV-02 y INV-04: Transacciones y atomicidad de edición', () {
     test('Eliminar movimiento revierte exactamente su efecto', () async {
       // 1. Crear cuenta
-      final account = AccountEntity(
+      const account = AccountEntity(
           id: 0,
           name: 'Principal',
           isCash: false,
@@ -138,7 +138,7 @@ void main() {
 
     test('Editar movimiento es lógicamente (revertir anterior + aplicar nuevo)',
         () async {
-      final account1 = AccountEntity(
+      const account1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -149,7 +149,7 @@ void main() {
       final acc1Id =
           (await accountRepository.createAccount(account1)).getOrElse(() => 0);
 
-      final account2 = AccountEntity(
+      const account2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: true,

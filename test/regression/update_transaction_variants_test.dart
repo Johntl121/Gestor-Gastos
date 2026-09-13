@@ -43,7 +43,7 @@ void main() {
 
   group('UpdateTransaction Variants', () {
     test('Editar movimiento: Ingreso -> Egreso', () async {
-      final acc = AccountEntity(
+      const acc = AccountEntity(
           id: 0,
           name: 'Acc',
           isCash: false,
@@ -86,7 +86,7 @@ void main() {
     });
 
     test('Editar movimiento: Egreso -> Ingreso', () async {
-      final acc = AccountEntity(
+      const acc = AccountEntity(
           id: 0,
           name: 'Acc',
           isCash: false,
@@ -129,7 +129,7 @@ void main() {
     });
 
     test('Editar movimiento: Cambio de cuenta en ingreso/egreso', () async {
-      final acc1 = AccountEntity(
+      const acc1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -139,7 +139,7 @@ void main() {
           currencySymbol: 'S/');
       final acc1Id =
           (await accountRepository.createAccount(acc1)).getOrElse(() => 0);
-      final acc2 = AccountEntity(
+      const acc2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: false,
@@ -183,7 +183,7 @@ void main() {
     });
 
     test('Editar movimiento: Transferencia cambiando origen', () async {
-      final acc1 = AccountEntity(
+      const acc1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -193,7 +193,7 @@ void main() {
           currencySymbol: 'S/');
       final acc1Id =
           (await accountRepository.createAccount(acc1)).getOrElse(() => 0);
-      final acc2 = AccountEntity(
+      const acc2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: false,
@@ -203,7 +203,7 @@ void main() {
           currencySymbol: 'S/');
       final acc2Id =
           (await accountRepository.createAccount(acc2)).getOrElse(() => 0);
-      final acc3 = AccountEntity(
+      const acc3 = AccountEntity(
           id: 0,
           name: 'Acc3',
           isCash: false,
@@ -250,7 +250,7 @@ void main() {
     });
 
     test('Editar movimiento: Transferencia cambiando destino', () async {
-      final acc1 = AccountEntity(
+      const acc1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -260,7 +260,7 @@ void main() {
           currencySymbol: 'S/');
       final acc1Id =
           (await accountRepository.createAccount(acc1)).getOrElse(() => 0);
-      final acc2 = AccountEntity(
+      const acc2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: false,
@@ -270,7 +270,7 @@ void main() {
           currencySymbol: 'S/');
       final acc2Id =
           (await accountRepository.createAccount(acc2)).getOrElse(() => 0);
-      final acc3 = AccountEntity(
+      const acc3 = AccountEntity(
           id: 0,
           name: 'Acc3',
           isCash: false,
@@ -317,7 +317,7 @@ void main() {
     });
 
     test('Editar movimiento: Transferencia cambiando monto', () async {
-      final acc1 = AccountEntity(
+      const acc1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -327,7 +327,7 @@ void main() {
           currencySymbol: 'S/');
       final acc1Id =
           (await accountRepository.createAccount(acc1)).getOrElse(() => 0);
-      final acc2 = AccountEntity(
+      const acc2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: false,
@@ -373,7 +373,7 @@ void main() {
     });
 
     test('Editar movimiento: Transferencia con receivedAmount', () async {
-      final acc1 = AccountEntity(
+      const acc1 = AccountEntity(
           id: 0,
           name: 'Acc1',
           isCash: false,
@@ -383,7 +383,7 @@ void main() {
           currencySymbol: 'USD');
       final acc1Id =
           (await accountRepository.createAccount(acc1)).getOrElse(() => 0);
-      final acc2 = AccountEntity(
+      const acc2 = AccountEntity(
           id: 0,
           name: 'Acc2',
           isCash: false,
