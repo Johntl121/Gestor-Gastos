@@ -95,22 +95,29 @@ void main() {
     await db.close();
   });
 
-  group('P1-01: Operaciones Atómicas de Metas (Rollback Tests)', () {
-    test(
-        'depositToGoal falla por cuenta destino inexistente y hace rollback completo',
-        () async {
-      // 1. Setup: Crear cuenta origen y meta, PERO la cuenta destino de la meta NO existe.
-      await db.insert('accounts',
-          {'id': 1, 'name': 'Origen', 'type': 'CASH', 'balance': 1000.0});
-      await db.insert(
-          'categories', {'id': 1, 'name': 'Transfer', 'type': 'EXPENSE'});
+  group('P1-01: Operaciones Atómicas de Metas (Rollback Tests con escrituras parciales comprobadas)', () {
+    test('depositToGoal falla al final de la operación y revierte transacciones insertadas y saldos', () async {
+      // 1. Setup: Crear cuenta origen válida y meta
+      await db.insert('accounts', {'id': 1, 'name': 'Origen', 'type': 'CASH', 'balance': 1000.0});
+      await db.insert('categories', {'id': 1, 'name': 'Transfer', 'type': 'EXPENSE'});
+      // Para la meta, le pondremos la misma cuenta 1 para simplificar, no importa
       await db.insert('goals', {
         'id': 'g1',
         'name': 'Mi Meta',
         'targetAmount': 500.0,
         'currentAmount': 0.0,
-        'accountId': 999, // CUENTA INEXISTENTE
+        'accountId': 1, 
       });
+
+      // Crear un Trigger que lance un error al intentar actualizar la tabla GOALS
+      // Esto simula un error en la 3ra escritura, DESPUES de haber insertado la tx y actualizado la cuenta
+      await db.execute('''
+        CREATE TRIGGER force_fail_deposit
+        BEFORE UPDATE ON goals
+        BEGIN
+          SELECT RAISE(ABORT, 'Simulated failure during goal update');
+        END;
+      ''');
 
       final transaction = TransactionEntity(
         id: 0,
@@ -119,23 +126,25 @@ void main() {
         amount: 100.0,
         date: DateTime.now(),
         type: TransactionType.transfer,
-        destinationAccountId: 999, // CUENTA INEXISTENTE
+        destinationAccountId: 1, // Mismo para simplificar
         description: 'Test',
       );
 
       // 2. Acción: Intentar depositar
-      final result =
-          await goalRepository.depositToGoalAtomic('g1', transaction);
+      final result = await goalRepository.depositToGoalAtomic('g1', transaction);
+
+      // Limpiar trigger
+      await db.execute('DROP TRIGGER force_fail_deposit');
 
       // 3. Verificación
       expect(result.isLeft(), isTrue); // Debe fallar
 
       // Validar Rollback:
-      // A. Ninguna transacción insertada
+      // A. Ninguna transacción insertada (se revirtió el INSERT de Step 2)
       final txs = await db.query('transactions');
       expect(txs.length, 0);
 
-      // B. El saldo original no cambió (no se restaron los 100)
+      // B. El saldo original no cambió (se revirtió el UPDATE de Step 3)
       final accounts = await db.query('accounts', where: 'id = 1');
       expect(accounts.first['balance'], 1000.0);
 
@@ -144,13 +153,10 @@ void main() {
       expect(goals.first['currentAmount'], 0.0);
     });
 
-    test(
-        'purchaseGoal falla por saldo de categoría (falla simulada en SQLite) y hace rollback',
-        () async {
+    test('purchaseGoal falla al final (durante el update de meta) y hace rollback de inserciones previas', () async {
       // Setup
-      await db.insert('accounts',
-          {'id': 1, 'name': 'Alcancía', 'type': 'CASH', 'balance': 500.0});
-      // NO insertamos la categoría 1 para forzar un fallo de Foreign Key (categoryId)
+      await db.insert('accounts', {'id': 1, 'name': 'Alcancía', 'type': 'CASH', 'balance': 500.0});
+      await db.insert('categories', {'id': 2, 'name': 'Compras', 'type': 'EXPENSE'});
       await db.insert('goals', {
         'id': 'g2',
         'name': 'Mi Meta',
@@ -159,55 +165,72 @@ void main() {
         'accountId': 1,
       });
 
+      // Provocamos el fallo explícitamente en el último paso (UPDATE de la meta)
+      await db.execute('''
+        CREATE TRIGGER force_fail_purchase
+        BEFORE UPDATE ON goals
+        BEGIN
+          SELECT RAISE(ABORT, 'Simulated failure during goal purchase update');
+        END;
+      ''');
+
       final transaction = TransactionEntity(
         id: 0,
         accountId: 1,
-        categoryId: 999, // CATEGORÍA INEXISTENTE (Foreign key violation)
+        categoryId: 2, 
         amount: -500.0,
         date: DateTime.now(),
         type: TransactionType.expense,
         description: 'Test',
       );
 
-      // Enable foreign keys to force the violation
-      await db.execute('PRAGMA foreign_keys = ON');
-
       // Acción
       final result = await goalRepository.purchaseGoalAtomic('g2', transaction);
+
+      await db.execute('DROP TRIGGER force_fail_purchase');
 
       // Verificación
       expect(result.isLeft(), isTrue);
 
       // Validar Rollback:
+      // La transacción que se había insertado debe haberse revertido
       final txs = await db.query('transactions');
       expect(txs.length, 0);
 
+      // El gasto que se había aplicado a la cuenta (saldo pasó de 500 a 0) se revirtió a 500
       final accounts = await db.query('accounts', where: 'id = 1');
       expect(accounts.first['balance'], 500.0);
 
+      // La meta no se marcó como completada
       final goals = await db.query('goals', where: 'id = ?', whereArgs: ['g2']);
       expect(goals.first['isCompleted'], 0);
     });
 
-    test(
-        'deleteGoalAtomic con reembolso falla por cuenta origen (Alcancía) inexistente',
-        () async {
+    test('deleteGoalAtomic con reembolso falla al eliminar la meta (luego de insertar refund)', () async {
       // Setup
-      await db.insert('accounts',
-          {'id': 2, 'name': 'Reembolso', 'type': 'CASH', 'balance': 100.0});
-      await db.insert(
-          'categories', {'id': 1, 'name': 'Transfer', 'type': 'EXPENSE'});
+      await db.insert('accounts', {'id': 2, 'name': 'Reembolso', 'type': 'CASH', 'balance': 100.0});
+      await db.insert('accounts', {'id': 3, 'name': 'Meta', 'type': 'CASH', 'balance': 200.0});
+      await db.insert('categories', {'id': 1, 'name': 'Transfer', 'type': 'EXPENSE'});
       await db.insert('goals', {
         'id': 'g3',
         'name': 'Mi Meta',
         'targetAmount': 500.0,
         'currentAmount': 200.0,
-        'accountId': 999, // INEXISTENTE
+        'accountId': 3, 
       });
+
+      // El fallo lo provocamos al momento de eliminar la meta (último paso de deleteGoalAtomic)
+      await db.execute('''
+        CREATE TRIGGER force_fail_delete
+        BEFORE DELETE ON goals
+        BEGIN
+          SELECT RAISE(ABORT, 'Simulated failure during goal deletion');
+        END;
+      ''');
 
       final refundTx = TransactionEntity(
         id: 0,
-        accountId: 999, // Origen inexistente
+        accountId: 3, // Origen meta
         categoryId: 1,
         amount: 200.0,
         date: DateTime.now(),
@@ -217,19 +240,25 @@ void main() {
       );
 
       // Acción
-      final result = await goalRepository.deleteGoalAtomic('g3',
-          refundTransaction: refundTx);
+      final result = await goalRepository.deleteGoalAtomic('g3', refundTransaction: refundTx);
+
+      await db.execute('DROP TRIGGER force_fail_delete');
 
       // Verificación
       expect(result.isLeft(), isTrue);
 
       // Validar Rollback:
+      // La inserción de la transacción de reembolso se revirtió
       final txs = await db.query('transactions');
       expect(txs.length, 0);
 
-      // Saldo de reembolso intacto
+      // Saldo de reembolso intacto (no recibió los 200)
       final accounts = await db.query('accounts', where: 'id = 2');
       expect(accounts.first['balance'], 100.0);
+      
+      // Saldo de origen de la meta intacto (no perdió los 200)
+      final accountsOrigin = await db.query('accounts', where: 'id = 3');
+      expect(accountsOrigin.first['balance'], 200.0);
 
       // Meta no fue eliminada
       final goals = await db.query('goals', where: 'id = ?', whereArgs: ['g3']);
