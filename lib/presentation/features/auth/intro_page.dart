@@ -205,7 +205,8 @@ class _IntroPageState extends State<IntroPage> {
                             borderRadius: BorderRadius.circular(30),
                             boxShadow: [
                               BoxShadow(
-                                  color: Colors.cyanAccent.withValues(alpha: 0.4),
+                                  color:
+                                      Colors.cyanAccent.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                   offset: const Offset(0, 5))
                             ]),

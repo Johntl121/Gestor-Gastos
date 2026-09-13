@@ -50,7 +50,8 @@ class AccountRepositoryImpl implements AccountRepository {
       if (account.id > 0) {
         map['id'] = account.id;
       }
-      final id = await db.insert('accounts', map, conflictAlgorithm: ConflictAlgorithm.replace);
+      final id = await db.insert('accounts', map,
+          conflictAlgorithm: ConflictAlgorithm.replace);
       return Right(id);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

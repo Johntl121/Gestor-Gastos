@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class IconMapper {
   static IconData getIcon(String? name) {
     if (name == null) return Icons.category;
-    
+
     switch (name.toLowerCase()) {
       case 'restaurant':
         return Icons.restaurant;

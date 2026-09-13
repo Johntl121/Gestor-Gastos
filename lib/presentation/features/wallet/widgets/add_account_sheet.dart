@@ -162,8 +162,8 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                     color: Colors.transparent,
                     child: InkWell(
                       // Bloqueamos cambio de moneda en edición para no alterar historial
-                      onTap: widget.accountToEdit == null 
-                          ? () => _showCurrencyPicker(context) 
+                      onTap: widget.accountToEdit == null
+                          ? () => _showCurrencyPicker(context)
                           : null,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
@@ -468,7 +468,8 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
         .showSnackBar(SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.info_outline, color: Colors.cyanAccent, size: 20),
+              const Icon(Icons.info_outline,
+                  color: Colors.cyanAccent, size: 20),
               const SizedBox(width: 8),
               Expanded(child: Text("Cuenta '${account.name}' eliminada.")),
             ],

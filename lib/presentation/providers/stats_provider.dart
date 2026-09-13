@@ -72,7 +72,8 @@ class StatsProvider extends ChangeNotifier {
   bool _isLoadingTransactions = false;
 
   List<TransactionEntity> get transactions => _allTransactions;
-  List<TransactionEntity> get currentPeriodTransactions => _currentPeriodTransactions;
+  List<TransactionEntity> get currentPeriodTransactions =>
+      _currentPeriodTransactions;
   bool get isLoadingTransactions => _isLoadingTransactions;
 
   /// Sincroniza todas las transacciones desde el TransactionProvider
@@ -121,19 +122,23 @@ class StatsProvider extends ChangeNotifier {
       DateTime end;
 
       if (_currentStatsPeriod == PeriodType.week) {
-        start = _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
+        start = _currentStatsDate
+            .subtract(Duration(days: _currentStatsDate.weekday - 1));
         start = DateTime(start.year, start.month, start.day);
-        end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        end = start
+            .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
       } else if (_currentStatsPeriod == PeriodType.year) {
         start = DateTime(_currentStatsDate.year, 1, 1);
         end = DateTime(_currentStatsDate.year, 12, 31, 23, 59, 59);
       } else {
         start = DateTime(_currentStatsDate.year, _currentStatsDate.month, 1);
-        end = DateTime(_currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
+        end = DateTime(
+            _currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
       }
 
-      final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
-      
+      final result = await getTransactionsByDateRange(
+          DateRangeParams(start: start, end: end));
+
       result.fold(
         (fail) => _currentPeriodTransactions = [],
         (list) => _currentPeriodTransactions = list,
@@ -152,20 +157,23 @@ class StatsProvider extends ChangeNotifier {
     DateTime end;
 
     if (_currentStatsPeriod == PeriodType.week) {
-      start = _currentStatsDate.subtract(Duration(days: _currentStatsDate.weekday - 1));
+      start = _currentStatsDate
+          .subtract(Duration(days: _currentStatsDate.weekday - 1));
       start = DateTime(start.year, start.month, start.day);
-      end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      end = start
+          .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
     } else if (_currentStatsPeriod == PeriodType.year) {
       start = DateTime(_currentStatsDate.year, 1, 1);
       end = DateTime(_currentStatsDate.year, 12, 31, 23, 59, 59);
     } else {
       start = DateTime(_currentStatsDate.year, _currentStatsDate.month, 1);
-      end = DateTime(_currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
+      end = DateTime(
+          _currentStatsDate.year, _currentStatsDate.month + 1, 0, 23, 59, 59);
     }
 
     _currentPeriodTransactions = _allTransactions.where((t) {
-      return t.date.isAfter(start.subtract(const Duration(seconds: 1))) && 
-             t.date.isBefore(end.add(const Duration(seconds: 1)));
+      return t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+          t.date.isBefore(end.add(const Duration(seconds: 1)));
     }).toList();
   }
 
@@ -190,8 +198,8 @@ class StatsProvider extends ChangeNotifier {
     final Map<String, _InternalGroup> groups = {};
 
     // 1. Usar Transacciones ya filtradas por la base de datos
-    final filteredTransactions =
-        _currentPeriodTransactions.where((t) => t.type != TransactionType.transfer);
+    final filteredTransactions = _currentPeriodTransactions
+        .where((t) => t.type != TransactionType.transfer);
 
     for (var t in filteredTransactions) {
       if (_currentStatsType == StatsType.expense && t.amount >= 0) continue;
@@ -259,11 +267,11 @@ class StatsProvider extends ChangeNotifier {
   Future<String> buildFinancialContextForAI() async {
     // unused variable removed
     final budgetLimit = preferencesLocalDataSource.getBudgetLimit();
-    
+
     // 1. Totales (usando transacciones ya en memoria para el periodo seleccionado)
     double totalIncome = 0;
     double totalExpense = 0;
-    
+
     for (var t in _currentPeriodTransactions) {
       if (t.type == TransactionType.income) totalIncome += t.amount.abs();
       if (t.type == TransactionType.expense) totalExpense += t.amount.abs();
@@ -274,17 +282,22 @@ class StatsProvider extends ChangeNotifier {
     buffer.writeln("Moneda Principal: $currencySymbol");
     buffer.writeln();
     buffer.writeln("--- RESUMEN DEL PERIODO ---");
-    buffer.writeln("Total Ingresos: $currencySymbol ${totalIncome.toStringAsFixed(2)}");
-    buffer.writeln("Total Gastos: $currencySymbol ${totalExpense.toStringAsFixed(2)}");
-    buffer.writeln("Presupuesto Mensual: $currencySymbol ${budgetLimit.toStringAsFixed(2)}");
+    buffer.writeln(
+        "Total Ingresos: $currencySymbol ${totalIncome.toStringAsFixed(2)}");
+    buffer.writeln(
+        "Total Gastos: $currencySymbol ${totalExpense.toStringAsFixed(2)}");
+    buffer.writeln(
+        "Presupuesto Mensual: $currencySymbol ${budgetLimit.toStringAsFixed(2)}");
     buffer.writeln();
 
     // 2. Gastos por Categoría (Top 5)
     buffer.writeln("--- GASTOS POR CATEGORÍA (Top 5) ---");
-    final categories = getSpendingByCategory([]); // Sin suscripciones extra para el resumen puro
+    final categories = getSpendingByCategory(
+        []); // Sin suscripciones extra para el resumen puro
     final topCategories = categories.take(5).toList();
     for (int i = 0; i < topCategories.length; i++) {
-      buffer.writeln("${i + 1}. ${topCategories[i].name}: $currencySymbol ${topCategories[i].amount.toStringAsFixed(2)}");
+      buffer.writeln(
+          "${i + 1}. ${topCategories[i].name}: $currencySymbol ${topCategories[i].amount.toStringAsFixed(2)}");
     }
     buffer.writeln();
 
@@ -293,7 +306,8 @@ class StatsProvider extends ChangeNotifier {
     if (subscriptions.isNotEmpty) {
       buffer.writeln("--- GASTOS FIJOS ACTIVOS ---");
       for (var s in subscriptions) {
-        buffer.writeln("- ${s.name}: $currencySymbol ${s.amount.toStringAsFixed(2)} | Vence el día: ${s.paymentDate.day}");
+        buffer.writeln(
+            "- ${s.name}: $currencySymbol ${s.amount.toStringAsFixed(2)} | Vence el día: ${s.paymentDate.day}");
       }
       buffer.writeln();
     }
@@ -303,7 +317,8 @@ class StatsProvider extends ChangeNotifier {
     if (goals.isNotEmpty) {
       buffer.writeln("--- METAS DE AHORRO ---");
       for (var g in goals) {
-        buffer.writeln("- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
+        buffer.writeln(
+            "- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
       }
     }
 

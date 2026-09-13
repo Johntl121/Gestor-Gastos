@@ -22,7 +22,7 @@ import 'core/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Bloquear orientación en Vertical
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -79,7 +79,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.paused) {
       // App went to background: Lock if PIN is enabled
-      final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+      final pin =
+          await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
       if (pin != null && pin.isNotEmpty) {
         setState(() {
           _isLocked = true;
@@ -135,9 +136,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               backgroundColor: const Color(0xFF1E293B),
-              contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+              contentTextStyle:
+                  const TextStyle(color: Colors.white, fontSize: 14),
               elevation: 4,
             ),
             useMaterial3: true,
@@ -171,9 +174,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               backgroundColor: AppColors.darkSnackBar,
-              contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+              contentTextStyle:
+                  const TextStyle(color: Colors.white, fontSize: 14),
               elevation: 4,
             ),
             useMaterial3: true,

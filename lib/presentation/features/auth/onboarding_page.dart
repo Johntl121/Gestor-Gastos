@@ -17,6 +17,7 @@ import 'dart:io';
 import 'widgets/welcome_step.dart';
 import '../../providers/ui_provider.dart';
 import '../../../core/constants/app_onboarding_data.dart';
+import '../../../core/constants/app_constants.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -157,7 +158,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     try {
       // 0. RESET EVERYTHING (Ensures fresh start)
-      await LocalDatabase().clearAllTables();      // 1. Limpiar datos viejos
+      await LocalDatabase().clearAllTables(); // 1. Limpiar datos viejos
       await dataSource.clearAllPreferences();
       await sl.sl<LocalDatabase>().clearAllTables(); // Wipe Prefs
 
@@ -236,7 +237,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         if (amount > 0) {
           final t = TransactionEntity(
               accountId: accountId,
-              categoryId: 15, // Otros / Saldo Inicial
+              categoryId: AppConstants.otherIncomeId, // Otros / Saldo Inicial
               amount: amount,
               date: DateTime.now(),
               description: desc,

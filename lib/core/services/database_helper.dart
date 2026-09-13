@@ -33,16 +33,23 @@ class LocalDatabase {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // ... (migraciones previas mantenidas para compatibilidad)
     if (oldVersion < 2) {
-      final accounts = await db.query('accounts', where: "type = ?", whereArgs: ['DIGITAL']);
+      final accounts =
+          await db.query('accounts', where: "type = ?", whereArgs: ['DIGITAL']);
       if (accounts.isEmpty) {
-        await db.rawInsert("INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)");
+        await db.rawInsert(
+            "INSERT INTO accounts(name, type, balance, color) VALUES('Bancaria', 'DIGITAL', 0.0, 4280391411)");
       }
-      final categoriesCount = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM categories'));
+      final categoriesCount = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM categories'));
       if (categoriesCount == 0) {
-        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')");
-        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')");
-        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
-        await db.rawInsert("INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Comida', 'fastfood', 4294198070, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Transporte', 'directions_bus', 4280391411, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Ocio', 'movie', 4289721600, 'EXPENSE')");
+        await db.rawInsert(
+            "INSERT INTO categories(name, icon, color, type) VALUES('Varios', 'category', 4286611584, 'EXPENSE')");
       }
     }
 
@@ -90,7 +97,8 @@ class LocalDatabase {
 
     if (oldVersion < 9) {
       try {
-        await db.execute("ALTER TABLE transactions ADD COLUMN receivedAmount REAL");
+        await db
+            .execute("ALTER TABLE transactions ADD COLUMN receivedAmount REAL");
       } catch (e) {
         // Ignorar si ya existe
       }
@@ -106,8 +114,10 @@ class LocalDatabase {
 
     if (oldVersion < 11) {
       try {
-        await db.execute("ALTER TABLE transactions ADD COLUMN iconCode INTEGER");
-        await db.execute("ALTER TABLE transactions ADD COLUMN colorValue INTEGER");
+        await db
+            .execute("ALTER TABLE transactions ADD COLUMN iconCode INTEGER");
+        await db
+            .execute("ALTER TABLE transactions ADD COLUMN colorValue INTEGER");
       } catch (e) {
         // Ignorar si ya existen
       }
@@ -120,11 +130,19 @@ class LocalDatabase {
         2: {'name': 'Mercado', 'icon': 'shopping_cart', 'color': 0xFF9CCC65},
         3: {'name': 'Vivienda', 'icon': 'home', 'color': 0xFF607D8B},
         4: {'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFF57C00},
-        5: {'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF2196F3},
+        5: {
+          'name': 'Transporte',
+          'icon': 'directions_bus',
+          'color': 0xFF2196F3
+        },
         6: {'name': 'Vehículo', 'icon': 'directions_car', 'color': 0xFFFF5252},
         7: {'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFE91E63},
         8: {'name': 'Cuidado', 'icon': 'spa', 'color': 0xFF9C27B0},
-        9: {'name': 'Suscripciones', 'icon': 'play_circle_filled', 'color': 0xFFF44336},
+        9: {
+          'name': 'Suscripciones',
+          'icon': 'play_circle_filled',
+          'color': 0xFFF44336
+        },
         10: {'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF009688},
         11: {'name': 'Deportes', 'icon': 'fitness_center', 'color': 0xFF4CAF50},
         12: {'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFF3F51B5},
@@ -150,10 +168,18 @@ class LocalDatabase {
 
       for (var entry in allCats.entries) {
         try {
-          final type = entry.key >= 18 && entry.key <= 25 && entry.key != 20 ? 'INCOME' : 'EXPENSE';
+          final type = entry.key >= 18 && entry.key <= 25 && entry.key != 20
+              ? 'INCOME'
+              : 'EXPENSE';
           await db.rawInsert(
               "INSERT OR IGNORE INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, ?)",
-              [entry.key, entry.value['name'], entry.value['icon'], entry.value['color'], type]);
+              [
+                entry.key,
+                entry.value['name'],
+                entry.value['icon'],
+                entry.value['color'],
+                type
+              ]);
         } catch (e) {
           // Ignorar si hay algún error puntual
         }
@@ -172,25 +198,27 @@ class LocalDatabase {
     }
 
     if (oldVersion < 15) {
-      await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)");
-      await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_accountId ON transactions(accountId)");
+      await db.execute(
+          "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)");
+      await db.execute(
+          "CREATE INDEX IF NOT EXISTS idx_transactions_accountId ON transactions(accountId)");
     }
 
     // --- MIGRACIÓN V16: ESTANDARIZACIÓN DE CATEGORÍAS ---
     if (oldVersion < 16) {
       // 1. Limpiar categorías antiguas para evitar conflictos o duplicados
       await db.delete('categories');
-      
+
       // 2. Re-insertar desde el Master Seed (AppCategories)
       for (var entry in AppCategories.allCategories.entries) {
         final isIncome = entry.key >= 18 && entry.key <= 25 && entry.key != 20;
         await db.rawInsert(
             "INSERT INTO categories(id, name, icon, color, type) VALUES(?, ?, ?, ?, ?)",
             [
-              entry.key, 
-              entry.value['name'], 
-              entry.value['icon'], 
-              entry.value['color'], 
+              entry.key,
+              entry.value['name'],
+              entry.value['icon'],
+              entry.value['color'],
               isIncome ? 'INCOME' : 'EXPENSE'
             ]);
       }
@@ -214,7 +242,7 @@ class LocalDatabase {
       await db.execute("DROP TABLE IF EXISTS goals");
       await db.execute("DROP TABLE IF EXISTS categories");
       await db.execute("DROP TABLE IF EXISTS accounts");
-      
+
       // Recrear esquema desde cero
       await _onCreate(db, newVersion);
     }
@@ -222,8 +250,10 @@ class LocalDatabase {
     // --- MIGRACIÓN V21: ÍNDICES DE VELOCIDAD ---
     if (oldVersion < 21) {
       try {
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId)");
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)");
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_categoryId ON transactions(categoryId)");
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type)");
       } catch (e) {
         // Ignorar si ya existen
       }
@@ -232,8 +262,10 @@ class LocalDatabase {
     // --- MIGRACIÓN V22: PERSISTENCIA DE ORDENAMIENTO ---
     if (oldVersion < 22) {
       try {
-        await db.execute("ALTER TABLE goals ADD COLUMN orderIndex INTEGER DEFAULT 0");
-        await db.execute("ALTER TABLE fixed_expenses ADD COLUMN orderIndex INTEGER DEFAULT 0");
+        await db.execute(
+            "ALTER TABLE goals ADD COLUMN orderIndex INTEGER DEFAULT 0");
+        await db.execute(
+            "ALTER TABLE fixed_expenses ADD COLUMN orderIndex INTEGER DEFAULT 0");
       } catch (e) {
         // Ignorar si ya existen
       }
@@ -289,10 +321,14 @@ class LocalDatabase {
       )
     ''');
 
-    await db.execute("CREATE INDEX idx_transactions_date ON transactions(date)");
-    await db.execute("CREATE INDEX idx_transactions_accountId ON transactions(accountId)");
-    await db.execute("CREATE INDEX idx_transactions_categoryId ON transactions(categoryId)");
-    await db.execute("CREATE INDEX idx_transactions_type ON transactions(type)");
+    await db
+        .execute("CREATE INDEX idx_transactions_date ON transactions(date)");
+    await db.execute(
+        "CREATE INDEX idx_transactions_accountId ON transactions(accountId)");
+    await db.execute(
+        "CREATE INDEX idx_transactions_categoryId ON transactions(categoryId)");
+    await db
+        .execute("CREATE INDEX idx_transactions_type ON transactions(type)");
 
     await _createFixedExpensesTable(db);
     await _createGoalsTable(db);
@@ -343,15 +379,18 @@ class LocalDatabase {
 
   Future<void> _seedData(Database db) async {
     // 1. Cuentas iniciales por defecto
-    await db.insert('accounts', {
-      'name': 'Efectivo',
-      'type': 'CASH',
-      'balance': 0.0,
-      'color': 4280391411,
-      'currencySymbol': 'S/',
-      'iconCode': 58343,
-      'includeInTotal': 1
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+        'accounts',
+        {
+          'name': 'Efectivo',
+          'type': 'CASH',
+          'balance': 0.0,
+          'color': 4280391411,
+          'currencySymbol': 'S/',
+          'iconCode': 58343,
+          'includeInTotal': 1
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
 
     // 2. Semilla robusta de Categorías asegurando exactamente los 15 IDs mapeados
     await _seedCategories(db);
@@ -360,34 +399,127 @@ class LocalDatabase {
   Future<void> _seedCategories(Database db) async {
     final categories = [
       // Gastos (1 al 10)
-      {'id': 1, 'name': 'Alimentación', 'icon': 'restaurant', 'color': 0xFFF28B82, 'type': 'EXPENSE'},
-      {'id': 2, 'name': 'Vivienda', 'icon': 'home', 'color': 0xFF81C995, 'type': 'EXPENSE'},
-      {'id': 3, 'name': 'Transporte', 'icon': 'directions_bus', 'color': 0xFF8AB4F8, 'type': 'EXPENSE'},
-      {'id': 4, 'name': 'Servicios', 'icon': 'bolt', 'color': 0xFFFDE293, 'type': 'EXPENSE'},
-      {'id': 5, 'name': 'Salud', 'icon': 'local_hospital', 'color': 0xFF80DEEA, 'type': 'EXPENSE'},
-      {'id': 6, 'name': 'Educación', 'icon': 'school', 'color': 0xFFD7CCC8, 'type': 'EXPENSE'},
-      {'id': 7, 'name': 'Entretenimiento', 'icon': 'movie', 'color': 0xFFC58AF9, 'type': 'EXPENSE'},
-      {'id': 8, 'name': 'Compras', 'icon': 'shopping_bag', 'color': 0xFFF48FB1, 'type': 'EXPENSE'},
-      {'id': 9, 'name': 'Deudas', 'icon': 'money_off', 'color': 0xFFE57373, 'type': 'EXPENSE'},
-      {'id': 10, 'name': 'Otros Gastos', 'icon': 'grid_view', 'color': 0xFFB0BEC5, 'type': 'EXPENSE'},
-      
+      {
+        'id': 1,
+        'name': 'Alimentación',
+        'icon': 'restaurant',
+        'color': 0xFFF28B82,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 2,
+        'name': 'Vivienda',
+        'icon': 'home',
+        'color': 0xFF81C995,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 3,
+        'name': 'Transporte',
+        'icon': 'directions_bus',
+        'color': 0xFF8AB4F8,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 4,
+        'name': 'Servicios',
+        'icon': 'bolt',
+        'color': 0xFFFDE293,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 5,
+        'name': 'Salud',
+        'icon': 'local_hospital',
+        'color': 0xFF80DEEA,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 6,
+        'name': 'Educación',
+        'icon': 'school',
+        'color': 0xFFD7CCC8,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 7,
+        'name': 'Entretenimiento',
+        'icon': 'movie',
+        'color': 0xFFC58AF9,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 8,
+        'name': 'Compras',
+        'icon': 'shopping_bag',
+        'color': 0xFFF48FB1,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 9,
+        'name': 'Deudas',
+        'icon': 'money_off',
+        'color': 0xFFE57373,
+        'type': 'EXPENSE'
+      },
+      {
+        'id': 10,
+        'name': 'Otros Gastos',
+        'icon': 'grid_view',
+        'color': 0xFFB0BEC5,
+        'type': 'EXPENSE'
+      },
+
       // Ingresos (11 al 15)
-      {'id': 11, 'name': 'Sueldo', 'icon': 'monetization_on', 'color': 0xFFA5D6A7, 'type': 'INCOME'},
-      {'id': 12, 'name': 'Negocio', 'icon': 'work', 'color': 0xFF9FA8DA, 'type': 'INCOME'},
-      {'id': 13, 'name': 'Inversiones', 'icon': 'trending_up', 'color': 0xFFCE93D8, 'type': 'INCOME'},
-      {'id': 14, 'name': 'Regalos', 'icon': 'card_giftcard', 'color': 0xFFFFAB91, 'type': 'INCOME'},
-      {'id': 15, 'name': 'Otros Ingresos', 'icon': 'category', 'color': 0xFF90A4AE, 'type': 'INCOME'},
+      {
+        'id': 11,
+        'name': 'Sueldo',
+        'icon': 'monetization_on',
+        'color': 0xFFA5D6A7,
+        'type': 'INCOME'
+      },
+      {
+        'id': 12,
+        'name': 'Negocio',
+        'icon': 'work',
+        'color': 0xFF9FA8DA,
+        'type': 'INCOME'
+      },
+      {
+        'id': 13,
+        'name': 'Inversiones',
+        'icon': 'trending_up',
+        'color': 0xFFCE93D8,
+        'type': 'INCOME'
+      },
+      {
+        'id': 14,
+        'name': 'Regalos',
+        'icon': 'card_giftcard',
+        'color': 0xFFFFAB91,
+        'type': 'INCOME'
+      },
+      {
+        'id': 15,
+        'name': 'Otros Ingresos',
+        'icon': 'category',
+        'color': 0xFF90A4AE,
+        'type': 'INCOME'
+      },
     ];
 
     for (var cat in categories) {
-      await db.insert('categories', {
-        'id': cat['id'],
-        'name': cat['name'],
-        'icon': cat['icon'],
-        'color': cat['color'],
-        'type': cat['type'],
-        'is_editable': 0
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await db.insert(
+          'categories',
+          {
+            'id': cat['id'],
+            'name': cat['name'],
+            'icon': cat['icon'],
+            'color': cat['color'],
+            'type': cat['type'],
+            'is_editable': 0
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 

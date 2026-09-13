@@ -13,7 +13,8 @@ class GetBudgetMoodUseCase implements UseCase<BudgetMood, NoParams> {
 
   @override
   Future<Either<Failure, BudgetMood>> call(NoParams params) async {
-    final expensesResult = await transactionRepository.getCurrentMonthExpenses();
+    final expensesResult =
+        await transactionRepository.getCurrentMonthExpenses();
     final budgetResult = await accountRepository.getMonthlyBudget();
 
     return expensesResult.fold(

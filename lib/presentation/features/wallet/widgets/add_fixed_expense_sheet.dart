@@ -9,7 +9,7 @@ import '../../../../core/constants/icon_mapper.dart';
 
 class AddFixedExpenseSheet extends StatefulWidget {
   final Subscription? subscriptionToEdit;
-  
+
   const AddFixedExpenseSheet({super.key, this.subscriptionToEdit});
 
   @override
@@ -56,10 +56,22 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   };
 
   final List<int> _availableColors = [
-    0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7, 
-    0xFF3F51B5, 0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4,
-    0xFF009688, 0xFF4CAF50, 0xFF8BC34A, 0xFFCDDC39,
-    0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800, 0xFFFF5722
+    0xFFF44336,
+    0xFFE91E63,
+    0xFF9C27B0,
+    0xFF673AB7,
+    0xFF3F51B5,
+    0xFF2196F3,
+    0xFF03A9F4,
+    0xFF00BCD4,
+    0xFF009688,
+    0xFF4CAF50,
+    0xFF8BC34A,
+    0xFFCDDC39,
+    0xFFFFEB3B,
+    0xFFFFC107,
+    0xFFFF9800,
+    0xFFFF5722
   ];
 
   late final List<String> _availableIcons;
@@ -78,8 +90,12 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
       _amountController.text = sub.amount.toString();
       _selectedFrequency = sub.frequency;
       _selectedDate = sub.paymentDate;
-      _customColor = sub.customColor != null ? Color(sub.customColor!) : AppCategories.getColor(sub.categoryId);
-      _customIconName = sub.customIcon ?? AppCategories.expenseCategories[sub.categoryId]?['icon'] as String? ?? 'grid_view';
+      _customColor = sub.customColor != null
+          ? Color(sub.customColor!)
+          : AppCategories.getColor(sub.categoryId);
+      _customIconName = sub.customIcon ??
+          AppCategories.expenseCategories[sub.categoryId]?['icon'] as String? ??
+          'grid_view';
       _selectedCategoryId = sub.categoryId;
     } else {
       _customColor = Color(_availableColors.first);
@@ -104,10 +120,12 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   void _onDayFieldUnfocused() {
     if (_dayFocusNode.hasFocus) return;
     final parsed = int.tryParse(_dayController.text);
-    final clamped = (parsed == null || parsed < 1) ? 1 : (parsed > 31 ? 31 : parsed);
+    final clamped =
+        (parsed == null || parsed < 1) ? 1 : (parsed > 31 ? 31 : parsed);
     _dayController.text = clamped.toString();
     setState(() {
-      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month, clamped);
+      _selectedDate =
+          DateTime(_selectedDate.year, _selectedDate.month, clamped);
     });
   }
 
@@ -133,9 +151,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
   void _saveExpense() {
     if (_formKey.currentState!.validate()) {
       if (_customColor == null || _customIconName == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Por favor, selecciona un icono y un color.'))
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Por favor, selecciona un icono y un color.')));
         return;
       }
 
@@ -149,7 +166,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           amount: amount,
           paymentDate: _selectedDate,
           frequency: _selectedFrequency,
-          accountToCharge: 1, 
+          accountToCharge: 1,
           customIcon: _customIconName,
           customColor: _customColor?.toARGB32(),
           categoryId: _selectedCategoryId,
@@ -162,7 +179,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           amount: amount,
           paymentDate: _selectedDate,
           frequency: _selectedFrequency,
-          accountToCharge: 1, 
+          accountToCharge: 1,
           customIcon: _customIconName,
           customColor: _customColor?.toARGB32(),
           categoryId: _selectedCategoryId, // Obtenida pasiva o manualmente
@@ -210,7 +227,9 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
 
             // Header
             Text(
-              widget.subscriptionToEdit != null ? "Editar Gasto Fijo" : "Nuevo Gasto Fijo",
+              widget.subscriptionToEdit != null
+                  ? "Editar Gasto Fijo"
+                  : "Nuevo Gasto Fijo",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -236,8 +255,10 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                       ),
                       child: Row(
                         children: [
-                          _buildFrequencyOption("Mensual", ExpenseFrequency.monthly, isDarkMode),
-                          _buildFrequencyOption("Anual", ExpenseFrequency.yearly, isDarkMode),
+                          _buildFrequencyOption(
+                              "Mensual", ExpenseFrequency.monthly, isDarkMode),
+                          _buildFrequencyOption(
+                              "Anual", ExpenseFrequency.yearly, isDarkMode),
                         ],
                       ),
                     ),
@@ -270,12 +291,16 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                       _selectedFrequency == ExpenseFrequency.monthly
                           ? "Día de pago"
                           : "Fecha de pago anual",
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: txtColor),
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: txtColor),
                     ),
                     const SizedBox(height: 12),
                     if (_selectedFrequency == ExpenseFrequency.monthly)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(12),
@@ -291,7 +316,10 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                               clipBehavior: Clip.hardEdge,
                               child: IconButton(
                                 onPressed: () => _updateDay(-1),
-                                icon: Icon(Icons.remove, color: _customColor ?? const Color(0xFF00E5FF), size: 22),
+                                icon: Icon(Icons.remove,
+                                    color:
+                                        _customColor ?? const Color(0xFF00E5FF),
+                                    size: 22),
                                 splashRadius: 20,
                                 tooltip: 'Disminuir día',
                               ),
@@ -315,7 +343,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                                 ],
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 8),
                                   isDense: true,
                                 ),
                               ),
@@ -327,7 +356,10 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                               clipBehavior: Clip.hardEdge,
                               child: IconButton(
                                 onPressed: () => _updateDay(1),
-                                icon: Icon(Icons.add, color: _customColor ?? const Color(0xFF00E5FF), size: 22),
+                                icon: Icon(Icons.add,
+                                    color:
+                                        _customColor ?? const Color(0xFF00E5FF),
+                                    size: 22),
                                 splashRadius: 20,
                                 tooltip: 'Aumentar día',
                               ),
@@ -347,7 +379,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                               return Theme(
                                 data: Theme.of(context).copyWith(
                                   colorScheme: ColorScheme.dark(
-                                    primary: _customColor ?? const Color(0xFF00E5FF),
+                                    primary:
+                                        _customColor ?? const Color(0xFF00E5FF),
                                     onPrimary: Colors.white,
                                     surface: const Color(0xFF1E2435),
                                     onSurface: Colors.white,
@@ -362,7 +395,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                           }
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
                             color: cardColor,
                             borderRadius: BorderRadius.circular(12),
@@ -373,9 +407,15 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                             children: [
                               Text(
                                 "${_selectedDate.day} de ${_getMonthName(_selectedDate.month)}",
-                                style: TextStyle(fontSize: 14, color: txtColor, fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: txtColor,
+                                    fontWeight: FontWeight.w500),
                               ),
-                              Icon(Icons.calendar_today, color: _customColor ?? const Color(0xFF00E5FF), size: 18),
+                              Icon(Icons.calendar_today,
+                                  color:
+                                      _customColor ?? const Color(0xFF00E5FF),
+                                  size: 18),
                             ],
                           ),
                         ),
@@ -383,12 +423,17 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                     const SizedBox(height: 24),
 
                     // --- Módulo de íconos inteligentes ---
-                    Text("Elige un ícono", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: txtColor)),
+                    Text("Elige un ícono",
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: txtColor)),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 6,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
@@ -402,13 +447,24 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                           onTap: () => _onIconSelected(iconName),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: isSelected ? (_customColor ?? const Color(0xFF00E5FF)).withValues(alpha: 0.2) : cardColor,
+                              color: isSelected
+                                  ? (_customColor ?? const Color(0xFF00E5FF))
+                                      .withValues(alpha: 0.2)
+                                  : cardColor,
                               shape: BoxShape.circle,
-                              border: isSelected ? Border.all(color: _customColor ?? const Color(0xFF00E5FF), width: 2) : Border.all(color: Colors.transparent, width: 2),
+                              border: isSelected
+                                  ? Border.all(
+                                      color: _customColor ??
+                                          const Color(0xFF00E5FF),
+                                      width: 2)
+                                  : Border.all(
+                                      color: Colors.transparent, width: 2),
                             ),
                             child: Icon(
-                              IconMapper.getIcon(iconName), 
-                              color: isSelected ? (_customColor ?? const Color(0xFF00E5FF)) : hintColor, 
+                              IconMapper.getIcon(iconName),
+                              color: isSelected
+                                  ? (_customColor ?? const Color(0xFF00E5FF))
+                                  : hintColor,
                               size: 20,
                             ),
                           ),
@@ -423,25 +479,38 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                       curve: Curves.easeInOut,
                       child: _customIconName == 'tune'
                           ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 4),
                               decoration: BoxDecoration(
                                 color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: DropdownButton<int>(
-                                value: AppCategories.expenseCategories.containsKey(_selectedCategoryId) ? _selectedCategoryId : AppCategories.expenseCategories.keys.first,
+                                value: AppCategories.expenseCategories
+                                        .containsKey(_selectedCategoryId)
+                                    ? _selectedCategoryId
+                                    : AppCategories
+                                        .expenseCategories.keys.first,
                                 isExpanded: true,
                                 underline: const SizedBox(),
-                                dropdownColor: isDarkMode ? const Color(0xFF1E2435) : Colors.white,
-                                icon: Icon(Icons.keyboard_arrow_down, color: txtColor),
-                                items: AppCategories.expenseCategories.entries.map((entry) {
+                                dropdownColor: isDarkMode
+                                    ? const Color(0xFF1E2435)
+                                    : Colors.white,
+                                icon: Icon(Icons.keyboard_arrow_down,
+                                    color: txtColor),
+                                items: AppCategories.expenseCategories.entries
+                                    .map((entry) {
                                   return DropdownMenuItem<int>(
                                     value: entry.key,
                                     child: Row(
                                       children: [
-                                        Icon(AppCategories.getIcon(entry.key), size: 20, color: Color(entry.value['color'] as int)),
+                                        Icon(AppCategories.getIcon(entry.key),
+                                            size: 20,
+                                            color: Color(
+                                                entry.value['color'] as int)),
                                         const SizedBox(width: 12),
-                                        Text(entry.value['name'] as String, style: TextStyle(color: txtColor)),
+                                        Text(entry.value['name'] as String,
+                                            style: TextStyle(color: txtColor)),
                                       ],
                                     ),
                                   );
@@ -456,19 +525,25 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                               ),
                             )
                           : Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4.0),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.info_outline, size: 14, color: isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                                  Icon(Icons.info_outline,
+                                      size: 14,
+                                      color: isDarkMode
+                                          ? Colors.grey[500]
+                                          : Colors.grey[600]),
                                   const SizedBox(width: 6),
                                   Text(
                                     "Categoría asignada: ${AppCategories.getName(_selectedCategoryId)}",
                                     style: TextStyle(
-                                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600], 
-                                      fontSize: 13,
-                                      fontStyle: FontStyle.italic
-                                    ),
+                                        color: isDarkMode
+                                            ? Colors.grey[400]
+                                            : Colors.grey[600],
+                                        fontSize: 13,
+                                        fontStyle: FontStyle.italic),
                                   ),
                                 ],
                               ),
@@ -477,12 +552,17 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                     const SizedBox(height: 24),
 
                     // Personalización UI (Color Independiente)
-                    Text("Elige un Color", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: txtColor)),
+                    Text("Elige un Color",
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: txtColor)),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 6,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
@@ -493,18 +573,21 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
                         final cValue = _availableColors[index];
                         final isSelected = _customColor?.toARGB32() == cValue;
                         return GestureDetector(
-                          onTap: () => setState(() => _customColor = Color(cValue)),
+                          onTap: () =>
+                              setState(() => _customColor = Color(cValue)),
                           child: Container(
                             decoration: BoxDecoration(
                               color: Color(cValue),
                               shape: BoxShape.circle,
-                              border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
+                              border: isSelected
+                                  ? Border.all(color: Colors.white, width: 3)
+                                  : null,
                             ),
                           ),
                         );
                       },
                     ),
-                    const SizedBox(height: 40), 
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -565,7 +648,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           filled: true,
           fillColor: cardColor,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -576,7 +660,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: _customColor ?? const Color(0xFF00E5FF), width: 1.5),
+            borderSide: BorderSide(
+                color: _customColor ?? const Color(0xFF00E5FF), width: 1.5),
           ),
           prefixIcon: currencySymbol != null
               ? Column(
@@ -596,7 +681,8 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
     );
   }
 
-  Widget _buildFrequencyOption(String label, ExpenseFrequency val, bool isDarkMode) {
+  Widget _buildFrequencyOption(
+      String label, ExpenseFrequency val, bool isDarkMode) {
     final isSelected = _selectedFrequency == val;
     return Expanded(
       child: GestureDetector(
@@ -627,8 +713,18 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
 
   String _getMonthName(int month) {
     const months = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre"
     ];
     return months[month - 1];
   }

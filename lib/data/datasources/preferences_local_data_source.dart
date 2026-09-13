@@ -56,22 +56,27 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
   bool isFirstTime() => sharedPreferences.getBool(keyFirstTime) ?? true;
 
   @override
-  Future<void> setFirstTime(bool value) => sharedPreferences.setBool(keyFirstTime, value);
+  Future<void> setFirstTime(bool value) =>
+      sharedPreferences.setBool(keyFirstTime, value);
 
   @override
-  Future<void> saveUserName(String name) => sharedPreferences.setString(keyUserName, name);
+  Future<void> saveUserName(String name) =>
+      sharedPreferences.setString(keyUserName, name);
 
   @override
   String? getUserName() => sharedPreferences.getString(keyUserName);
 
   @override
-  Future<void> saveBudgetLimit(double amount) => sharedPreferences.setDouble(keyBudgetLimit, amount);
+  Future<void> saveBudgetLimit(double amount) =>
+      sharedPreferences.setDouble(keyBudgetLimit, amount);
 
   @override
-  double getBudgetLimit() => sharedPreferences.getDouble(keyBudgetLimit) ?? 2400.00;
+  double getBudgetLimit() =>
+      sharedPreferences.getDouble(keyBudgetLimit) ?? 2400.00;
 
   @override
-  Future<void> saveCurrency(String symbol) => sharedPreferences.setString(keyCurrency, symbol);
+  Future<void> saveCurrency(String symbol) =>
+      sharedPreferences.setString(keyCurrency, symbol);
 
   @override
   String getCurrency() => sharedPreferences.getString(keyCurrency) ?? 'S/';
@@ -87,7 +92,7 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
 
   @override
   String? getSecurityPin() {
-    return null; 
+    return null;
   }
 
   @override
@@ -108,7 +113,8 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
   }
 
   @override
-  Future<void> saveUserAvatar(String avatar) => sharedPreferences.setString(keyUserAvatar, avatar);
+  Future<void> saveUserAvatar(String avatar) =>
+      sharedPreferences.setString(keyUserAvatar, avatar);
 
   @override
   String getUserAvatar() => sharedPreferences.getString(keyUserAvatar) ?? '😎';
@@ -120,25 +126,31 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
   }
 
   @override
-  String? getProfileImagePath() => sharedPreferences.getString(keyProfileImagePath);
+  String? getProfileImagePath() =>
+      sharedPreferences.getString(keyProfileImagePath);
 
   @override
-  Future<void> saveThemeMode(bool isDark) => sharedPreferences.setBool(keyThemeMode, isDark);
+  Future<void> saveThemeMode(bool isDark) =>
+      sharedPreferences.setBool(keyThemeMode, isDark);
 
   @override
   bool getThemeMode() => sharedPreferences.getBool(keyThemeMode) ?? true;
 
   @override
-  Future<void> saveEnableBiometrics(bool enable) => sharedPreferences.setBool(keyEnableBiometrics, enable);
+  Future<void> saveEnableBiometrics(bool enable) =>
+      sharedPreferences.setBool(keyEnableBiometrics, enable);
 
   @override
-  bool getEnableBiometrics() => sharedPreferences.getBool(keyEnableBiometrics) ?? false;
+  bool getEnableBiometrics() =>
+      sharedPreferences.getBool(keyEnableBiometrics) ?? false;
 
   @override
-  Future<void> saveEnableNotifications(bool enable) => sharedPreferences.setBool(keyEnableNotifications, enable);
+  Future<void> saveEnableNotifications(bool enable) =>
+      sharedPreferences.setBool(keyEnableNotifications, enable);
 
   @override
-  bool getEnableNotifications() => sharedPreferences.getBool(keyEnableNotifications) ?? true;
+  bool getEnableNotifications() =>
+      sharedPreferences.getBool(keyEnableNotifications) ?? true;
 
   @override
   Future<void> clearAllPreferences() async {
@@ -159,7 +171,8 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
     if (jsonString != null) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(jsonString);
-        return decoded.map((key, value) => MapEntry(key, (value as num).toDouble()));
+        return decoded
+            .map((key, value) => MapEntry(key, (value as num).toDouble()));
       } catch (e) {
         debugPrint("Error al parsear exchange rates: $e");
       }

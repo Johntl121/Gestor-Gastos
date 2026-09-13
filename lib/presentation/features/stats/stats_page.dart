@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
-
 // Providers
 import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -54,7 +53,8 @@ class _StatsPageState extends State<StatsPage>
     final uiProvider = Provider.of<UiProvider>(context);
 
     // Calculate Categories (Dynamically mapped with actual colors)
-    final categories = statsProvider.getSpendingByCategory(txProvider.subscriptions);
+    final categories =
+        statsProvider.getSpendingByCategory(txProvider.subscriptions);
 
     // Calculate Total Amount
     final totalAmount = statsProvider.calculateTotalAmount(categories);
@@ -79,7 +79,8 @@ class _StatsPageState extends State<StatsPage>
     } else {
       for (int i = 0; i < categories.length; i++) {
         final isTouched = i == touchedIndex;
-        final radius = isTouched ? 35.0 : 28.0; // Dynamic thickness - Elegant and Thinner
+        final radius =
+            isTouched ? 35.0 : 28.0; // Dynamic thickness - Elegant and Thinner
         final group = categories[i];
 
         chartSections.add(PieChartSectionData(
@@ -98,15 +99,17 @@ class _StatsPageState extends State<StatsPage>
     // Determine Center Text Content
     String centerStartText =
         currentType == StatsType.expense ? "GASTADO" : "INGRESADO";
-    
+
     final currencySymbol = statsProvider.currencySymbol;
-    String centerAmountText = CurrencyFormatter.format(totalAmount, currencySymbol);
+    String centerAmountText =
+        CurrencyFormatter.format(totalAmount, currencySymbol);
 
     if (touchedIndex != -1 && categories.isNotEmpty) {
       if (touchedIndex < categories.length) {
         final group = categories[touchedIndex];
         centerStartText = group.name.toUpperCase();
-        centerAmountText = CurrencyFormatter.format(group.amount, currencySymbol);
+        centerAmountText =
+            CurrencyFormatter.format(group.amount, currencySymbol);
       }
     }
 
@@ -224,25 +227,31 @@ class _StatsPageState extends State<StatsPage>
                         children: [
                           _buildPeriodTab(
                               "Semana",
-                              statsProvider.currentStatsPeriod == PeriodType.week,
-                              () => statsProvider.setStatsPeriod(PeriodType.week),
+                              statsProvider.currentStatsPeriod ==
+                                  PeriodType.week,
+                              () =>
+                                  statsProvider.setStatsPeriod(PeriodType.week),
                               isDarkMode),
                           _buildPeriodTab(
                               "Mes",
-                              statsProvider.currentStatsPeriod == PeriodType.month,
-                              () => statsProvider.setStatsPeriod(PeriodType.month),
+                              statsProvider.currentStatsPeriod ==
+                                  PeriodType.month,
+                              () => statsProvider
+                                  .setStatsPeriod(PeriodType.month),
                               isDarkMode),
                           _buildPeriodTab(
                               "Año",
-                              statsProvider.currentStatsPeriod == PeriodType.year,
-                              () => statsProvider.setStatsPeriod(PeriodType.year),
+                              statsProvider.currentStatsPeriod ==
+                                  PeriodType.year,
+                              () =>
+                                  statsProvider.setStatsPeriod(PeriodType.year),
                               isDarkMode),
                         ],
                       ),
                     ),
-        
+
                     const SizedBox(height: 30),
-        
+
                     // 2. Gráfico Circular (Donut Chart)
                     SizedBox(
                       height: 260,
@@ -251,11 +260,13 @@ class _StatsPageState extends State<StatsPage>
                           PieChart(
                             PieChartData(
                               pieTouchData: PieTouchData(
-                                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                                touchCallback:
+                                    (FlTouchEvent event, pieTouchResponse) {
                                   setState(() {
                                     if (!event.isInterestedForInteractions ||
                                         pieTouchResponse == null ||
-                                        pieTouchResponse.touchedSection == null) {
+                                        pieTouchResponse.touchedSection ==
+                                            null) {
                                       touchedIndex = -1;
                                       return;
                                     }
@@ -264,12 +275,12 @@ class _StatsPageState extends State<StatsPage>
                                   });
                                 },
                               ),
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 85,
-                                startDegreeOffset: -90,
-                                sections: chartSections,
-                              ),
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 85,
+                              startDegreeOffset: -90,
+                              sections: chartSections,
                             ),
+                          ),
                           Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -289,7 +300,8 @@ class _StatsPageState extends State<StatsPage>
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: AnimatedDefaultTextStyle(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration:
+                                          const Duration(milliseconds: 200),
                                       style: TextStyle(
                                           color: textColor,
                                           fontSize: 34,
@@ -305,9 +317,9 @@ class _StatsPageState extends State<StatsPage>
                         ],
                       ),
                     ),
-        
+
                     const SizedBox(height: 10),
-        
+
                     // Date Navigation Control
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -339,9 +351,9 @@ class _StatsPageState extends State<StatsPage>
                         ),
                       ],
                     ),
-        
+
                     const SizedBox(height: 30),
-        
+
                     // 3. Cabecera de Mayores Gastos
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -356,7 +368,7 @@ class _StatsPageState extends State<StatsPage>
                                 color: textColor)),
                       ],
                     ),
-        
+
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -371,9 +383,10 @@ class _StatsPageState extends State<StatsPage>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.pie_chart_outline_rounded, 
-                           size: 64, 
-                           color: isDarkMode ? Colors.white10 : Colors.grey[300]),
+                      Icon(Icons.pie_chart_outline_rounded,
+                          size: 64,
+                          color:
+                              isDarkMode ? Colors.white10 : Colors.grey[300]),
                       const SizedBox(height: 16),
                       Text(
                         currentType == StatsType.expense
@@ -393,8 +406,8 @@ class _StatsPageState extends State<StatsPage>
                     (context, index) {
                       final group = categories[index];
                       final amount = group.amount;
-                      final percentage = totalAmount > 0 ? amount / totalAmount : 0.0;
-                      
+                      final percentage =
+                          totalAmount > 0 ? amount / totalAmount : 0.0;
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 15),
@@ -414,7 +427,7 @@ class _StatsPageState extends State<StatsPage>
                   ),
                 ),
               ),
-            
+
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
@@ -603,7 +616,9 @@ class _StatsPageState extends State<StatsPage>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.2) : Colors.transparent,
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.2)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: isSelected ? activeColor : Colors.transparent, width: 1),

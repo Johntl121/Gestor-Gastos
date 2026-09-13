@@ -34,8 +34,9 @@ class AccountCard extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               color.withValues(alpha: 0.8),
-              color.withValues(alpha: 
-                  0.4), // Ajustado para que no sea totalmente transparente y pierda cuerpo
+              color.withValues(
+                  alpha:
+                      0.4), // Ajustado para que no sea totalmente transparente y pierda cuerpo
             ],
           ),
           boxShadow: [

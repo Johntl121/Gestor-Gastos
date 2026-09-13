@@ -26,20 +26,21 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-
 class _MainPageState extends State<MainPage> {
   final SpeechService _speechService = SpeechService();
 
   void _initializeStartupConfig() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 1. Cargamos configuración básica del UI y Wallet (Cuentas, Balance)
-      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
       await walletProvider.initApp();
 
       if (!mounted) return;
 
       // 2. Cargamos transacciones (esto disparará el ProxyProvider hacia StatsProvider)
-      final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+      final transactionProvider =
+          Provider.of<TransactionProvider>(context, listen: false);
       try {
         await transactionProvider.loadTransactions();
       } catch (e) {
@@ -69,7 +70,8 @@ class _MainPageState extends State<MainPage> {
     ];
     _initializeStartupConfig();
 
-    _transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
+    _transactionProvider =
+        Provider.of<TransactionProvider>(context, listen: false);
     _walletProvider = Provider.of<WalletProvider>(context, listen: false);
 
     _transactionProvider.addListener(_onTransactionErrorChanged);
@@ -580,11 +582,11 @@ class _MainPageState extends State<MainPage> {
                   Navigator.pop(ctx);
                   final transactionProvider =
                       Provider.of<TransactionProvider>(context, listen: false);
-                  final walletProvider = 
+                  final walletProvider =
                       Provider.of<WalletProvider>(context, listen: false);
 
                   await transactionProvider.addTransaction(draft);
-                  
+
                   // Sincronizar saldos en WalletProvider
                   if (mounted) {
                     await walletProvider.loadWalletData();
@@ -623,8 +625,7 @@ class _MainPageState extends State<MainPage> {
     const inactiveColor = Color(0xFF6B7280);
 
     return Scaffold(
-      backgroundColor:
-          isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
+      backgroundColor: isDarkMode ? const Color(0xFF15202B) : Colors.grey[100],
       bottomNavigationBar: SafeArea(
         child: Container(
           height: 65,
@@ -729,16 +730,14 @@ class _MainPageState extends State<MainPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                color: isActive ? activeColor : inactiveColor, size: 26),
+            Icon(icon, color: isActive ? activeColor : inactiveColor, size: 26),
             const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 color: isActive ? activeColor : inactiveColor,
                 fontSize: 10,
-                fontWeight:
-                    isActive ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -790,8 +789,7 @@ class _MainPageState extends State<MainPage> {
                 Navigator.pop(ctx);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const AddTransactionPage()),
+                  MaterialPageRoute(builder: (_) => const AddTransactionPage()),
                 );
               },
             ),
@@ -854,8 +852,8 @@ class _MainPageState extends State<MainPage> {
                           fontSize: 15)),
                   const SizedBox(height: 2),
                   Text(subtitle,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
                 ],
               ),
             ),
@@ -866,5 +864,4 @@ class _MainPageState extends State<MainPage> {
       ),
     );
   }
-
 }

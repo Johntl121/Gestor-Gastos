@@ -250,14 +250,15 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       // Validar fondos insuficientes
       if (_selectedSourceAccountId != null &&
           (_transactionType == TransactionType.expense ||
-           _transactionType == TransactionType.transfer)) {
+              _transactionType == TransactionType.transfer)) {
         try {
           final sourceAccount = walletProvider.accounts.firstWhere(
             (acc) => acc.id == _selectedSourceAccountId,
           );
-          
+
           double amountToDeduct = amount;
-          if (widget.transactionToEdit != null && widget.transactionToEdit!.type == _transactionType) {
+          if (widget.transactionToEdit != null &&
+              widget.transactionToEdit!.type == _transactionType) {
             // Si es edición, calculamos la diferencia
             final oldAmount = widget.transactionToEdit!.amount.abs();
             amountToDeduct = amount - oldAmount;

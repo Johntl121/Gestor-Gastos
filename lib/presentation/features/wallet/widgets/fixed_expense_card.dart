@@ -130,7 +130,9 @@ class FixedExpenseCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      IconData(AppCategories.getIcon(subscription.categoryId).codePoint,
+                      IconData(
+                          AppCategories.getIcon(subscription.categoryId)
+                              .codePoint,
                           fontFamily: 'MaterialIcons'),
                       color: itemColor,
                       size: 25,
@@ -209,7 +211,8 @@ class FixedExpenseCard extends StatelessWidget {
 
                   // 3. Monto
                   Text(
-                    CurrencyFormatter.format(subscription.amount, account?.currencySymbol ?? "S/"),
+                    CurrencyFormatter.format(
+                        subscription.amount, account?.currencySymbol ?? "S/"),
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,

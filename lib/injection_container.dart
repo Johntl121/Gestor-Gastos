@@ -14,6 +14,8 @@ import 'domain/repositories/transaction_repository.dart';
 import 'data/repositories/transaction_repository_impl.dart';
 import 'domain/repositories/account_repository.dart';
 import 'data/repositories/account_repository_impl.dart';
+import 'domain/repositories/goal_operations_repository.dart';
+import 'data/repositories/goal_operations_repository_impl.dart';
 
 // Casos de Uso
 import 'domain/usecases/add_transaction_usecase.dart';
@@ -27,6 +29,7 @@ import 'domain/usecases/account_usecases.dart';
 import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
 import 'domain/usecases/get_transactions_by_date_range_usecase.dart';
+import 'domain/usecases/goal_operations_usecases.dart';
 
 // Providers (New)
 import 'presentation/providers/ui_provider.dart';
@@ -81,6 +84,12 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerLazySingleton<GoalOperationsRepository>(
+    () => GoalOperationsRepositoryImpl(
+      localDatabase: sl(),
+    ),
+  );
+
   //! Casos de Uso
   sl.registerLazySingleton(() => AddTransactionUseCase(sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
@@ -94,6 +103,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
   sl.registerLazySingleton(() => GetTransactionsByDateRangeUseCase(sl()));
+  sl.registerLazySingleton(() => DepositToGoalUseCase(sl()));
+  sl.registerLazySingleton(() => PurchaseGoalUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteGoalAtomicUseCase(sl()));
 
   //! Proveedores (Refactored)
 
@@ -110,6 +122,9 @@ Future<void> init() async {
       deleteAccountUseCase: sl(),
       getMonthlyBudgetUseCase: sl(),
       addTransactionUseCase: sl(),
+      depositToGoalUseCase: sl(),
+      purchaseGoalUseCase: sl(),
+      deleteGoalAtomicUseCase: sl(),
       preferencesLocalDataSource: sl(),
       goalLocalDataSource: sl(),
     ),

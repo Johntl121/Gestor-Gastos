@@ -213,16 +213,17 @@ class SettingsPage extends StatelessWidget {
                               const SnackBar(
                                   content: Text("PIN Eliminado 🔓")));
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Row(
-                                    children: [
-                                      Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
-                                      SizedBox(width: 8),
-                                      Text("PIN Incorrecto ❌"),
-                                    ],
-                                  ),
-                              ));
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    color: Colors.redAccent, size: 20),
+                                SizedBox(width: 8),
+                                Text("PIN Incorrecto ❌"),
+                              ],
+                            ),
+                          ));
                         }
                       });
                     }
@@ -566,7 +567,8 @@ class SettingsPage extends StatelessWidget {
           children: [
             Icon(Icons.check_circle, color: Colors.tealAccent, size: 20),
             SizedBox(width: 8),
-            Expanded(child: Text("¡Reporte Generado! Copiado al portapapeles. 📋")),
+            Expanded(
+                child: Text("¡Reporte Generado! Copiado al portapapeles. 📋")),
           ],
         ),
         duration: Duration(seconds: 3),
@@ -830,8 +832,10 @@ class SettingsPage extends StatelessWidget {
 
               // Refresh Providers to clear UI state
               if (context.mounted) {
-                Provider.of<WalletProvider>(context, listen: false).refreshData();
-                Provider.of<TransactionProvider>(context, listen: false).refreshData();
+                Provider.of<WalletProvider>(context, listen: false)
+                    .refreshData();
+                Provider.of<TransactionProvider>(context, listen: false)
+                    .refreshData();
               }
 
               if (!context.mounted) return;

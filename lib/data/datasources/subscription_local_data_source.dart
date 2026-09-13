@@ -16,14 +16,16 @@ class SubscriptionLocalDataSourceImpl implements SubscriptionLocalDataSource {
   @override
   Future<List<Subscription>> getSubscriptions() async {
     final db = await localDatabase.database;
-    final List<Map<String, dynamic>> maps = await db.query('fixed_expenses', orderBy: 'orderIndex ASC');
+    final List<Map<String, dynamic>> maps =
+        await db.query('fixed_expenses', orderBy: 'orderIndex ASC');
     return maps.map((j) => Subscription.fromJson(j)).toList();
   }
 
   @override
   Future<void> saveSubscription(Subscription subscription) async {
     final db = await localDatabase.database;
-    await db.insert('fixed_expenses', subscription.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('fixed_expenses', subscription.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override

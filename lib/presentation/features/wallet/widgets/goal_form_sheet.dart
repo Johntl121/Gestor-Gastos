@@ -31,32 +31,44 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
 
   // --- Smart Icons para Metas de Ahorro ---
   final Map<String, int> _smartIconsMap = {
-    'star': 8,              // Compras (genérico)
-    'computer': 8,          // Compras / Tecnología
-    'phone_android': 8,     // Compras / Tecnología
-    'flight': 7,            // Entretenimiento / Viajes
-    'directions_car': 3,    // Transporte
-    'home': 2,              // Vivienda
-    'school': 6,            // Educación
-    'shopping_bag': 8,      // Compras
-    'gamepad': 7,           // Entretenimiento
-    'sports_esports': 7,    // Entretenimiento
-    'music_note': 7,        // Entretenimiento
-    'live_tv': 7,           // Entretenimiento
-    'medical_services': 5,  // Salud
-    'fitness_center': 5,    // Salud
-    'pets': 10,             // Otros Gastos
-    'restaurant': 1,        // Alimentación
-    'spa': 5,               // Salud
-    'savings': 8,           // Compras / Ahorro
-    'work': 10,             // Otros Gastos
+    'star': 8, // Compras (genérico)
+    'computer': 8, // Compras / Tecnología
+    'phone_android': 8, // Compras / Tecnología
+    'flight': 7, // Entretenimiento / Viajes
+    'directions_car': 3, // Transporte
+    'home': 2, // Vivienda
+    'school': 6, // Educación
+    'shopping_bag': 8, // Compras
+    'gamepad': 7, // Entretenimiento
+    'sports_esports': 7, // Entretenimiento
+    'music_note': 7, // Entretenimiento
+    'live_tv': 7, // Entretenimiento
+    'medical_services': 5, // Salud
+    'fitness_center': 5, // Salud
+    'pets': 10, // Otros Gastos
+    'restaurant': 1, // Alimentación
+    'spa': 5, // Salud
+    'savings': 8, // Compras / Ahorro
+    'work': 10, // Otros Gastos
   };
 
   final List<int> _availableColors = [
-    0xFFF44336, 0xFFE91E63, 0xFF9C27B0, 0xFF673AB7,
-    0xFF3F51B5, 0xFF2196F3, 0xFF03A9F4, 0xFF00BCD4,
-    0xFF009688, 0xFF4CAF50, 0xFF8BC34A, 0xFFCDDC39,
-    0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800, 0xFFFF5722,
+    0xFFF44336,
+    0xFFE91E63,
+    0xFF9C27B0,
+    0xFF673AB7,
+    0xFF3F51B5,
+    0xFF2196F3,
+    0xFF03A9F4,
+    0xFF00BCD4,
+    0xFF009688,
+    0xFF4CAF50,
+    0xFF8BC34A,
+    0xFFCDDC39,
+    0xFFFFEB3B,
+    0xFFFFC107,
+    0xFFFF9800,
+    0xFFFF5722,
   ];
 
   late final List<String> _availableIcons;
@@ -75,7 +87,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
       _amountController.text = goal.targetAmount.toStringAsFixed(0);
       _customColor = goal.color;
       _selectedIconName = goal.iconName ?? _availableIcons.first;
-      _selectedCategoryId = goal.categoryId ?? _smartIconsMap[_selectedIconName] ?? 8;
+      _selectedCategoryId =
+          goal.categoryId ?? _smartIconsMap[_selectedIconName] ?? 8;
       _selectedDeadline = goal.deadline;
       _selectedAccountId = goal.accountId;
     } else {
@@ -104,7 +117,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
   void _pickDeadline() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDeadline ?? DateTime.now().add(const Duration(days: 30)),
+      initialDate:
+          _selectedDeadline ?? DateTime.now().add(const Duration(days: 30)),
       firstDate: DateTime.now(),
       lastDate: DateTime(2035),
       builder: (context, child) {
@@ -155,7 +169,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
 
       if (_selectedAccountId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Selecciona una cuenta destino (alcancía).')),
+          const SnackBar(
+              content: Text('Selecciona una cuenta destino (alcancía).')),
         );
         return;
       }
@@ -270,7 +285,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ─── BLOQUE 1: IDENTIDAD ───
-                    _buildSectionLabel("Identidad", Icons.badge_outlined, txtColor),
+                    _buildSectionLabel(
+                        "Identidad", Icons.badge_outlined, txtColor),
                     const SizedBox(height: 12),
 
                     // Nombre
@@ -287,12 +303,16 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
 
                     // Smart Icons Grid
                     Text("Elige un ícono",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: txtColor)),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: txtColor)),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 6,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
@@ -312,7 +332,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                                   : cardColor,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSelected ? accentColor : Colors.transparent,
+                                color: isSelected
+                                    ? accentColor
+                                    : Colors.transparent,
                                 width: 2,
                               ),
                             ),
@@ -333,26 +355,35 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                       curve: Curves.easeInOut,
                       child: _selectedIconName == 'tune'
                           ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 4),
                               decoration: BoxDecoration(
                                 color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: DropdownButton<int>(
-                                value: AppCategories.expenseCategories.containsKey(_selectedCategoryId)
+                                value: AppCategories.expenseCategories
+                                        .containsKey(_selectedCategoryId)
                                     ? _selectedCategoryId
-                                    : AppCategories.expenseCategories.keys.first,
+                                    : AppCategories
+                                        .expenseCategories.keys.first,
                                 isExpanded: true,
                                 underline: const SizedBox(),
-                                dropdownColor: isDarkMode ? const Color(0xFF1E2435) : Colors.white,
-                                icon: Icon(Icons.keyboard_arrow_down, color: txtColor),
-                                items: AppCategories.expenseCategories.entries.map((entry) {
+                                dropdownColor: isDarkMode
+                                    ? const Color(0xFF1E2435)
+                                    : Colors.white,
+                                icon: Icon(Icons.keyboard_arrow_down,
+                                    color: txtColor),
+                                items: AppCategories.expenseCategories.entries
+                                    .map((entry) {
                                   return DropdownMenuItem<int>(
                                     value: entry.key,
                                     child: Row(
                                       children: [
                                         Icon(AppCategories.getIcon(entry.key),
-                                            size: 20, color: Color(entry.value['color'] as int)),
+                                            size: 20,
+                                            color: Color(
+                                                entry.value['color'] as int)),
                                         const SizedBox(width: 12),
                                         Text(entry.value['name'] as String,
                                             style: TextStyle(color: txtColor)),
@@ -368,16 +399,21 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                               ),
                             )
                           : Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4.0),
                               child: Row(
                                 children: [
-                                  Icon(Icons.auto_awesome, size: 14,
-                                      color: accentColor.withValues(alpha: 0.7)),
+                                  Icon(Icons.auto_awesome,
+                                      size: 14,
+                                      color:
+                                          accentColor.withValues(alpha: 0.7)),
                                   const SizedBox(width: 6),
                                   Text(
                                     "Categoría asignada: ${AppCategories.getName(_selectedCategoryId)}",
                                     style: TextStyle(
-                                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                                      color: isDarkMode
+                                          ? Colors.grey[400]
+                                          : Colors.grey[600],
                                       fontSize: 13,
                                       fontStyle: FontStyle.italic,
                                     ),
@@ -390,12 +426,16 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
 
                     // Color Picker
                     Text("Elige un color",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: txtColor)),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: txtColor)),
                     const SizedBox(height: 12),
                     GridView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 8,
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
@@ -406,7 +446,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                         final cValue = _availableColors[index];
                         final isSelected = _customColor?.toARGB32() == cValue;
                         return GestureDetector(
-                          onTap: () => setState(() => _customColor = Color(cValue)),
+                          onTap: () =>
+                              setState(() => _customColor = Color(cValue)),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             decoration: BoxDecoration(
@@ -416,11 +457,17 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                                   ? Border.all(color: Colors.white, width: 3)
                                   : null,
                               boxShadow: isSelected
-                                  ? [BoxShadow(color: Color(cValue).withValues(alpha: 0.6), blurRadius: 8)]
+                                  ? [
+                                      BoxShadow(
+                                          color: Color(cValue)
+                                              .withValues(alpha: 0.6),
+                                          blurRadius: 8)
+                                    ]
                                   : null,
                             ),
                             child: isSelected
-                                ? const Icon(Icons.check, size: 16, color: Colors.white)
+                                ? const Icon(Icons.check,
+                                    size: 16, color: Colors.white)
                                 : null,
                           ),
                         );
@@ -430,7 +477,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     const SizedBox(height: 28),
 
                     // ─── BLOQUE 2: FINANZAS ───
-                    _buildSectionLabel("Finanzas", Icons.savings_outlined, txtColor),
+                    _buildSectionLabel(
+                        "Finanzas", Icons.savings_outlined, txtColor),
                     const SizedBox(height: 12),
 
                     // Monto Objetivo
@@ -452,17 +500,21 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     GestureDetector(
                       onTap: _pickDeadline,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 16),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(12),
                           border: _selectedDeadline != null
-                              ? Border.all(color: accentColor.withValues(alpha: 0.5), width: 1)
+                              ? Border.all(
+                                  color: accentColor.withValues(alpha: 0.5),
+                                  width: 1)
                               : null,
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today, color: accentColor, size: 18),
+                            Icon(Icons.calendar_today,
+                                color: accentColor, size: 18),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -470,16 +522,22 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                                     ? "Fecha límite: ${_selectedDeadline!.day}/${_selectedDeadline!.month}/${_selectedDeadline!.year}"
                                     : "Agregar fecha límite (opcional)",
                                 style: TextStyle(
-                                  color: _selectedDeadline != null ? txtColor : hintColor,
+                                  color: _selectedDeadline != null
+                                      ? txtColor
+                                      : hintColor,
                                   fontSize: 14,
-                                  fontWeight: _selectedDeadline != null ? FontWeight.w500 : FontWeight.normal,
+                                  fontWeight: _selectedDeadline != null
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
                                 ),
                               ),
                             ),
                             if (_selectedDeadline != null)
                               GestureDetector(
-                                onTap: () => setState(() => _selectedDeadline = null),
-                                child: Icon(Icons.close, size: 18, color: hintColor),
+                                onTap: () =>
+                                    setState(() => _selectedDeadline = null),
+                                child: Icon(Icons.close,
+                                    size: 18, color: hintColor),
                               ),
                           ],
                         ),
@@ -490,11 +548,13 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     if (savingsTip != null) ...[
                       const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: accentColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+                          border: Border.all(
+                              color: accentColor.withValues(alpha: 0.3)),
                         ),
                         child: Text(
                           savingsTip,
@@ -510,7 +570,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     const SizedBox(height: 28),
 
                     // ─── BLOQUE 3: LA BÓVEDA (CUENTA DESTINO) ───
-                    _buildSectionLabel("La Bóveda", Icons.lock_outline, txtColor),
+                    _buildSectionLabel(
+                        "La Bóveda", Icons.lock_outline, txtColor),
                     const SizedBox(height: 8),
                     Text(
                       "¿En qué cuenta guardarás el dinero para esta meta?",
@@ -527,28 +588,35 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.warning_amber, color: Colors.redAccent, size: 20),
+                            Icon(Icons.warning_amber,
+                                color: Colors.redAccent, size: 20),
                             SizedBox(width: 8),
                             Expanded(
-                              child: Text("No tienes cuentas. Crea una primero.",
-                                  style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+                              child: Text(
+                                  "No tienes cuentas. Crea una primero.",
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 13)),
                             ),
                           ],
                         ),
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 4),
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: DropdownButtonFormField<int>(
-                          initialValue: accounts.any((a) => a.id == _selectedAccountId)
-                              ? _selectedAccountId
-                              : accounts.first.id,
+                          initialValue:
+                              accounts.any((a) => a.id == _selectedAccountId)
+                                  ? _selectedAccountId
+                                  : accounts.first.id,
                           isExpanded: true,
-                          dropdownColor: isDarkMode ? const Color(0xFF1E2435) : Colors.white,
+                          dropdownColor: isDarkMode
+                              ? const Color(0xFF1E2435)
+                              : Colors.white,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
@@ -559,7 +627,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                               child: Row(
                                 children: [
                                   Icon(
-                                    IconData(acc.iconCode, fontFamily: 'MaterialIcons'),
+                                    IconData(acc.iconCode,
+                                        fontFamily: 'MaterialIcons'),
                                     size: 20,
                                     color: Color(acc.colorValue),
                                   ),
@@ -568,7 +637,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                                     child: Text(
                                       "${acc.name} (${acc.currencySymbol} ${acc.currentBalance.toStringAsFixed(2)})",
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 14, color: txtColor),
+                                      style: TextStyle(
+                                          fontSize: 14, color: txtColor),
                                     ),
                                   ),
                                 ],
@@ -580,7 +650,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                               setState(() => _selectedAccountId = val);
                             }
                           },
-                          validator: (val) => val == null ? "Selecciona una cuenta" : null,
+                          validator: (val) =>
+                              val == null ? "Selecciona una cuenta" : null,
                         ),
                       ),
 
@@ -605,7 +676,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   shadowColor: accentColor.withValues(alpha: 0.4),
                 ),
                 child: Text(
-                  widget.goalToEdit == null ? "🚀 Crear Meta" : "💾 Guardar Cambios",
+                  widget.goalToEdit == null
+                      ? "🚀 Crear Meta"
+                      : "💾 Guardar Cambios",
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -627,10 +700,12 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
           width: 28,
           height: 28,
           decoration: BoxDecoration(
-            color: (_customColor ?? const Color(0xFF00E5FF)).withValues(alpha: 0.15),
+            color: (_customColor ?? const Color(0xFF00E5FF))
+                .withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 16, color: _customColor ?? const Color(0xFF00E5FF)),
+          child: Icon(icon,
+              size: 16, color: _customColor ?? const Color(0xFF00E5FF)),
         ),
         const SizedBox(width: 10),
         Text(
@@ -643,7 +718,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+          child:
+              Container(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
         ),
       ],
     );
@@ -680,7 +756,8 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
           filled: true,
           fillColor: cardColor,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,

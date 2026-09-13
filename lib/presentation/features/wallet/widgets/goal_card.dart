@@ -28,7 +28,8 @@ class GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (currentAmount / targetAmount).clamp(0.0, 1.0);
+    final progress =
+        isCompleted ? 1.0 : (currentAmount / targetAmount).clamp(0.0, 1.0);
     final percentage = (progress * 100).toInt();
     final isGoalCompleted = isCompleted || progress >= 1.0;
 
@@ -52,7 +53,8 @@ class GoalCard extends StatelessWidget {
         border: isGoalCompleted
             ? Border.all(color: const Color(0xFFFFD700), width: 2.0)
             : isNearCompletion
-                ? Border.all(color: displayColor.withValues(alpha: 0.4), width: 1.5)
+                ? Border.all(
+                    color: displayColor.withValues(alpha: 0.4), width: 1.5)
                 : null,
         boxShadow: [
           BoxShadow(
@@ -92,7 +94,8 @@ class GoalCard extends StatelessWidget {
                             boxShadow: isNearCompletion
                                 ? [
                                     BoxShadow(
-                                      color: displayColor.withValues(alpha: 0.3),
+                                      color:
+                                          displayColor.withValues(alpha: 0.3),
                                       blurRadius: 12,
                                     ),
                                   ]
@@ -138,7 +141,7 @@ class GoalCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          "S/ ${currentAmount.toStringAsFixed(0)} / S/ ${targetAmount.toStringAsFixed(0)}",
+                          "S/ ${(isCompleted ? targetAmount : currentAmount).toStringAsFixed(0)} / S/ ${targetAmount.toStringAsFixed(0)}",
                           style: TextStyle(
                             color: isGoalCompleted
                                 ? displayColor
@@ -167,8 +170,7 @@ class GoalCard extends StatelessWidget {
                         value: progress,
                         minHeight: 12,
                         backgroundColor: Colors.black26,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(displayColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(displayColor),
                       ),
                     ),
 
@@ -182,7 +184,9 @@ class GoalCard extends StatelessWidget {
                               color: Color(0xFFFFD700), size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            isCompleted ? "🏆 Compra Realizada" : "¡Meta Alcanzada!",
+                            isCompleted
+                                ? "🏆 Compra Realizada"
+                                : "¡Meta Alcanzada!",
                             style: TextStyle(
                               color: displayColor,
                               fontWeight: FontWeight.bold,

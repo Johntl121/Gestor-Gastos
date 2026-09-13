@@ -42,11 +42,13 @@ class GoalEntity {
 
   /// Progreso como fracción (0.0 a 1.0)
   double get progress => targetAmount > 0
-      ? (currentAmount / targetAmount).clamp(0.0, 1.0)
+      ? (isCompleted ? 1.0 : (currentAmount / targetAmount).clamp(0.0, 1.0))
       : 0.0;
 
   /// Monto restante para completar la meta
-  double get remainingAmount => (targetAmount - currentAmount).clamp(0.0, targetAmount);
+  double get remainingAmount => isCompleted
+      ? 0.0
+      : (targetAmount - currentAmount).clamp(0.0, targetAmount);
 
   /// Días restantes hasta el deadline (null si no hay deadline)
   int? get daysRemaining {
@@ -61,6 +63,7 @@ class GoalEntity {
     if (months <= 0) return null;
     return remainingAmount / months;
   }
+
   GoalEntity copyWith({
     String? id,
     String? name,

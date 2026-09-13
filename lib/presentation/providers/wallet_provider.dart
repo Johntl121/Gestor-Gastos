@@ -11,6 +11,7 @@ import '../../domain/usecases/get_account_balance_usecase.dart';
 import '../../domain/usecases/get_monthly_budget_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
+import '../../domain/usecases/goal_operations_usecases.dart';
 import '../../data/models/goal_model.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/goal_local_data_source.dart';
@@ -24,6 +25,9 @@ class WalletProvider extends ChangeNotifier {
   final DeleteAccountUseCase deleteAccountUseCase;
   final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
   final AddTransactionUseCase addTransactionUseCase;
+  final DepositToGoalUseCase depositToGoalUseCase;
+  final PurchaseGoalUseCase purchaseGoalUseCase;
+  final DeleteGoalAtomicUseCase deleteGoalAtomicUseCase;
   final PreferencesLocalDataSource preferencesLocalDataSource;
   final GoalLocalDataSource goalLocalDataSource;
 
@@ -35,6 +39,9 @@ class WalletProvider extends ChangeNotifier {
     required this.deleteAccountUseCase,
     required this.getMonthlyBudgetUseCase,
     required this.addTransactionUseCase,
+    required this.depositToGoalUseCase,
+    required this.purchaseGoalUseCase,
+    required this.deleteGoalAtomicUseCase,
     required this.preferencesLocalDataSource,
     required this.goalLocalDataSource,
   }) {
@@ -258,20 +265,23 @@ class WalletProvider extends ChangeNotifier {
   // --- Goals Section ---
 
   void addGoal(String name, double targetAmount, int iconCode, int colorValue,
-      {String? iconName, DateTime? deadline, int? accountId, int? categoryId}) async {
+      {String? iconName,
+      DateTime? deadline,
+      int? accountId,
+      int? categoryId}) async {
     final newGoal = GoalModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        targetAmount: targetAmount,
-        currentAmount: 0,
-        iconCode: iconCode,
-        iconName: iconName,
-        colorValue: colorValue,
-        isCompleted: false,
-        deadline: deadline,
-        accountId: accountId,
-        categoryId: categoryId,
-        orderIndex: _goals.length,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      targetAmount: targetAmount,
+      currentAmount: 0,
+      iconCode: iconCode,
+      iconName: iconName,
+      colorValue: colorValue,
+      isCompleted: false,
+      deadline: deadline,
+      accountId: accountId,
+      categoryId: categoryId,
+      orderIndex: _goals.length,
     );
     _goals.add(newGoal);
     notifyListeners();
@@ -295,32 +305,36 @@ class WalletProvider extends ChangeNotifier {
     if (index == -1) return;
 
     final goal = _goals[index];
+    TransactionEntity? refundTx;
 
     if (refund && refundAccountId != null && goal.currentAmount > 0) {
       if (goal.accountId == null) {
-        errorMessage = 'No se puede reembolsar: La meta no tiene una cuenta asociada.';
+        errorMessage =
+            'No se puede reembolsar: La meta no tiene una cuenta asociada.';
         notifyListeners();
         return;
       }
-      final transaction = TransactionEntity(
-          accountId: goal.accountId!, // Desde la cuenta de la meta
-          categoryId: AppConstants.transferCategoryId,
-          amount: goal.currentAmount,
-          date: DateTime.now(),
-          description: "Reembolso Meta: ${goal.name}",
-          note: "Dinero devuelto al eliminar meta",
-          type: TransactionType.transfer,
-          destinationAccountId: refundAccountId, // Hacia la cuenta seleccionada
+      refundTx = TransactionEntity(
+        accountId: goal.accountId!, // Desde la cuenta de la meta
+        categoryId: AppConstants.transferCategoryId,
+        amount: goal.currentAmount,
+        date: DateTime.now(),
+        description: "Reembolso Meta: ${goal.name}",
+        note: "Dinero devuelto al eliminar meta",
+        type: TransactionType.transfer,
+        destinationAccountId: refundAccountId, // Hacia la cuenta seleccionada
       );
-
-      await addTransactionUseCase(
-          AddTransactionParams(transaction: transaction));
-      await loadWalletData(); // Refresh balances
     }
 
-    _goals.removeAt(index);
-    notifyListeners();
-    await goalLocalDataSource.deleteGoal(id);
+    final result = await deleteGoalAtomicUseCase(
+        DeleteGoalAtomicParams(goalId: id, refundTransaction: refundTx));
+
+    result.fold((fail) {
+      errorMessage = fail.message;
+      notifyListeners();
+    }, (_) async {
+      await loadWalletData();
+    });
   }
 
   void reorderGoals(int oldIndex, int newIndex) {
@@ -329,12 +343,12 @@ class WalletProvider extends ChangeNotifier {
     }
     final GoalEntity item = _goals.removeAt(oldIndex);
     _goals.insert(newIndex, item);
-    
+
     for (int i = 0; i < _goals.length; i++) {
       _goals[i] = _goals[i].copyWith(orderIndex: i);
       goalLocalDataSource.saveGoal(GoalModel.fromEntity(_goals[i]));
     }
-    
+
     notifyListeners();
   }
 
@@ -346,7 +360,8 @@ class WalletProvider extends ChangeNotifier {
     final goal = _goals[index];
 
     if (goal.accountId == null) {
-      errorMessage = 'No se puede depositar: La meta no tiene una cuenta configurada.';
+      errorMessage =
+          'No se puede depositar: La meta no tiene una cuenta configurada.';
       notifyListeners();
       return;
     }
@@ -362,25 +377,15 @@ class WalletProvider extends ChangeNotifier {
         type: TransactionType.transfer,
         destinationAccountId: goal.accountId);
 
-    await addTransactionUseCase(AddTransactionParams(transaction: transaction));
-    await loadWalletData();
+    final result = await depositToGoalUseCase(
+        DepositToGoalParams(goalId: goalId, transaction: transaction));
 
-    final updatedGoal = GoalEntity(
-        id: goal.id,
-        name: goal.name,
-        targetAmount: goal.targetAmount,
-        currentAmount: goal.currentAmount + amount,
-        iconCode: goal.iconCode,
-        iconName: goal.iconName,
-        colorValue: goal.colorValue,
-        isCompleted: goal.isCompleted,
-        deadline: goal.deadline,
-        accountId: goal.accountId,
-        categoryId: goal.categoryId);
-
-    _goals[index] = updatedGoal;
-    notifyListeners();
-    await goalLocalDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
+    result.fold((fail) {
+      errorMessage = fail.message;
+      notifyListeners();
+    }, (_) async {
+      await loadWalletData();
+    });
   }
 
   Future<void> purchaseGoal(String goalId, {int? categoryId}) async {
@@ -390,16 +395,18 @@ class WalletProvider extends ChangeNotifier {
     final goal = _goals[index];
 
     if (goal.accountId == null) {
-      errorMessage = 'No se puede comprar la meta: No tiene una cuenta configurada.';
+      errorMessage =
+          'No se puede comprar la meta: No tiene una cuenta configurada.';
       notifyListeners();
       return;
     }
-    
+
     // Determinar accountId: la alcancía de la meta
     final purchaseAccountId = goal.accountId!;
 
     // Determinar categoría: param override > meta.categoryId > default Compras
-    final finalCategoryId = categoryId ?? goal.categoryId ?? AppConstants.shoppingCategoryId;
+    final finalCategoryId =
+        categoryId ?? goal.categoryId ?? AppConstants.shoppingCategoryId;
 
     // CONTABILIDAD: EXPENSE desde la alcancía de la meta
     final transaction = TransactionEntity(
@@ -411,26 +418,15 @@ class WalletProvider extends ChangeNotifier {
         note: "Compra realizada con éxito 🏆",
         type: TransactionType.expense);
 
-    await addTransactionUseCase(AddTransactionParams(transaction: transaction));
-    await loadWalletData();
+    final result = await purchaseGoalUseCase(
+        PurchaseGoalParams(goalId: goalId, transaction: transaction));
 
-    // Marcar como completada (NO eliminar — futuro Muro de Trofeos)
-    final completedGoal = GoalEntity(
-        id: goal.id,
-        name: goal.name,
-        targetAmount: goal.targetAmount,
-        currentAmount: goal.currentAmount,
-        iconCode: goal.iconCode,
-        iconName: goal.iconName,
-        colorValue: goal.colorValue,
-        isCompleted: true,
-        deadline: goal.deadline,
-        accountId: goal.accountId,
-        categoryId: goal.categoryId);
-
-    _goals[index] = completedGoal;
-    notifyListeners();
-    await goalLocalDataSource.saveGoal(GoalModel.fromEntity(completedGoal));
+    result.fold((fail) {
+      errorMessage = fail.message;
+      notifyListeners();
+    }, (_) async {
+      await loadWalletData();
+    });
   }
 
   String getAccountName(int id) {

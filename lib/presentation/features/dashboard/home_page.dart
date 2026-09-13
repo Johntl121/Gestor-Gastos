@@ -206,9 +206,7 @@ void _showNotificationSheet(BuildContext context) {
           const Text(
             "Notificaciones",
             style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold),
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           if (subs.isEmpty)
@@ -227,7 +225,8 @@ void _showNotificationSheet(BuildContext context) {
               final formattedDate =
                   '${due.day.toString().padLeft(2, '0')}/${due.month.toString().padLeft(2, '0')}';
 
-              final subColor = Color(s.customColor ?? AppCategories.getColor(s.categoryId).toARGB32());
+              final subColor = Color(s.customColor ??
+                  AppCategories.getColor(s.categoryId).toARGB32());
 
               final String subtitleText;
               final Color subtitleColor;
@@ -343,8 +342,7 @@ class _HeaderSection extends StatelessWidget {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const SettingsPage()),
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
                 );
               },
               onLongPress: onShowDeveloperPanel,
@@ -481,11 +479,10 @@ class _DonutChartSection extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = walletProvider
-                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
-                1.0;
-            final targetRate =
-                walletProvider.exchangeRates[currency] ?? 1.0;
+            final sourceRate =
+                walletProvider.exchangeRates[acc?.currencySymbol ?? 'S/'] ??
+                    1.0;
+            final targetRate = walletProvider.exchangeRates[currency] ?? 1.0;
             monthSpent += (t.amount.abs() * sourceRate) / targetRate;
           }
         }
@@ -675,11 +672,10 @@ class _BalanceSummary extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = walletProvider
-                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
-                1.0;
-            final targetRate =
-                walletProvider.exchangeRates[currency] ?? 1.0;
+            final sourceRate =
+                walletProvider.exchangeRates[acc?.currencySymbol ?? 'S/'] ??
+                    1.0;
+            final targetRate = walletProvider.exchangeRates[currency] ?? 1.0;
             final convertedAmount = (t.amount * sourceRate) / targetRate;
 
             if (t.amount > 0) {
@@ -694,11 +690,10 @@ class _BalanceSummary extends StatelessWidget {
                 walletProvider.accounts.where((a) => a.id == t.accountId);
             final acc = accList.isNotEmpty ? accList.first : null;
 
-            final sourceRate = walletProvider
-                    .exchangeRates[acc?.currencySymbol ?? 'S/'] ??
-                1.0;
-            final targetRate =
-                walletProvider.exchangeRates[currency] ?? 1.0;
+            final sourceRate =
+                walletProvider.exchangeRates[acc?.currencySymbol ?? 'S/'] ??
+                    1.0;
+            final targetRate = walletProvider.exchangeRates[currency] ?? 1.0;
             monthSpent += (t.amount.abs() * sourceRate) / targetRate;
           }
         }
@@ -715,9 +710,7 @@ class _BalanceSummary extends StatelessWidget {
             Text(
               CurrencyFormatter.format(balance, currency),
               style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: textColor),
+                  fontSize: 32, fontWeight: FontWeight.w900, color: textColor),
             ),
             const SizedBox(height: 5),
             Text(
@@ -916,7 +909,9 @@ class _RecentTransactionsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
-    final subTextColor = theme.brightness == Brightness.dark ? Colors.blueGrey[200] : Colors.grey[600];
+    final subTextColor = theme.brightness == Brightness.dark
+        ? Colors.blueGrey[200]
+        : Colors.grey[600];
 
     return Consumer2<TransactionProvider, WalletProvider>(
       builder: (context, txProvider, walletProvider, _) {
@@ -970,10 +965,11 @@ class _RecentTransactionsList extends StatelessWidget {
                           if (transaction.id != null) {
                             await txProvider.deleteTransaction(transaction.id!);
                             await walletProvider.loadWalletData();
-                            
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).clearSnackBars();
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
                                 content: const Text(
                                     'Transacción eliminada de recientes'),
                                 action: SnackBarAction(

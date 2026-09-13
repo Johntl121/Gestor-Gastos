@@ -28,9 +28,8 @@ class GoalModel extends GoalEntity {
       isCompleted: json['isCompleted'] == null
           ? false
           : (json['isCompleted'] == 1 || json['isCompleted'] == true),
-      deadline: json['deadline'] != null
-          ? DateTime.parse(json['deadline'])
-          : null,
+      deadline:
+          json['deadline'] != null ? DateTime.parse(json['deadline']) : null,
       accountId: json['accountId'],
       categoryId: json['categoryId'],
       orderIndex: json['orderIndex'] ?? 0,

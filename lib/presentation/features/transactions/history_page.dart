@@ -26,10 +26,7 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  Map<String, dynamic> _selectedFilter = {
-    'label': 'Todos',
-    'type': 'all'
-  };
+  Map<String, dynamic> _selectedFilter = {'label': 'Todos', 'type': 'all'};
 
   bool _isCalendarView = false;
   DateTime _focusedDay = DateTime.now();
@@ -82,7 +79,9 @@ class _HistoryPageState extends State<HistoryPage> {
             child: IconButton(
               icon: Icon(Icons.search, color: iconColor, size: 24),
               onPressed: () {
-                final txList = Provider.of<TransactionProvider>(context, listen: false).transactions;
+                final txList =
+                    Provider.of<TransactionProvider>(context, listen: false)
+                        .transactions;
                 showSearch(
                   context: context,
                   delegate: TransactionSearchDelegate(txList),
@@ -198,9 +197,8 @@ void _showTransactionDetails(BuildContext context, TransactionEntity t,
                                 ? Icons.arrow_upward
                                 : Icons.arrow_downward,
                             size: 40,
-                            color: t.amount > 0
-                                ? Colors.green
-                                : Colors.redAccent,
+                            color:
+                                t.amount > 0 ? Colors.green : Colors.redAccent,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -245,7 +243,6 @@ void _showTransactionDetails(BuildContext context, TransactionEntity t,
                         label: "Nota",
                         value: t.note!,
                         isDarkMode: isDarkMode),
-
                   if (t.imagePath != null &&
                       File(t.imagePath!).existsSync()) ...[
                     const SizedBox(height: 20),
@@ -278,18 +275,16 @@ void _showTransactionDetails(BuildContext context, TransactionEntity t,
                             borderRadius: BorderRadius.circular(16))),
                     onPressed: () {
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(Icons.swipe,
-                                      color: Colors.orangeAccent, size: 20),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                      child: Text(
-                                          "Desliza en la lista para eliminar")),
-                                ],
-                              )));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Row(
+                        children: [
+                          Icon(Icons.swipe,
+                              color: Colors.orangeAccent, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                              child: Text("Desliza en la lista para eliminar")),
+                        ],
+                      )));
                     },
                     icon: const Icon(Icons.delete_outline,
                         color: Colors.redAccent),
@@ -489,7 +484,8 @@ class _TransactionListViewState extends State<_TransactionListView> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       final provider = Provider.of<TransactionProvider>(context, listen: false);
       if (!provider.isLoadingMore && provider.hasMore) {
         provider.loadMoreTransactions();
@@ -520,9 +516,8 @@ class _TransactionListViewState extends State<_TransactionListView> {
           displayedTransactions =
               displayedTransactions.where((t) => t.type == value).toList();
         } else if (type == 'account') {
-          displayedTransactions = displayedTransactions
-              .where((t) => t.accountId == value)
-              .toList();
+          displayedTransactions =
+              displayedTransactions.where((t) => t.accountId == value).toList();
         } else if (type == 'category') {
           displayedTransactions = displayedTransactions
               .where((t) => t.description == value)
@@ -567,7 +562,8 @@ class _TransactionListViewState extends State<_TransactionListView> {
           controller: _scrollController,
           padding:
               const EdgeInsets.only(left: 16, right: 16, top: 10, bottom: 24),
-          itemCount: grouped.keys.length + (transactionProvider.isLoadingMore ? 1 : 0),
+          itemCount:
+              grouped.keys.length + (transactionProvider.isLoadingMore ? 1 : 0),
           itemBuilder: (context, index) {
             if (index == grouped.keys.length) {
               return const Padding(
@@ -697,16 +693,14 @@ class _TransactionItemCard extends StatelessWidget {
             ?.currencySymbol ??
         walletProvider.currencySymbol;
 
-    final account = walletProvider.accounts
-        .where((a) => a.id == t.accountId)
-        .firstOrNull;
+    final account =
+        walletProvider.accounts.where((a) => a.id == t.accountId).firstOrNull;
 
     Color accountColor =
         account != null ? Color(account.colorValue) : Colors.grey;
     String accountName = account?.name ?? 'Cuenta Desconocida';
-    IconData accountIcon = account != null
-        ? account.displayIcon
-        : Icons.account_balance_wallet;
+    IconData accountIcon =
+        account != null ? account.displayIcon : Icons.account_balance_wallet;
 
     String amount;
     Color color;
@@ -829,10 +823,11 @@ class _TransactionItemCard extends StatelessWidget {
                   Text(
                     amount,
                     style: TextStyle(
-                        color: (isTransfer ? TransactionType.transfer : t.type) ==
-                                TransactionType.expense
-                            ? Colors.redAccent
-                            : color,
+                        color:
+                            (isTransfer ? TransactionType.transfer : t.type) ==
+                                    TransactionType.expense
+                                ? Colors.redAccent
+                                : color,
                         fontWeight: FontWeight.bold,
                         fontSize: 15),
                   ),
@@ -949,9 +944,8 @@ class _CalendarViewSection extends StatelessWidget {
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color: hasExpense
-                            ? Colors.redAccent
-                            : Colors.greenAccent,
+                        color:
+                            hasExpense ? Colors.redAccent : Colors.greenAccent,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1010,8 +1004,8 @@ class _CalendarViewSection extends StatelessWidget {
                                         .clearSnackBars();
                                     ScaffoldMessenger.of(context)
                                         .showSnackBar(SnackBar(
-                                      content: const Text(
-                                          'Transacción eliminada'),
+                                      content:
+                                          const Text('Transacción eliminada'),
                                       action: SnackBarAction(
                                           label: 'DESHACER',
                                           textColor: Colors.cyanAccent,

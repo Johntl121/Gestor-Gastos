@@ -3,7 +3,8 @@ import 'package:equatable/equatable.dart';
 class CategoryEntity extends Equatable {
   final int? id;
   final String name;
-  final String icon; // Identificador de icono (ej. font awesome o ruta de asset)
+  final String
+      icon; // Identificador de icono (ej. font awesome o ruta de asset)
   final int color; // Valor de color en Hex
   final bool isExpense; // true para Gasto, false para Ingreso
 

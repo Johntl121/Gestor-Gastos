@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../core/constants/app_constants.dart';
 
 enum ExpenseFrequency { monthly, yearly }
 
@@ -25,7 +26,8 @@ class Subscription {
     this.customIcon,
     this.customColor,
     this.accountToCharge = 2, // Default to Bank
-    this.categoryId = 9, // Default to Suscripciones
+    this.categoryId =
+        AppConstants.otherExpenseId, // Default to Suscripciones / Otros Gastos
     this.orderIndex = 0,
   });
 
@@ -85,7 +87,7 @@ class Subscription {
       customIcon: json['custom_icon'],
       customColor: json['custom_color'],
       accountToCharge: json['accountToCharge'] ?? 2,
-      categoryId: json['categoryId'] ?? 9,
+      categoryId: json['categoryId'] ?? AppConstants.otherExpenseId,
       orderIndex: json['orderIndex'] ?? 0,
     );
   }

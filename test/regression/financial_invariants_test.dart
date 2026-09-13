@@ -10,7 +10,8 @@ import 'package:mocktail/mocktail.dart';
 
 import '../helpers/test_helper.dart';
 
-class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDataSource {}
+class MockPreferencesLocalDataSource extends Mock
+    implements PreferencesLocalDataSource {}
 
 void main() {
   late LocalDatabase localDatabase;
@@ -32,7 +33,8 @@ void main() {
       preferencesLocalDataSource: mockPreferences,
     );
 
-    final transactionDataSource = TransactionLocalDataSourceImpl(localDatabase: localDatabase);
+    final transactionDataSource =
+        TransactionLocalDataSourceImpl(localDatabase: localDatabase);
     transactionRepository = TransactionRepositoryImpl(
       localDatabase: localDatabase,
       transactionLocalDataSource: transactionDataSource,
@@ -52,7 +54,8 @@ void main() {
         currencySymbol: 'S/',
       );
       final createResult = await accountRepository.createAccount(newAccount);
-      final accountId = createResult.getOrElse(() => throw Exception('Failed to create account'));
+      final accountId = createResult
+          .getOrElse(() => throw Exception('Failed to create account'));
 
       // Leer cuenta
       var accountsResult = await accountRepository.getAccounts();
@@ -67,7 +70,7 @@ void main() {
         name: 'Nombre Editado',
         colorValue: 0xFF00FF,
         currentBalance: 9999.0, // Un intento de alterar saldo
-        currencySymbol: 'USD',  // Un intento de cambiar moneda
+        currencySymbol: 'USD', // Un intento de cambiar moneda
       );
 
       await accountRepository.updateAccount(modifiedAccount);
@@ -80,18 +83,28 @@ void main() {
       // Si P0-04 se implementó bien, updateAccount no debería tocar el saldo ni la moneda original
       expect(updatedAccount.name, 'Nombre Editado');
       expect(updatedAccount.colorValue, 0xFF00FF);
-      
+
       // Estas aserciones podrían fallar AHORA antes de arreglar P0-04
-      expect(updatedAccount.currentBalance, 500.0, reason: 'El saldo no debe cambiar por edición de metadatos');
-      expect(updatedAccount.currencySymbol, 'S/', reason: 'La moneda no debe cambiar una vez creada');
+      expect(updatedAccount.currentBalance, 500.0,
+          reason: 'El saldo no debe cambiar por edición de metadatos');
+      expect(updatedAccount.currencySymbol, 'S/',
+          reason: 'La moneda no debe cambiar una vez creada');
     });
   });
 
   group('INV-02 y INV-04: Transacciones y atomicidad de edición', () {
     test('Eliminar movimiento revierte exactamente su efecto', () async {
       // 1. Crear cuenta
-      final account = AccountEntity(id: 0, name: 'Principal', isCash: false, initialBalance: 1000.0, colorValue: 0, iconCode: 0, currencySymbol: 'S/');
-      final accId = (await accountRepository.createAccount(account)).getOrElse(() => 0);
+      final account = AccountEntity(
+          id: 0,
+          name: 'Principal',
+          isCash: false,
+          initialBalance: 1000.0,
+          colorValue: 0,
+          iconCode: 0,
+          currencySymbol: 'S/');
+      final accId =
+          (await accountRepository.createAccount(account)).getOrElse(() => 0);
 
       // 2. Ingreso
       final transaction = TransactionEntity(
@@ -106,11 +119,13 @@ void main() {
       await transactionRepository.addTransaction(transaction);
 
       // Validar saldo
-      var accounts = (await accountRepository.getAccounts()).getOrElse(() => []);
+      var accounts =
+          (await accountRepository.getAccounts()).getOrElse(() => []);
       expect(accounts.firstWhere((a) => a.id == accId).currentBalance, 1200.0);
 
       // 3. Obtener transacciones para encontrar su ID
-      final transactions = (await transactionRepository.getTransactions()).getOrElse(() => []);
+      final transactions =
+          (await transactionRepository.getTransactions()).getOrElse(() => []);
       final insertedTx = transactions.first;
 
       // 4. Eliminar
@@ -121,18 +136,35 @@ void main() {
       expect(accounts.firstWhere((a) => a.id == accId).currentBalance, 1000.0);
     });
 
-    test('Editar movimiento es lógicamente (revertir anterior + aplicar nuevo)', () async {
-      final account1 = AccountEntity(id: 0, name: 'Acc1', isCash: false, initialBalance: 1000.0, colorValue: 0, iconCode: 0, currencySymbol: 'S/');
-      final acc1Id = (await accountRepository.createAccount(account1)).getOrElse(() => 0);
-      
-      final account2 = AccountEntity(id: 0, name: 'Acc2', isCash: true, initialBalance: 500.0, colorValue: 0, iconCode: 0, currencySymbol: 'S/');
-      final acc2Id = (await accountRepository.createAccount(account2)).getOrElse(() => 0);
+    test('Editar movimiento es lógicamente (revertir anterior + aplicar nuevo)',
+        () async {
+      final account1 = AccountEntity(
+          id: 0,
+          name: 'Acc1',
+          isCash: false,
+          initialBalance: 1000.0,
+          colorValue: 0,
+          iconCode: 0,
+          currencySymbol: 'S/');
+      final acc1Id =
+          (await accountRepository.createAccount(account1)).getOrElse(() => 0);
+
+      final account2 = AccountEntity(
+          id: 0,
+          name: 'Acc2',
+          isCash: true,
+          initialBalance: 500.0,
+          colorValue: 0,
+          iconCode: 0,
+          currencySymbol: 'S/');
+      final acc2Id =
+          (await accountRepository.createAccount(account2)).getOrElse(() => 0);
 
       // Crear un gasto normal
       final expense = TransactionEntity(
         id: 0,
         accountId: acc1Id,
-        categoryId: 1, 
+        categoryId: 1,
         amount: -300.0,
         date: DateTime.now(),
         type: TransactionType.expense,
@@ -140,7 +172,8 @@ void main() {
       );
       await transactionRepository.addTransaction(expense);
 
-      var accounts = (await accountRepository.getAccounts()).getOrElse(() => []);
+      var accounts =
+          (await accountRepository.getAccounts()).getOrElse(() => []);
       expect(accounts.firstWhere((a) => a.id == acc1Id).currentBalance, 700.0);
       expect(accounts.firstWhere((a) => a.id == acc2Id).currentBalance, 500.0);
 

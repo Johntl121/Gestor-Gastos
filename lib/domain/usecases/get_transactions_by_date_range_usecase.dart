@@ -11,8 +11,10 @@ class GetTransactionsByDateRangeUseCase
   GetTransactionsByDateRangeUseCase(this.repository);
 
   @override
-  Future<Either<Failure, List<TransactionEntity>>> call(DateRangeParams params) async {
-    return await repository.getTransactionsByDateRange(params.start, params.end);
+  Future<Either<Failure, List<TransactionEntity>>> call(
+      DateRangeParams params) async {
+    return await repository.getTransactionsByDateRange(
+        params.start, params.end);
   }
 }
 

@@ -38,7 +38,7 @@ class TransactionProvider extends ChangeNotifier {
   List<Subscription> _subscriptions = [];
   bool _isLoading = false;
   String? errorMessage;
-  
+
   // Paginación
   int _offset = 0;
   final int _limit = 50;
@@ -63,7 +63,8 @@ class TransactionProvider extends ChangeNotifier {
     _offset = 0;
     _hasMore = true;
 
-    final result = await getTransactionsUseCase(GetTransactionsParams(limit: _limit, offset: _offset));
+    final result = await getTransactionsUseCase(
+        GetTransactionsParams(limit: _limit, offset: _offset));
     result.fold(
       (fail) => debugPrint("Error loading transactions: $fail"),
       (list) {
@@ -86,13 +87,14 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> loadMoreTransactions() async {
     if (_isLoadingMore || !_hasMore) return;
-    
+
     _isLoadingMore = true;
     notifyListeners();
 
     _offset += _limit;
-    final result = await getTransactionsUseCase(GetTransactionsParams(limit: _limit, offset: _offset));
-    
+    final result = await getTransactionsUseCase(
+        GetTransactionsParams(limit: _limit, offset: _offset));
+
     result.fold(
       (fail) {
         debugPrint("Error loading more transactions: $fail");
@@ -249,7 +251,8 @@ class TransactionProvider extends ChangeNotifier {
       _subscriptions[idx] = subscription;
       await subscriptionLocalDataSource.saveSubscription(subscription);
     } else {
-      final subWithOrder = subscription.copyWith(orderIndex: _subscriptions.length);
+      final subWithOrder =
+          subscription.copyWith(orderIndex: _subscriptions.length);
       _subscriptions.add(subWithOrder);
       await subscriptionLocalDataSource.saveSubscription(subWithOrder);
     }
@@ -294,10 +297,10 @@ class TransactionProvider extends ChangeNotifier {
             ? "Pago mensual"
             : "Pago anual",
         type: TransactionType.expense,
-        iconCode: subscription.customIcon != null 
-            ? IconMapper.getIcon(subscription.customIcon).codePoint 
+        iconCode: subscription.customIcon != null
+            ? IconMapper.getIcon(subscription.customIcon).codePoint
             : AppCategories.getIcon(subscription.categoryId).codePoint,
-        colorValue: subscription.customColor ?? 
+        colorValue: subscription.customColor ??
             AppCategories.getColor(subscription.categoryId).toARGB32());
 
     // Optimistic Update manual para bloqueo INMEDIATO en la UI
@@ -320,12 +323,12 @@ class TransactionProvider extends ChangeNotifier {
     }
     final item = _subscriptions.removeAt(oldIndex);
     _subscriptions.insert(newIndex, item);
-    
+
     for (int i = 0; i < _subscriptions.length; i++) {
       _subscriptions[i] = _subscriptions[i].copyWith(orderIndex: i);
       subscriptionLocalDataSource.saveSubscription(_subscriptions[i]);
     }
-    
+
     notifyListeners();
   }
 
@@ -333,7 +336,8 @@ class TransactionProvider extends ChangeNotifier {
     final start = DateTime(day.year, day.month, day.day, 0, 0, 0);
     final end = DateTime(day.year, day.month, day.day, 23, 59, 59);
 
-    final result = await getTransactionsByDateRange(DateRangeParams(start: start, end: end));
+    final result = await getTransactionsByDateRange(
+        DateRangeParams(start: start, end: end));
     return result.fold(
       (fail) => [],
       (list) => list,

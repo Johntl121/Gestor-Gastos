@@ -54,10 +54,10 @@ class UiProvider extends ChangeNotifier {
     _userName = preferencesLocalDataSource.getUserName() ?? 'Usuario';
     _userAvatar = preferencesLocalDataSource.getUserAvatar();
     _profileImagePath = preferencesLocalDataSource.getProfileImagePath();
-    
+
     // 2. Cargar PIN de forma asíncrona desde almacenamiento seguro
     _userPin = await preferencesLocalDataSource.getSecurityPinAsync();
-    
+
     _isDarkMode = preferencesLocalDataSource.getThemeMode();
     _enableBiometrics = preferencesLocalDataSource.getEnableBiometrics();
     _enableNotifications = preferencesLocalDataSource.getEnableNotifications();

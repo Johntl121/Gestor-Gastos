@@ -16,14 +16,16 @@ class GoalLocalDataSourceImpl implements GoalLocalDataSource {
   @override
   Future<List<GoalModel>> getGoals() async {
     final db = await localDatabase.database;
-    final List<Map<String, dynamic>> maps = await db.query('goals', orderBy: 'orderIndex ASC');
+    final List<Map<String, dynamic>> maps =
+        await db.query('goals', orderBy: 'orderIndex ASC');
     return maps.map((j) => GoalModel.fromJson(j)).toList();
   }
 
   @override
   Future<void> saveGoal(GoalModel goal) async {
     final db = await localDatabase.database;
-    await db.insert('goals', goal.toJson(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('goals', goal.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override

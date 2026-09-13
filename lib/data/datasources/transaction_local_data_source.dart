@@ -1,10 +1,11 @@
-
 import '../../core/services/database_helper.dart';
 import '../models/transaction_model.dart';
 
 abstract class TransactionLocalDataSource {
-  Future<List<TransactionModel>> getTransactions({int limit = 50, int offset = 0});
-  Future<List<TransactionModel>> getTransactionsByDateRange(DateTime start, DateTime end);
+  Future<List<TransactionModel>> getTransactions(
+      {int limit = 50, int offset = 0});
+  Future<List<TransactionModel>> getTransactionsByDateRange(
+      DateTime start, DateTime end);
   Future<void> saveTransaction(TransactionModel transaction);
   Future<void> updateTransaction(TransactionModel transaction);
   Future<void> deleteTransaction(int id);
@@ -23,24 +24,24 @@ class TransactionLocalDataSourceImpl implements TransactionLocalDataSource {
   ''';
 
   @override
-  Future<List<TransactionModel>> getTransactions({int limit = 50, int offset = 0}) async {
+  Future<List<TransactionModel>> getTransactions(
+      {int limit = 50, int offset = 0}) async {
     final db = await localDatabase.database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
-      '$_transactionJoinQuery ORDER BY t.date DESC LIMIT ? OFFSET ?',
-      [limit, offset]
-    );
-    
+        '$_transactionJoinQuery ORDER BY t.date DESC LIMIT ? OFFSET ?',
+        [limit, offset]);
+
     return maps.map((m) => TransactionModel.fromJson(m)).toList();
   }
 
   @override
-  Future<List<TransactionModel>> getTransactionsByDateRange(DateTime start, DateTime end) async {
+  Future<List<TransactionModel>> getTransactionsByDateRange(
+      DateTime start, DateTime end) async {
     final db = await localDatabase.database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
-      '$_transactionJoinQuery WHERE t.date >= ? AND t.date <= ? ORDER BY t.date DESC',
-      [start.toIso8601String(), end.toIso8601String()]
-    );
-    
+        '$_transactionJoinQuery WHERE t.date >= ? AND t.date <= ? ORDER BY t.date DESC',
+        [start.toIso8601String(), end.toIso8601String()]);
+
     return maps.map((m) => TransactionModel.fromJson(m)).toList();
   }
 

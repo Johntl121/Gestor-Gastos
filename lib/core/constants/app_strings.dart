@@ -21,7 +21,7 @@ class AppStrings {
   static const String settingsGeneral = 'General';
   static const String settingsSecurity = 'Seguridad';
   static const String settingsData = 'Datos';
-  
+
   // Others
   static const String save = 'Guardar';
   static const String cancel = 'Cancelar';

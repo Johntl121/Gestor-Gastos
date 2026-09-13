@@ -116,7 +116,9 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
 
     final buttonColor = !hasData
         ? Colors.grey.withValues(alpha: 0.1)
-        : (isSelected ? activeColor.withValues(alpha: 0.2) : Colors.transparent);
+        : (isSelected
+            ? activeColor.withValues(alpha: 0.2)
+            : Colors.transparent);
 
     final borderColor = !hasData
         ? Colors.grey.withValues(alpha: 0.2)
@@ -201,13 +203,15 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
   }
 
   /// Construye el contenido según si hay advice guardado o no
-  Widget _buildAdviceContent(StatsProvider statsProvider, TransactionProvider txProvider) {
+  Widget _buildAdviceContent(
+      StatsProvider statsProvider, TransactionProvider txProvider) {
     final hasMinData = txProvider.transactions.length > 5;
 
     if (!hasMinData) {
       return _buildPlaceholder(
         icon: Icons.bar_chart_outlined,
-        message: "Registra al menos 5 movimientos para recibir tu primer análisis.",
+        message:
+            "Registra al menos 5 movimientos para recibir tu primer análisis.",
         sub: "Cuantos más datos tengas, más preciso será el coach.",
       );
     }
@@ -247,9 +251,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
   }
 
   Widget _buildPlaceholder(
-      {required IconData icon,
-      required String message,
-      required String sub}) {
+      {required IconData icon, required String message, required String sub}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
@@ -305,7 +307,8 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
         await statsProvider.saveMonthlyAdvice(advice);
       }
     } catch (e) {
-      final errorMessage = "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e";
+      final errorMessage =
+          "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e";
       if (type == 'weekly') {
         await statsProvider.saveWeeklyAdvice(errorMessage);
       } else {

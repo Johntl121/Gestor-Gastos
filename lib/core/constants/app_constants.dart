@@ -7,4 +7,3 @@ class AppConstants {
   static const double defaultBudget = 2400.00;
   static const String defaultCurrency = 'S/';
 }
-

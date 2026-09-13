@@ -16,11 +16,13 @@ class AccountModel extends AccountEntity {
     return AccountModel(
       id: json['id'],
       name: json['name'],
-      initialBalance: (json['balance'] as num?)?.toDouble() ?? 0.0, // In standard query balance is initial
+      initialBalance: (json['balance'] as num?)?.toDouble() ??
+          0.0, // In standard query balance is initial
       currencySymbol: json['currencySymbol'] ?? 'S/',
       colorValue: json['color'] ?? 0, // DB column is 'color' in some parts
       iconCode: json['iconCode'] ?? 58343,
-      includeInTotal: json['includeInTotal'] == null ? true : (json['includeInTotal'] == 1),
+      includeInTotal:
+          json['includeInTotal'] == null ? true : (json['includeInTotal'] == 1),
       isCash: json['type'] == 'CASH',
     );
   }

@@ -131,11 +131,15 @@ class _WalletPageState extends State<WalletPage> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Color(sub.customColor ?? AppCategories.getColor(sub.categoryId).toARGB32()),
+                        color: Color(sub.customColor ??
+                            AppCategories.getColor(sub.categoryId).toARGB32()),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(sub.customColor ?? AppCategories.getColor(sub.categoryId).toARGB32()).withValues(alpha: 0.3),
+                            color: Color(sub.customColor ??
+                                    AppCategories.getColor(sub.categoryId)
+                                        .toARGB32())
+                                .withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           )
@@ -160,7 +164,12 @@ class _WalletPageState extends State<WalletPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      CurrencyFormatter.format(sub.amount, walletProvider.accounts.firstWhere((a) => a.id == selectedAccountId, orElse: () => walletProvider.accounts.first).currencySymbol),
+                      CurrencyFormatter.format(
+                          sub.amount,
+                          walletProvider.accounts
+                              .firstWhere((a) => a.id == selectedAccountId,
+                                  orElse: () => walletProvider.accounts.first)
+                              .currencySymbol),
                       style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
@@ -239,16 +248,21 @@ class _WalletPageState extends State<WalletPage> {
                         onPressed: () async {
                           final subToPay =
                               sub.copyWith(accountToCharge: selectedAccountId);
-                          final transactionProvider = Provider.of<TransactionProvider>(context, listen: false);
-                          final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+                          final transactionProvider =
+                              Provider.of<TransactionProvider>(context,
+                                  listen: false);
+                          final walletProvider = Provider.of<WalletProvider>(
+                              context,
+                              listen: false);
 
-                          await transactionProvider.markSubscriptionAsPaid(subToPay);
-                          
+                          await transactionProvider
+                              .markSubscriptionAsPaid(subToPay);
+
                           // Sincronizar saldos de cuenta en WalletProvider
                           if (mounted) {
                             await walletProvider.loadWalletData();
                           }
-                          
+
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
                           }
@@ -271,8 +285,7 @@ class _WalletPageState extends State<WalletPage> {
                         onPressed: () => Navigator.pop(ctx),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.grey.shade400,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                         child: const Text("Cancelar",
                             style: TextStyle(
@@ -328,7 +341,8 @@ class _WalletPageState extends State<WalletPage> {
                 // --- Accounts Section ---
                 _AccountsSection(
                   onAddAccount: () => _showAddAccountSheet(context),
-                  onEditAccount: (acc) => _showAddAccountSheet(context, accountToEdit: acc),
+                  onEditAccount: (acc) =>
+                      _showAddAccountSheet(context, accountToEdit: acc),
                 ),
 
                 const SizedBox(height: 40),
@@ -336,7 +350,8 @@ class _WalletPageState extends State<WalletPage> {
                 // --- Goals Section ---
                 _GoalsSection(
                   onAddGoal: () => _showGoalFormDialog(context),
-                  onEditGoal: (goal) => _showGoalFormDialog(context, toEdit: goal),
+                  onEditGoal: (goal) =>
+                      _showGoalFormDialog(context, toEdit: goal),
                   onShowDetails: (goal) => _showGoalDetails(context, goal),
                   onDraggingChanged: _setDragging,
                 ),
@@ -358,7 +373,8 @@ class _WalletPageState extends State<WalletPage> {
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (ctx) => AddFixedExpenseSheet(subscriptionToEdit: sub),
+                      builder: (ctx) =>
+                          AddFixedExpenseSheet(subscriptionToEdit: sub),
                     );
                   },
                   onPayExpense: (sub) => _showPaymentDialog(context, sub),
@@ -460,7 +476,9 @@ class _AccountsSection extends StatelessWidget {
                       color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                          color: isDarkMode ? Colors.white24 : Colors.grey.shade400,
+                          color: isDarkMode
+                              ? Colors.white24
+                              : Colors.grey.shade400,
                           style: BorderStyle.solid),
                     ),
                     child: Center(
@@ -473,7 +491,8 @@ class _AccountsSection extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text("Añadir Cuenta",
                               style: TextStyle(
-                                  color: isDarkMode ? Colors.white54 : Colors.grey,
+                                  color:
+                                      isDarkMode ? Colors.white54 : Colors.grey,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold))
                         ],
@@ -593,7 +612,8 @@ class _AccountCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                CurrencyFormatter.format(account.currentBalance, account.currencySymbol),
+                CurrencyFormatter.format(
+                    account.currentBalance, account.currencySymbol),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
@@ -653,7 +673,8 @@ class _GoalsSection extends StatelessWidget {
                         color: const Color(0xFF00E5FF),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 24),
+                      child:
+                          const Icon(Icons.add, color: Colors.white, size: 24),
                     ),
                   )
                 ],
@@ -759,8 +780,13 @@ class _FixedExpensesSection extends StatelessWidget {
 
         // Fetch primary currency securely using Selector or brief reading
         final currencySymbol =
-            Provider.of<WalletProvider>(context, listen: false).accounts.isNotEmpty
-                ? Provider.of<WalletProvider>(context, listen: false).accounts.first.currencySymbol
+            Provider.of<WalletProvider>(context, listen: false)
+                    .accounts
+                    .isNotEmpty
+                ? Provider.of<WalletProvider>(context, listen: false)
+                    .accounts
+                    .first
+                    .currencySymbol
                 : 'S/';
 
         return Column(
@@ -779,7 +805,8 @@ class _FixedExpensesSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.redAccent.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
@@ -803,12 +830,14 @@ class _FixedExpensesSection extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFD500F9).withValues(alpha: 0.4),
+                              color: const Color(0xFFD500F9)
+                                  .withValues(alpha: 0.4),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             )
                           ]),
-                      child: const Icon(Icons.add, color: Colors.white, size: 26),
+                      child:
+                          const Icon(Icons.add, color: Colors.white, size: 26),
                     ),
                   ),
                 ],
@@ -817,7 +846,8 @@ class _FixedExpensesSection extends StatelessWidget {
             const SizedBox(height: 15),
             if (subscriptions.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
                 child: SizedBox(
                   width: double.infinity,
                   child: Center(
@@ -845,16 +875,17 @@ class _FixedExpensesSection extends StatelessWidget {
                   },
                   itemBuilder: (context, index) {
                     final sub = subscriptions[index];
-                    final account = Provider.of<WalletProvider>(context, listen: false)
-                        .accounts
-                        .firstWhere((a) => a.id == sub.accountToCharge,
-                            orElse: () => const AccountEntity(
-                                id: -1,
-                                name: 'Desconocido',
-                                initialBalance: 0,
-                                currencySymbol: '',
-                                colorValue: 0xFF9E9E9E,
-                                iconCode: 0));
+                    final account =
+                        Provider.of<WalletProvider>(context, listen: false)
+                            .accounts
+                            .firstWhere((a) => a.id == sub.accountToCharge,
+                                orElse: () => const AccountEntity(
+                                    id: -1,
+                                    name: 'Desconocido',
+                                    initialBalance: 0,
+                                    currencySymbol: '',
+                                    colorValue: 0xFF9E9E9E,
+                                    iconCode: 0));
 
                     return Container(
                       key: ValueKey(sub.id),
@@ -876,7 +907,8 @@ class _FixedExpensesSection extends StatelessWidget {
                                     child: const Text("Cancelar")),
                                 ElevatedButton(
                                     onPressed: () {
-                                      provider.removeSubscription(sub.id.toString());
+                                      provider.removeSubscription(
+                                          sub.id.toString());
                                       Navigator.pop(ctx);
                                     },
                                     style: ElevatedButton.styleFrom(

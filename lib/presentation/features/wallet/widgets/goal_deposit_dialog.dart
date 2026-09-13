@@ -29,8 +29,10 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
     final provider = Provider.of<WalletProvider>(context, listen: false);
     // Inicializar con primera cuenta que NO sea la alcancía
     if (provider.accounts.isNotEmpty) {
-      final nonVault = provider.accounts.where((a) => a.id != widget.goal.accountId);
-      _selectedSourceId = nonVault.isNotEmpty ? nonVault.first.id : provider.accounts.first.id;
+      final nonVault =
+          provider.accounts.where((a) => a.id != widget.goal.accountId);
+      _selectedSourceId =
+          nonVault.isNotEmpty ? nonVault.first.id : provider.accounts.first.id;
     }
   }
 
@@ -45,7 +47,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
     final goalColor = Color(widget.goal.colorValue);
-    final currencySymbol = Provider.of<WalletProvider>(context, listen: false).currencySymbol;
+    final currencySymbol =
+        Provider.of<WalletProvider>(context, listen: false).currencySymbol;
 
     return AlertDialog(
       backgroundColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
@@ -84,7 +87,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
             // Monto
             TextField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(
                 color: isDarkMode ? Colors.white : Colors.black87,
                 fontSize: 28,
@@ -99,14 +103,18 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
               },
               decoration: InputDecoration(
                 prefixText: "$currencySymbol ",
-                prefixStyle: TextStyle(color: goalColor, fontSize: 28, fontWeight: FontWeight.bold),
+                prefixStyle: TextStyle(
+                    color: goalColor,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold),
                 border: InputBorder.none,
                 hintText: "0.00",
                 hintStyle: TextStyle(
                   color: isDarkMode ? Colors.white24 : Colors.grey[300],
                 ),
                 errorText: _errorText,
-                errorStyle: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                errorStyle: const TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold),
               ),
             ),
 
@@ -122,7 +130,10 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
                 children: [
                   Text(
                     "Progreso: ${(widget.goal.progress * 100).toInt()}%",
-                    style: TextStyle(color: goalColor, fontSize: 13, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: goalColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500),
                   ),
                   Text(
                     "Faltan $currencySymbol ${widget.goal.remainingAmount.toStringAsFixed(2)}",
@@ -166,13 +177,16 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+                    color: isDarkMode
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: DropdownButtonFormField<int>(
                     initialValue: _selectedSourceId,
                     isExpanded: true,
-                    dropdownColor: isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+                    dropdownColor:
+                        isDarkMode ? const Color(0xFF1E293B) : Colors.white,
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
@@ -187,7 +201,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
                         child: Row(
                           children: [
                             Icon(
-                              IconData(account.iconCode, fontFamily: 'MaterialIcons'),
+                              IconData(account.iconCode,
+                                  fontFamily: 'MaterialIcons'),
                               size: 18,
                               color: Color(account.colorValue),
                             ),
@@ -232,7 +247,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
                     : null;
 
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   decoration: BoxDecoration(
                     color: goalColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -267,7 +283,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: Text("Cancelar",
-              style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+              style: TextStyle(
+                  color: isDarkMode ? Colors.grey : Colors.grey[600])),
         ),
         ElevatedButton(
           onPressed: () async {
@@ -281,7 +298,8 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
 
             if (amount > remainingAmount) {
               setState(() {
-                _errorText = "Solo te faltan $currencySymbol ${remainingAmount.toStringAsFixed(2)}";
+                _errorText =
+                    "Solo te faltan $currencySymbol ${remainingAmount.toStringAsFixed(2)}";
               });
               return;
             }
@@ -291,27 +309,32 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
               widget.onConfettiTrigger();
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                 content: Text("¡FELICIDADES! 🎉 Meta Completada",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
                 backgroundColor: Colors.amber,
               ));
             }
 
             await Provider.of<WalletProvider>(context, listen: false)
-                .depositToGoal(widget.goal.id.toString(), amount, _selectedSourceId!);
-            
+                .depositToGoal(
+                    widget.goal.id.toString(), amount, _selectedSourceId!);
+
             if (context.mounted) {
-              Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
+              Provider.of<TransactionProvider>(context, listen: false)
+                  .loadTransactions();
               Navigator.pop(context);
             }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: goalColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 4,
             shadowColor: goalColor.withValues(alpha: 0.4),
           ),
           child: const Text("Depositar",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

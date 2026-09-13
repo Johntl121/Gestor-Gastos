@@ -13,7 +13,7 @@ class CurrencyFormatter {
   static String format(double amount, String symbol) {
     final isNegative = amount < 0;
     final absAmount = amount.abs();
-    
+
     String formatted;
     // Verificar si es entero para ocultar decimales
     if (absAmount.truncateToDouble() == absAmount) {
