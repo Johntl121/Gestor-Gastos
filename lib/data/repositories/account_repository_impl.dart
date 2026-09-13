@@ -66,9 +66,9 @@ class AccountRepositoryImpl implements AccountRepository {
           {
             'name': account.name,
             'type': account.isCash ? 'CASH' : 'DIGITAL',
-            'balance': account.currentBalance,
+            // P0-04: El saldo (balance) NO DEBE modificarse al editar metadatos.
+            // P0-04: La moneda (currencySymbol) tampoco, para mantener integridad histórica.
             'color': account.colorValue,
-            'currencySymbol': account.currencySymbol,
             'iconCode': account.iconCode,
             'includeInTotal': account.includeInTotal ? 1 : 0
           },

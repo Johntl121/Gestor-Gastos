@@ -105,36 +105,51 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       final db = await localDatabase.database;
       
-      // Obtener transacción antigua para calcular la diferencia de saldo
-      final List<Map<String, dynamic>> oldList = await db.query(
-        'transactions', 
-        where: 'id = ?', 
-        whereArgs: [transaction.id]
-      );
+      await db.transaction((txn) async {
+        // 1. Leer original
+        final List<Map<String, dynamic>> oldList = await txn.query(
+          'transactions', 
+          where: 'id = ?', 
+          whereArgs: [transaction.id]
+        );
 
-      if (oldList.isNotEmpty) {
-        final oldAmount = oldList.first['amount'] as double;
-        final diff = transaction.amount - oldAmount;
+        if (oldList.isEmpty) {
+          throw Exception('Transacción original no encontrada para editar');
+        }
 
-        await db.transaction((txn) async {
-          // Actualizar transacción
-          await txn.update(
-            'transactions',
-            TransactionModel.fromEntity(transaction).toJson(),
-            where: 'id = ?',
-            whereArgs: [transaction.id],
-          );
+        final oldTx = TransactionModel.fromJson(oldList.first);
 
-          // Si el monto cambió, actualizar saldo de cuenta
-          if (diff != 0) {
-            await txn.rawUpdate('''
-              UPDATE accounts 
-              SET balance = balance + ? 
-              WHERE id = ?
-            ''', [diff, transaction.accountId]);
-          }
-        });
-      }
+        // 2. Revertir efecto anterior
+        if (oldTx.type == TransactionType.transfer && oldTx.destinationAccountId != null) {
+          await txn.rawUpdate('UPDATE accounts SET balance = balance + ? WHERE id = ?', 
+            [oldTx.amount.abs(), oldTx.accountId]);
+          final destAmount = oldTx.receivedAmount ?? oldTx.amount.abs();
+          await txn.rawUpdate('UPDATE accounts SET balance = balance - ? WHERE id = ?', 
+            [destAmount, oldTx.destinationAccountId]);
+        } else {
+          await txn.rawUpdate('UPDATE accounts SET balance = balance - ? WHERE id = ?', 
+            [oldTx.amount, oldTx.accountId]);
+        }
+
+        // 3. UPDATE del mismo registro
+        await txn.update(
+          'transactions',
+          TransactionModel.fromEntity(transaction).toJson(),
+          where: 'id = ?',
+          whereArgs: [transaction.id],
+        );
+
+        // 4. Aplicar efecto nuevo
+        if (transaction.type == TransactionType.transfer && transaction.destinationAccountId != null) {
+          await txn.rawUpdate('UPDATE accounts SET balance = balance - ? WHERE id = ?', 
+            [transaction.amount.abs(), transaction.accountId]);
+          await txn.rawUpdate('UPDATE accounts SET balance = balance + ? WHERE id = ?', 
+            [transaction.receivedAmount ?? transaction.amount.abs(), transaction.destinationAccountId]);
+        } else {
+          await txn.rawUpdate('UPDATE accounts SET balance = balance + ? WHERE id = ?', 
+            [transaction.amount, transaction.accountId]);
+        }
+      });
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));

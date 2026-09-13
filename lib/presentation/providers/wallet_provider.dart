@@ -297,14 +297,21 @@ class WalletProvider extends ChangeNotifier {
     final goal = _goals[index];
 
     if (refund && refundAccountId != null && goal.currentAmount > 0) {
+      if (goal.accountId == null) {
+        errorMessage = 'No se puede reembolsar: La meta no tiene una cuenta asociada.';
+        notifyListeners();
+        return;
+      }
       final transaction = TransactionEntity(
-          accountId: refundAccountId,
-          categoryId: 14,
+          accountId: goal.accountId!, // Desde la cuenta de la meta
+          categoryId: AppConstants.transferCategoryId,
           amount: goal.currentAmount,
           date: DateTime.now(),
           description: "Reembolso Meta: ${goal.name}",
           note: "Dinero devuelto al eliminar meta",
-          type: TransactionType.income);
+          type: TransactionType.transfer,
+          destinationAccountId: refundAccountId, // Hacia la cuenta seleccionada
+      );
 
       await addTransactionUseCase(
           AddTransactionParams(transaction: transaction));
@@ -337,6 +344,12 @@ class WalletProvider extends ChangeNotifier {
     if (index == -1) return;
 
     final goal = _goals[index];
+
+    if (goal.accountId == null) {
+      errorMessage = 'No se puede depositar: La meta no tiene una cuenta configurada.';
+      notifyListeners();
+      return;
+    }
 
     // CONTABILIDAD: TRANSFER desde la cuenta origen hacia la alcancía de la meta
     final transaction = TransactionEntity(
@@ -376,8 +389,14 @@ class WalletProvider extends ChangeNotifier {
 
     final goal = _goals[index];
 
-    // Determinar accountId: la alcancía de la meta, o la primera cuenta disponible
-    final purchaseAccountId = goal.accountId ?? (_accounts.isNotEmpty ? _accounts.first.id : 1);
+    if (goal.accountId == null) {
+      errorMessage = 'No se puede comprar la meta: No tiene una cuenta configurada.';
+      notifyListeners();
+      return;
+    }
+    
+    // Determinar accountId: la alcancía de la meta
+    final purchaseAccountId = goal.accountId!;
 
     // Determinar categoría: param override > meta.categoryId > default Compras
     final finalCategoryId = categoryId ?? goal.categoryId ?? AppConstants.shoppingCategoryId;
@@ -386,7 +405,7 @@ class WalletProvider extends ChangeNotifier {
     final transaction = TransactionEntity(
         accountId: purchaseAccountId,
         categoryId: finalCategoryId,
-        amount: -goal.currentAmount, // Gastar lo que realmente se ahorró
+        amount: -goal.currentAmount.abs(), // Gastar lo que realmente se ahorró
         date: DateTime.now(),
         description: "Meta Cumplida: ${goal.name}",
         note: "Compra realizada con éxito 🏆",
