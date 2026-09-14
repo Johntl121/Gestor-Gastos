@@ -352,8 +352,25 @@ class StatsProvider extends ChangeNotifier {
     if (goals.isNotEmpty) {
       buffer.writeln("--- METAS DE AHORRO ---");
       for (var g in goals) {
+        double currentAmt = g.currentAmount;
+        double targetAmt = g.targetAmount;
+
+        if (_walletProvider != null && g.accountId != null) {
+          final accountIdx =
+              _walletProvider!.accounts.indexWhere((a) => a.id == g.accountId);
+          if (accountIdx != -1) {
+            final account = _walletProvider!.accounts[accountIdx];
+            currentAmt = _walletProvider!.currencyConverter.convert(currentAmt,
+                account.currencySymbol, _walletProvider!.currencySymbol);
+            targetAmt = _walletProvider!.currencyConverter.convert(targetAmt,
+                account.currencySymbol, _walletProvider!.currencySymbol);
+          }
+          // Fallback explícito: si index == -1 o accountId == null,
+          // preservamos los valores no convertidos (legacy presentation).
+        }
+
         buffer.writeln(
-            "- ${g.name}: $currencySymbol ${g.currentAmount.toStringAsFixed(2)} / $currencySymbol ${g.targetAmount.toStringAsFixed(2)}");
+            "- ${g.name}: $currencySymbol ${currentAmt.toStringAsFixed(2)} / $currencySymbol ${targetAmt.toStringAsFixed(2)}");
       }
     }
 
