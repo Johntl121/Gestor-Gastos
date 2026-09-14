@@ -40,9 +40,11 @@ class GoalOperationsRepositoryImpl implements GoalOperationsRepository {
         await AccountTransactionHelper.applyTransaction(txn, transaction);
 
         // 4. Actualizar la meta
+        final increment =
+            transaction.receivedAmount ?? transaction.amount.abs();
         final updated = await txn.rawUpdate(
             'UPDATE goals SET currentAmount = currentAmount + ? WHERE id = ?',
-            [transaction.amount, goalId]);
+            [increment, goalId]);
         if (updated == 0) {
           throw Exception("Error al actualizar el progreso de la meta");
         }

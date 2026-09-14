@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../../../../domain/entities/goal_entity.dart';
 import '../../../providers/wallet_provider.dart';
 import '../../../providers/transaction_provider.dart';
@@ -705,7 +706,7 @@ class GoalDetailSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Esta meta tiene ahorrados S/ ${currentGoal.currentAmount.toStringAsFixed(2)}. Selecciona una cuenta para devolver el dinero.",
+                      "Esta meta tiene ahorrados ${CurrencyFormatter.format(currentGoal.currentAmount, currentGoal.accountId != null ? provider.accounts.firstWhere((a) => a.id == currentGoal.accountId, orElse: () => provider.accounts.first).currencySymbol : provider.currencySymbol)}. Selecciona una cuenta para devolver el dinero.",
                       style: TextStyle(
                         color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
                         fontSize: 14,
@@ -735,7 +736,7 @@ class GoalDetailSheet extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    "${acc.name} (${acc.currencySymbol} ${acc.currentBalance.toStringAsFixed(2)})",
+                                    "${acc.name} (${CurrencyFormatter.format(acc.currentBalance, acc.currencySymbol)})",
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 1,
                                     style: TextStyle(

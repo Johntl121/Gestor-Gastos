@@ -12,10 +12,11 @@ import '../../domain/usecases/get_monthly_budget_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/goal_operations_usecases.dart';
-import '../../data/models/goal_model.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/goal_local_data_source.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/currency_converter.dart';
+import '../../data/models/goal_model.dart';
 
 class WalletProvider extends ChangeNotifier {
   final GetAccountBalanceUseCase getAccountBalance;
@@ -49,19 +50,38 @@ class WalletProvider extends ChangeNotifier {
   }
 
   List<AccountEntity> _accounts = [];
-  BalanceBreakdown? _balanceBreakdown;
   double _budgetLimit = 2400.00;
   List<GoalEntity> _goals = [];
   String _currencySymbol = 'S/';
   Map<String, double> _exchangeRates = {};
+  CurrencyConverter _currencyConverter = CurrencyConverter(rates: {});
   String? errorMessage;
 
   List<AccountEntity> get accounts => _accounts;
-  BalanceBreakdown? get balanceBreakdown => _balanceBreakdown;
   double get budgetLimit => _budgetLimit;
   List<GoalEntity> get goals => _goals;
   String get currencySymbol => _currencySymbol;
   Map<String, double> get exchangeRates => _exchangeRates;
+  CurrencyConverter get currencyConverter => _currencyConverter;
+
+  BalanceBreakdown? get balanceBreakdown {
+    if (_accounts.isEmpty) return null;
+    double total = 0, cash = 0, digital = 0;
+    for (var account in _accounts) {
+      if (!account.includeInTotal) continue;
+
+      final convertedAmount = _currencyConverter.convert(
+          account.currentBalance, account.currencySymbol, _currencySymbol);
+
+      total += convertedAmount;
+      if (account.isCash) {
+        cash += convertedAmount;
+      } else {
+        digital += convertedAmount;
+      }
+    }
+    return BalanceBreakdown(total: total, cash: cash, digital: digital);
+  }
 
   void clearError() {
     errorMessage = null;
@@ -70,19 +90,16 @@ class WalletProvider extends ChangeNotifier {
 
   /// Cálculo Dinámico: Suma los saldos convirtiéndolos a la moneda preferida del usuario
   double get totalBalance {
-    final targetSymbol = _currencySymbol;
-    final targetRate = _exchangeRates[targetSymbol] ?? 1.0;
-
     return _accounts.where((a) => a.includeInTotal).fold(0.0, (sum, acc) {
-      final sourceRate = _exchangeRates[acc.currencySymbol] ?? 1.0;
-      // Convertimos: (Monto * RateOrigen) / RateDestino
-      final convertedAmount = (acc.currentBalance * sourceRate) / targetRate;
+      final convertedAmount = _currencyConverter.convert(
+          acc.currentBalance, acc.currencySymbol, _currencySymbol);
       return sum + convertedAmount;
     });
   }
 
   Future<void> updateExchangeRate(String currency, double newRate) async {
     _exchangeRates[currency] = newRate;
+    _currencyConverter = CurrencyConverter(rates: _exchangeRates);
     await preferencesLocalDataSource.saveExchangeRates(_exchangeRates);
     notifyListeners();
   }
@@ -155,13 +172,6 @@ class WalletProvider extends ChangeNotifier {
       (accounts) => _accounts = accounts,
     );
 
-    // 2. Get Balance Breakdown
-    final balanceResult = await getAccountBalance(NoParams());
-    balanceResult.fold(
-      (fail) => null,
-      (balance) => _balanceBreakdown = balance,
-    );
-
     // 3. Get Budget
     final budgetResult = await getMonthlyBudgetUseCase(NoParams());
     budgetResult.fold(
@@ -176,6 +186,7 @@ class WalletProvider extends ChangeNotifier {
     // 5. Load Currency Symbol and Rates
     _currencySymbol = preferencesLocalDataSource.getCurrency();
     _exchangeRates = preferencesLocalDataSource.getExchangeRates();
+    _currencyConverter = CurrencyConverter(rates: _exchangeRates);
 
     notifyListeners();
   }
@@ -184,7 +195,6 @@ class WalletProvider extends ChangeNotifier {
   Future<void> refreshData() async {
     _accounts = [];
     _goals = [];
-    _balanceBreakdown = null;
     await loadWalletData();
   }
 
@@ -314,6 +324,16 @@ class WalletProvider extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      final refundAccount =
+          _accounts.firstWhere((a) => a.id == refundAccountId);
+      final goalAccount = _accounts.firstWhere((a) => a.id == goal.accountId);
+
+      double? receivedAmount;
+      if (goalAccount.currencySymbol != refundAccount.currencySymbol) {
+        receivedAmount = _currencyConverter.convert(goal.currentAmount,
+            goalAccount.currencySymbol, refundAccount.currencySymbol);
+      }
+
       refundTx = TransactionEntity(
         accountId: goal.accountId!, // Desde la cuenta de la meta
         categoryId: AppConstants.transferCategoryId,
@@ -323,6 +343,7 @@ class WalletProvider extends ChangeNotifier {
         note: "Dinero devuelto al eliminar meta",
         type: TransactionType.transfer,
         destinationAccountId: refundAccountId, // Hacia la cuenta seleccionada
+        receivedAmount: receivedAmount,
       );
     }
 
@@ -366,6 +387,16 @@ class WalletProvider extends ChangeNotifier {
       return;
     }
 
+    // C-1: Multi-currency conversion for goal deposit
+    final sourceAccount = _accounts.firstWhere((a) => a.id == sourceAccountId);
+    final goalAccount = _accounts.firstWhere((a) => a.id == goal.accountId);
+
+    double? receivedAmount;
+    if (sourceAccount.currencySymbol != goalAccount.currencySymbol) {
+      receivedAmount = _currencyConverter.convert(
+          amount, sourceAccount.currencySymbol, goalAccount.currencySymbol);
+    }
+
     // CONTABILIDAD: TRANSFER desde la cuenta origen hacia la alcancía de la meta
     final transaction = TransactionEntity(
         accountId: sourceAccountId,
@@ -375,7 +406,8 @@ class WalletProvider extends ChangeNotifier {
         description: "Transferencia Meta: ${goal.name}",
         note: "Ahorro depositado a meta",
         type: TransactionType.transfer,
-        destinationAccountId: goal.accountId);
+        destinationAccountId: goal.accountId,
+        receivedAmount: receivedAmount);
 
     final result = await depositToGoalUseCase(
         DepositToGoalParams(goalId: goalId, transaction: transaction));

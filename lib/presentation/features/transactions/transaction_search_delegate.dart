@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../domain/entities/transaction_entity.dart';
+import '../../providers/wallet_provider.dart';
+import '../../../core/utils/currency_formatter.dart';
 
 class TransactionSearchDelegate extends SearchDelegate {
   final List<TransactionEntity> transactions;
+  final WalletProvider walletProvider;
 
-  TransactionSearchDelegate(this.transactions);
+  TransactionSearchDelegate(this.transactions, this.walletProvider);
 
   @override
   String get searchFieldLabel => 'Buscar transacciones...';
@@ -150,7 +153,16 @@ class TransactionSearchDelegate extends SearchDelegate {
       subtitle += " • ${isIncome ? 'Ingreso' : 'Gasto'}";
     }
 
-    String amountStr = "$amountPrefix S/ ${t.amount.abs().toStringAsFixed(2)}";
+    String symbol = walletProvider.currencySymbol;
+    try {
+      final account =
+          walletProvider.accounts.firstWhere((a) => a.id == t.accountId);
+      symbol = account.currencySymbol;
+    } catch (e) {
+      // Ignorar
+    }
+    String amountStr =
+        "$amountPrefix ${CurrencyFormatter.format(t.amount.abs(), symbol)}";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

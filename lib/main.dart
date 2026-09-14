@@ -96,10 +96,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => di.sl<UiProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<WalletProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<TransactionProvider>()),
-        ChangeNotifierProxyProvider<TransactionProvider, StatsProvider>(
+        ChangeNotifierProxyProvider2<TransactionProvider, WalletProvider,
+            StatsProvider>(
           create: (_) => di.sl<StatsProvider>(),
-          update: (_, txProvider, statsProvider) {
+          update: (_, txProvider, walletProvider, statsProvider) {
             statsProvider?.setAllTransactions(txProvider.transactions);
+            statsProvider?.updateWalletProvider(walletProvider);
             return statsProvider!;
           },
         ),

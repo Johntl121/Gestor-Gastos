@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../domain/entities/transaction_entity.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/gemini_client.dart';
@@ -493,7 +494,14 @@ class _MainPageState extends State<MainPage> {
                           const Text("Monto:",
                               style:
                                   TextStyle(color: Colors.grey, fontSize: 14)),
-                          Text("S/ ${amount.toStringAsFixed(2)}",
+                          Text(
+                              CurrencyFormatter.format(
+                                  amount,
+                                  walletProvider.accounts
+                                      .firstWhere((a) => a.id == accountId,
+                                          orElse: () =>
+                                              walletProvider.accounts.first)
+                                      .currencySymbol),
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,

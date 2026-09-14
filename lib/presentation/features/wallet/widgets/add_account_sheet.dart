@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/constants/app_currencies.dart';
 import '../../../../domain/entities/account_entity.dart';
 import '../../../providers/wallet_provider.dart';
 
@@ -326,13 +327,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
         builder: (ctx) {
-          final currencies = [
-            {'symbol': 'S/', 'name': 'Sol', 'code': 'PEN'},
-            {'symbol': '\$', 'name': 'Dólar', 'code': 'USD'},
-            {'symbol': '€', 'name': 'Euro', 'code': 'EUR'},
-            {'symbol': '¥', 'name': 'Yen', 'code': 'JPY'},
-            {'symbol': '₽', 'name': 'Rublo', 'code': 'RUB'},
-          ];
+          const currencies = AppCurrencies.all;
 
           return Container(
             padding: const EdgeInsets.symmetric(vertical: 24),
@@ -361,12 +356,11 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final currency = currencies[index];
-                      final isSelected =
-                          _selectedCurrency == currency['symbol'];
+                      final isSelected = _selectedCurrency == currency.symbol;
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            _selectedCurrency = currency['symbol']!;
+                            _selectedCurrency = currency.symbol;
                           });
                           Navigator.pop(ctx);
                         },
@@ -392,7 +386,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                currency['symbol']!,
+                                currency.symbol,
                                 style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
@@ -401,7 +395,7 @@ class _AddAccountSheetState extends State<AddAccountSheet> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                currency['name']!,
+                                currency.name,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: isSelected

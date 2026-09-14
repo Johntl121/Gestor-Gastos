@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_currencies.dart';
 
 class AppOnboardingData {
   /// Lista de Avatares disponibles para el perfil de usuario.
@@ -40,16 +41,15 @@ class AppOnboardingData {
   ];
 
   /// Lista de Monedas admitidas en el paso de Configuración Inicial (Welcome).
-  static const List<Map<String, String>> currencies = [
-    {'symbol': 'S/', 'name': 'Sol', 'code': 'PEN'},
-    {'symbol': '\$', 'name': 'Dólar', 'code': 'USD'},
-    {'symbol': '€', 'name': 'Euro', 'code': 'EUR'},
-    {'symbol': 'mx\$', 'name': 'Peso', 'code': 'MXN'},
-    {'symbol': '₽', 'name': 'Rublo', 'code': 'RUB'},
-    {'symbol': '£', 'name': 'Libra', 'code': 'GBP'},
-    {'symbol': '¥', 'name': 'Yen', 'code': 'JPY'},
-    {'symbol': 'R\$', 'name': 'Real', 'code': 'BRL'},
-  ];
+  static List<Map<String, String>> get currencies {
+    return AppCurrencies.all
+        .map((c) => {
+              'symbol': c.symbol,
+              'name': c.name,
+              'code': c.code,
+            })
+        .toList();
+  }
 
   /// Listado de perfiles de usuario y sub-textos en el paso de Selector de Perfil.
   static const List<Map<String, dynamic>> profiles = [
@@ -109,48 +109,26 @@ class AppOnboardingData {
   }
 
   /// Calcula dinámicamente el presupuesto balanceado de acuerdo a la moneda seleccionada.
-  /// Ej: si en Soles la base son 1000, un USD (usando factor x0.27) te aconsejará $270.
   static double getBudgetSuggestionForCurrency(
       double baseAmountPEN, String selectedCurrency) {
-    double factor = 1.0;
+    // The defaultRate is how many PEN equals 1 unit of the currency.
+    // So to convert PEN to that currency, we divide by the defaultRate.
+    final rate = AppCurrencies.defaultRateFor(selectedCurrency);
+    final raw = baseAmountPEN / rate;
+
+    // Default rounding logic
     double rounding = 100.0;
-
-    switch (selectedCurrency) {
-      case '\$': // USD
-        factor = 0.27; // 1 PEN ~= 0.27 USD
-        rounding = 10.0;
-        break;
-      case '€': // EUR
-        factor = 0.25; // 1 PEN ~= 0.25 EUR
-        rounding = 10.0;
-        break;
-      case '£': // GBP
-        factor = 0.21;
-        rounding = 10.0;
-        break;
-      case 'mx\$': // MXN
-        factor = 5.3;
-        rounding = 100.0;
-        break;
-      case 'R\$': // BRL
-        factor = 1.35;
-        rounding = 50.0;
-        break;
-      case '₽': // RUB
-        factor = 25.0;
-        rounding = 1000.0;
-        break;
-      case '¥': // JPY
-        factor = 40.0;
-        rounding = 1000.0;
-        break;
-      case 'S/': // PEN (Base)
-      default:
-        factor = 1.0;
-        rounding = 50.0;
+    if (selectedCurrency == '\$' ||
+        selectedCurrency == '€' ||
+        selectedCurrency == '£') {
+      rounding = 10.0;
+    } else if (selectedCurrency == '¥' || selectedCurrency == '₽') {
+      rounding = 1000.0;
+    } else if (selectedCurrency == 'S/') {
+      rounding = 50.0;
+    } else if (selectedCurrency == 'R\$') {
+      rounding = 50.0;
     }
-
-    double raw = baseAmountPEN * factor;
 
     if (raw > 15000) {
       return (raw / 1000).round() * 1000.0;

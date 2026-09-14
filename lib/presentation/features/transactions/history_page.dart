@@ -84,7 +84,8 @@ class _HistoryPageState extends State<HistoryPage> {
                         .transactions;
                 showSearch(
                   context: context,
-                  delegate: TransactionSearchDelegate(txList),
+                  delegate: TransactionSearchDelegate(txList,
+                      Provider.of<WalletProvider>(context, listen: false)),
                 );
               },
             ),

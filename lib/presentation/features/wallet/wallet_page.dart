@@ -708,6 +708,17 @@ class _GoalsSection extends StatelessWidget {
                   itemCount: goals.length,
                   itemBuilder: (context, index) {
                     final goal = goals[index];
+                    String currency = walletProvider.currencySymbol;
+                    if (goal.accountId != null) {
+                      try {
+                        currency = walletProvider.accounts
+                            .firstWhere((a) => a.id == goal.accountId)
+                            .currencySymbol;
+                      } catch (e) {
+                        // ignore
+                      }
+                    }
+
                     return Container(
                       key: ValueKey(goal.id),
                       child: GoalCard(
@@ -716,6 +727,7 @@ class _GoalsSection extends StatelessWidget {
                         targetAmount: goal.targetAmount,
                         color: Color(goal.colorValue),
                         icon: goal.icon,
+                        currencySymbol: currency,
                         deadline: goal.deadline,
                         isCompleted: goal.isCompleted,
                         onTap: () => onShowDetails(goal),
@@ -775,19 +787,24 @@ class _FixedExpensesSection extends StatelessWidget {
     return Consumer<TransactionProvider>(
       builder: (context, provider, _) {
         final subscriptions = provider.subscriptions;
-        double totalFixed =
-            subscriptions.fold(0, (sum, item) => sum + item.amount);
+        final walletProvider =
+            Provider.of<WalletProvider>(context, listen: false);
+        final currencySymbol = walletProvider.currencySymbol;
 
-        // Fetch primary currency securely using Selector or brief reading
-        final currencySymbol =
-            Provider.of<WalletProvider>(context, listen: false)
-                    .accounts
-                    .isNotEmpty
-                ? Provider.of<WalletProvider>(context, listen: false)
-                    .accounts
-                    .first
-                    .currencySymbol
-                : 'S/';
+        double totalFixed = 0.0;
+        for (var sub in subscriptions) {
+          String subCurrency = 'S/';
+          try {
+            final acc = walletProvider.accounts
+                .firstWhere((a) => a.id == sub.accountToCharge);
+            subCurrency = acc.currencySymbol;
+          } catch (e) {
+            // Ignore if account not found
+          }
+
+          totalFixed += walletProvider.currencyConverter
+              .convert(sub.amount, subCurrency, currencySymbol);
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

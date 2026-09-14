@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/subscription_local_data_source.dart';
 import '../../data/datasources/goal_local_data_source.dart';
+import 'wallet_provider.dart';
 
 // Enums for Stats
 enum PeriodType { week, month, year }
@@ -69,7 +70,15 @@ class StatsProvider extends ChangeNotifier {
 
   List<TransactionEntity> _allTransactions = [];
   List<TransactionEntity> _currentPeriodTransactions = [];
+  WalletProvider? _walletProvider;
   bool _isLoadingTransactions = false;
+
+  void updateWalletProvider(WalletProvider wp) {
+    _walletProvider = wp;
+    notifyListeners();
+  }
+
+  // Set transactions from external source;
 
   List<TransactionEntity> get transactions => _allTransactions;
   List<TransactionEntity> get currentPeriodTransactions =>
@@ -214,10 +223,21 @@ class StatsProvider extends ChangeNotifier {
       final Color color = AppCategories.getColor(t.categoryId);
       final IconData icon = AppCategories.getIcon(t.categoryId);
 
+      double convertedAmount = t.amount.abs();
+      if (_walletProvider != null) {
+        final account = _walletProvider!.accounts.firstWhere(
+            (a) => a.id == t.accountId,
+            orElse: () => _walletProvider!.accounts.first);
+        convertedAmount = _walletProvider!.currencyConverter.convert(
+            t.amount.abs(),
+            account.currencySymbol,
+            _walletProvider!.currencySymbol);
+      }
+
       if (groups.containsKey(name)) {
-        groups[name]!.amount += t.amount.abs();
+        groups[name]!.amount += convertedAmount;
       } else {
-        groups[name] = _InternalGroup(name, t.amount.abs(), color, icon);
+        groups[name] = _InternalGroup(name, convertedAmount, color, icon);
       }
     }
 
@@ -273,8 +293,23 @@ class StatsProvider extends ChangeNotifier {
     double totalExpense = 0;
 
     for (var t in _currentPeriodTransactions) {
-      if (t.type == TransactionType.income) totalIncome += t.amount.abs();
-      if (t.type == TransactionType.expense) totalExpense += t.amount.abs();
+      if (t.type == TransactionType.transfer) {
+        continue; // Ignorar transferencias
+      }
+
+      double convertedAmount = t.amount.abs();
+      if (_walletProvider != null) {
+        final account = _walletProvider!.accounts.firstWhere(
+            (a) => a.id == t.accountId,
+            orElse: () => _walletProvider!.accounts.first);
+        convertedAmount = _walletProvider!.currencyConverter.convert(
+            t.amount.abs(),
+            account.currencySymbol,
+            _walletProvider!.currencySymbol);
+      }
+
+      if (t.type == TransactionType.income) totalIncome += convertedAmount;
+      if (t.type == TransactionType.expense) totalExpense += convertedAmount;
     }
 
     final buffer = StringBuffer();

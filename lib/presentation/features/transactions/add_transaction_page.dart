@@ -282,10 +282,23 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         // Handle Transfer Logic
         if (_selectedSourceAccountId != null &&
             _selectedDestAccountId != null) {
+          final wallet = Provider.of<WalletProvider>(context, listen: false);
+          final sourceAcc = wallet.accounts
+              .firstWhere((a) => a.id == _selectedSourceAccountId);
+          final destAcc =
+              wallet.accounts.firstWhere((a) => a.id == _selectedDestAccountId);
+
+          double? receivedAmount;
+          if (sourceAcc.currencySymbol != destAcc.currencySymbol) {
+            receivedAmount = wallet.currencyConverter.convert(
+                amount, sourceAcc.currencySymbol, destAcc.currencySymbol);
+          }
+
           await transactionProvider.addTransfer(
             amount: amount,
             sourceAccountId: _selectedSourceAccountId!,
             destinationAccountId: _selectedDestAccountId!,
+            receivedAmount: receivedAmount,
             note: note.isNotEmpty ? note : null,
           );
         }

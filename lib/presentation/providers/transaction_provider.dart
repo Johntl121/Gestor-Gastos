@@ -227,6 +227,7 @@ class TransactionProvider extends ChangeNotifier {
     required double amount,
     required int sourceAccountId,
     required int destinationAccountId,
+    double? receivedAmount,
     String? note,
   }) async {
     final transaction = TransactionEntity(
@@ -238,6 +239,7 @@ class TransactionProvider extends ChangeNotifier {
       note: note,
       type: TransactionType.transfer,
       destinationAccountId: destinationAccountId,
+      receivedAmount: receivedAmount,
     );
 
     await addTransaction(transaction);

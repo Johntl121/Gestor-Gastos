@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/constants/app_currencies.dart';
 import '../../core/services/secure_storage_service.dart';
 
 const String keyFirstTime = 'FIRST_TIME';
@@ -178,13 +179,10 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
       }
     }
     // Default values if none exist
-    return {
-      'S/': 1.0,
-      '\$': 3.75,
-      '€': 4.10,
-      '¥': 0.025,
-      '₽': 0.040,
-      '₿': 350000.0,
-    };
+    final defaultRates = <String, double>{};
+    for (var currency in AppCurrencies.all) {
+      defaultRates[currency.symbol] = currency.defaultRate;
+    }
+    return defaultRates;
   }
 }

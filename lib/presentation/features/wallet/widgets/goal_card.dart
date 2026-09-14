@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class GoalCard extends StatelessWidget {
   final String name;
@@ -11,6 +12,7 @@ class GoalCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final String currencySymbol;
 
   const GoalCard({
     super.key,
@@ -24,6 +26,7 @@ class GoalCard extends StatelessWidget {
     this.onTap,
     this.onEdit,
     this.onDelete,
+    this.currencySymbol = 'S/',
   });
 
   @override
@@ -141,7 +144,7 @@ class GoalCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          "S/ ${(isCompleted ? targetAmount : currentAmount).toStringAsFixed(0)} / S/ ${targetAmount.toStringAsFixed(0)}",
+                          "${CurrencyFormatter.format(isCompleted ? targetAmount : currentAmount, currencySymbol)} / ${CurrencyFormatter.format(targetAmount, currencySymbol)}",
                           style: TextStyle(
                             color: isGoalCompleted
                                 ? displayColor
