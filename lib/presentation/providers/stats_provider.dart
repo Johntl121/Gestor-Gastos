@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/money_utils.dart';
 import '../../core/constants/app_categories.dart';
 import '../../domain/usecases/get_budget_mood_usecase.dart';
 import '../../domain/entities/budget_mood.dart';
@@ -312,17 +313,20 @@ class StatsProvider extends ChangeNotifier {
       if (t.type == TransactionType.expense) totalExpense += convertedAmount;
     }
 
+    totalIncome = MoneyUtils.normalize(totalIncome, currencySymbol);
+    totalExpense = MoneyUtils.normalize(totalExpense, currencySymbol);
+
     final buffer = StringBuffer();
     buffer.writeln("DATOS DEL USUARIO:");
     buffer.writeln("Moneda Principal: $currencySymbol");
     buffer.writeln();
     buffer.writeln("--- RESUMEN DEL PERIODO ---");
     buffer.writeln(
-        "Total Ingresos: $currencySymbol ${totalIncome.toStringAsFixed(2)}");
+        "Total Ingresos: ${MoneyUtils.format(totalIncome, currencySymbol)}");
     buffer.writeln(
-        "Total Gastos: $currencySymbol ${totalExpense.toStringAsFixed(2)}");
+        "Total Gastos: ${MoneyUtils.format(totalExpense, currencySymbol)}");
     buffer.writeln(
-        "Presupuesto Mensual: $currencySymbol ${budgetLimit.toStringAsFixed(2)}");
+        "Presupuesto Mensual: ${MoneyUtils.format(budgetLimit, currencySymbol)}");
     buffer.writeln();
 
     // 2. Gastos por Categoría (Top 5)
@@ -332,7 +336,7 @@ class StatsProvider extends ChangeNotifier {
     final topCategories = categories.take(5).toList();
     for (int i = 0; i < topCategories.length; i++) {
       buffer.writeln(
-          "${i + 1}. ${topCategories[i].name}: $currencySymbol ${topCategories[i].amount.toStringAsFixed(2)}");
+          "${i + 1}. ${topCategories[i].name}: ${MoneyUtils.format(topCategories[i].amount, currencySymbol)}");
     }
     buffer.writeln();
 
@@ -342,7 +346,7 @@ class StatsProvider extends ChangeNotifier {
       buffer.writeln("--- GASTOS FIJOS ACTIVOS ---");
       for (var s in subscriptions) {
         buffer.writeln(
-            "- ${s.name}: $currencySymbol ${s.amount.toStringAsFixed(2)} | Vence el día: ${s.paymentDate.day}");
+            "- ${s.name}: ${MoneyUtils.format(s.amount, currencySymbol)} | Vence el día: ${s.paymentDate.day}");
       }
       buffer.writeln();
     }
@@ -370,7 +374,7 @@ class StatsProvider extends ChangeNotifier {
         }
 
         buffer.writeln(
-            "- ${g.name}: $currencySymbol ${currentAmt.toStringAsFixed(2)} / $currencySymbol ${targetAmt.toStringAsFixed(2)}");
+            "- ${g.name}: ${MoneyUtils.format(currentAmt, currencySymbol)} / ${MoneyUtils.format(targetAmt, currencySymbol)}");
       }
     }
 

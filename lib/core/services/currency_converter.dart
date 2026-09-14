@@ -1,3 +1,5 @@
+import '../utils/money_utils.dart';
+
 class CurrencyConverter {
   final Map<String, double> rates;
 
@@ -20,6 +22,7 @@ class CurrencyConverter {
       throw Exception("Rate not found for target currency: $toSymbol");
     }
 
-    return (amount * sourceRate) / targetRate;
+    double result = (amount * sourceRate) / targetRate;
+    return MoneyUtils.normalize(result, toSymbol);
   }
 }

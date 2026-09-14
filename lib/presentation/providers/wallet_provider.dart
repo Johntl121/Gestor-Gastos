@@ -16,6 +16,7 @@ import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/goal_local_data_source.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/currency_converter.dart';
+import '../../core/utils/money_utils.dart';
 import '../../data/models/goal_model.dart';
 
 class WalletProvider extends ChangeNotifier {
@@ -80,7 +81,10 @@ class WalletProvider extends ChangeNotifier {
         digital += convertedAmount;
       }
     }
-    return BalanceBreakdown(total: total, cash: cash, digital: digital);
+    return BalanceBreakdown(
+        total: MoneyUtils.normalize(total, _currencySymbol),
+        cash: MoneyUtils.normalize(cash, _currencySymbol),
+        digital: MoneyUtils.normalize(digital, _currencySymbol));
   }
 
   void clearError() {

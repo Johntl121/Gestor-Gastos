@@ -57,8 +57,14 @@ class AppCurrencies {
   static AppCurrency fromSymbol(String symbol) {
     return all.firstWhere(
       (c) => c.symbol == symbol,
-      orElse: () => all
-          .first, // Fallback to PEN if unknown, though shouldn't happen for known ones
+      orElse: () => all.first, // Fallback to PEN if unknown
+    );
+  }
+
+  static AppCurrency fromCodeOrSymbol(String query) {
+    return all.firstWhere(
+      (c) => c.code == query || c.symbol == query,
+      orElse: () => all.first,
     );
   }
 
