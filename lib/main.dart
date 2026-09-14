@@ -18,6 +18,7 @@ import 'presentation/providers/wallet_provider.dart';
 import 'presentation/providers/stats_provider.dart';
 
 import 'core/services/notification_service.dart';
+import 'core/services/notification_coordinator.dart';
 import 'core/theme/app_colors.dart';
 
 void main() async {
@@ -33,8 +34,8 @@ void main() async {
   await di.init();
 
   // Notifications Init
-  await NotificationService().init();
-  // We'll call requestPermissions inside the UI to avoid blocking the first frame
+  await di.sl<NotificationService>().init();
+  await di.sl<NotificationCoordinator>().init();
 
   // Check First Time
   final isFirstTime = di.sl<PreferencesLocalDataSource>().isFirstTime();

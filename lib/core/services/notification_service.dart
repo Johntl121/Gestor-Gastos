@@ -1,5 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz_latest;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +17,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    tz.initializeTimeZones();
+    tz_latest.initializeTimeZones();
 
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -43,13 +43,18 @@ class NotificationService {
     );
   }
 
-  Future<void> requestPermissions() async {
-    await flutterLocalNotificationsPlugin
+  /// Configura la zona horaria a utilizar (llamado por Coordinator).
+  void setupTimezone(String timezoneName) {
+    tz.setLocalLocation(tz.getLocation(timezoneName));
+  }
+
+  Future<bool> requestPermissions() async {
+    bool? androidResult = await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
 
-    await flutterLocalNotificationsPlugin
+    bool? iosResult = await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(
@@ -57,95 +62,123 @@ class NotificationService {
           badge: true,
           sound: true,
         );
+
+    // Si ambos son null, asumimos true o dependemos del platform
+    return (androidResult ?? true) && (iosResult ?? true);
   }
 
-  /// Schedules a monthly notification.
-  Future<void> scheduleMonthlyNotification({
+  Future<bool> checkPermissions() async {
+    final androidImpl = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImpl != null) {
+      final granted = await androidImpl.areNotificationsEnabled();
+      return granted ?? false;
+    }
+    // iOS has a different way, but we don't have a direct areNotificationsEnabled in free plugin easily without asking.
+    // For now, if android fails, we return false. If it's iOS we might need to rely on OS level prompt.
+    // However, keeping it simple:
+    return true; // Assume true if we can't determine
+  }
+
+  /// Schedules a repeating monthly notification (days 1-28).
+  Future<void> scheduleRecurringMonthly({
     required int id,
     required String title,
     required String body,
     required int dayOfMonth,
     required TimeOfDay time,
+    required String channelId,
+    required String channelName,
   }) async {
-    try {
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        _nextInstanceOfMonthlyTime(dayOfMonth, time),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'fixed_expenses_channel',
-            'Gastos Fijos',
-            channelDescription: 'Recordatorios de pagos mensuales',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
-      );
-    } on PlatformException catch (e) {
-      if (e.code == 'exact_alarms_not_permitted') {
-        debugPrint(
-            'Exact alarms not permitted, falling back to inexact notification for ID $id');
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          id,
-          title,
-          body,
-          _nextInstanceOfMonthlyTime(dayOfMonth, time),
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'fixed_expenses_channel',
-              'Gastos Fijos',
-              channelDescription: 'Recordatorios de pagos mensuales',
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(),
-          ),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
-        );
-      } else {
-        rethrow;
-      }
-    }
+    final scheduledDate = _nextInstanceOfMonthlyTime(dayOfMonth, time);
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: DateTimeComponents.dayOfMonthAndTime,
+    );
   }
 
-  /// Schedules a yearly notification.
-  Future<void> scheduleYearlyNotification({
+  /// Schedules a repeating yearly notification.
+  Future<void> scheduleRecurringYearly({
     required int id,
     required String title,
     required String body,
     required int month,
     required int day,
     required TimeOfDay time,
+    required String channelId,
+    required String channelName,
   }) async {
+    final scheduledDate = _nextInstanceOfYearlyTime(month, day, time);
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduledDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: null, // we manually manage absolute yearly repeats if we want, but flutter local notif doesn't have yearly out of box easily unless dayOfMonthAndTime for same day? No, actually there's no native yearly repeat component unless we use absolute or dayOfMonthAndTime. Wait, there is no DateTimeComponents.year! So we MUST use absolute and reschedule it every year.
+    );
+  }
+
+  /// Schedules a one-shot absolute notification.
+  Future<void> scheduleAbsoluteNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime date,
+    required String channelId,
+    required String channelName,
+  }) async {
+    final tzDate = tz.TZDateTime.from(date, tz.local);
+    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return; // Already passed
+
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: null,
+    );
+  }
+
+  Future<void> _zonedScheduleWithFallback({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledDate,
+    required String channelId,
+    required String channelName,
+    DateTimeComponents? matchComponents,
+  }) async {
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        channelName,
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+      iOS: const DarwinNotificationDetails(),
+    );
+
     try {
       await flutterLocalNotificationsPlugin.zonedSchedule(
         id,
         title,
         body,
-        _nextInstanceOfYearlyTime(month, day, time),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'fixed_expenses_yearly_channel',
-            'Gastos Anuales',
-            channelDescription: 'Recordatorios de pagos anuales',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
+        scheduledDate,
+        details,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: matchComponents,
       );
     } on PlatformException catch (e) {
       if (e.code == 'exact_alarms_not_permitted') {
@@ -155,83 +188,12 @@ class NotificationService {
           id,
           title,
           body,
-          _nextInstanceOfYearlyTime(month, day, time),
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'fixed_expenses_yearly_channel',
-              'Gastos Anuales',
-              channelDescription: 'Recordatorios de pagos anuales',
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(),
-          ),
+          scheduledDate,
+          details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } else {
-        rethrow;
-      }
-    }
-  }
-
-  tz.TZDateTime _nextInstanceOfYearlyTime(int month, int day, TimeOfDay time) {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-
-    // Attempt to schedule for this year
-    tz.TZDateTime scheduledDate = _createDate(now.year, month, day, time);
-
-    // If passed, next year
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = _createDate(now.year + 1, month, day, time);
-    }
-    return scheduledDate;
-  }
-
-  /// Schedules a test notification in [seconds] seconds.
-  Future<void> scheduleTestNotification({int seconds = 5}) async {
-    try {
-      await flutterLocalNotificationsPlugin.zonedSchedule(
-        99999, // Unique Test ID
-        'Prueba de Notificación 🔔',
-        'Si ves esto, las notificaciones funcionan correctamente.',
-        tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'test_channel',
-            'Pruebas',
-            channelDescription: 'Canal para pruebas de notificaciones',
-            importance: Importance.max,
-            priority: Priority.high,
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } on PlatformException catch (e) {
-      if (e.code == 'exact_alarms_not_permitted') {
-        debugPrint('Exact alarms not permitted, falling back to inexact test');
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          99999,
-          'Prueba de Notificación 🔔',
-          'Si ves esto, las notificaciones funcionan correctamente (Modo Inexacto).',
-          tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds)),
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'test_channel',
-              'Pruebas',
-              channelDescription: 'Canal para pruebas de notificaciones',
-              importance: Importance.max,
-              priority: Priority.high,
-            ),
-            iOS: DarwinNotificationDetails(),
-          ),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: matchComponents,
         );
       } else {
         rethrow;
@@ -241,29 +203,29 @@ class NotificationService {
 
   tz.TZDateTime _nextInstanceOfMonthlyTime(int day, TimeOfDay time) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-
-    // Creates a date for the current month/year with the target day/time
     tz.TZDateTime scheduledDate = _createDate(now.year, now.month, day, time);
-
-    // If that date is before now (already passed), schedule for next month
     if (scheduledDate.isBefore(now)) {
       scheduledDate = _createDate(now.year, now.month + 1, day, time);
     }
+    return scheduledDate;
+  }
 
+  tz.TZDateTime _nextInstanceOfYearlyTime(int month, int day, TimeOfDay time) {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = _createDate(now.year, month, day, time);
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = _createDate(now.year + 1, month, day, time);
+    }
     return scheduledDate;
   }
 
   tz.TZDateTime _createDate(int year, int month, int day, TimeOfDay time) {
-    // Recursive month overflow check (just in case)
     if (month > 12) {
       year += (month - 1) ~/ 12;
       month = (month - 1) % 12 + 1;
     }
-
-    // Clamp day to max days in month (e.g. Feb 30 -> Feb 28/29)
     final int maxDays = DateTime(year, month + 1, 0).day;
     final int validDay = day > maxDays ? maxDays : day;
-
     return tz.TZDateTime(
         tz.local, year, month, validDay, time.hour, time.minute);
   }

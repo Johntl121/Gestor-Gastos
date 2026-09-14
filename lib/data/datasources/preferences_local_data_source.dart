@@ -15,6 +15,8 @@ const String keyThemeMode = 'THEME_MODE';
 const String keyEnableBiometrics = 'ENABLE_BIOMETRICS';
 const String keyEnableNotifications = 'ENABLE_NOTIFICATIONS';
 const String keyExchangeRates = 'EXCHANGE_RATES';
+const String keySchedulerMigrationVersion = 'SCHEDULER_MIGRATION_VERSION';
+const String keyLastKnownTimezone = 'LAST_KNOWN_TIMEZONE';
 
 abstract class PreferencesLocalDataSource {
   bool isFirstTime();
@@ -42,6 +44,10 @@ abstract class PreferencesLocalDataSource {
   Future<void> migratePinIfNeeded();
   Future<void> saveExchangeRates(Map<String, double> rates);
   Map<String, double> getExchangeRates();
+  Future<void> saveSchedulerMigrationVersion(int version);
+  int getSchedulerMigrationVersion();
+  Future<void> saveLastKnownTimezone(String timezone);
+  String? getLastKnownTimezone();
 }
 
 class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
@@ -185,4 +191,20 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
     }
     return defaultRates;
   }
+
+  @override
+  Future<void> saveSchedulerMigrationVersion(int version) =>
+      sharedPreferences.setInt(keySchedulerMigrationVersion, version);
+
+  @override
+  int getSchedulerMigrationVersion() =>
+      sharedPreferences.getInt(keySchedulerMigrationVersion) ?? 0;
+
+  @override
+  Future<void> saveLastKnownTimezone(String timezone) =>
+      sharedPreferences.setString(keyLastKnownTimezone, timezone);
+
+  @override
+  String? getLastKnownTimezone() =>
+      sharedPreferences.getString(keyLastKnownTimezone);
 }

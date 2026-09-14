@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../data/models/subscription.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
+import '../../core/services/notification_coordinator.dart';
 
 class UiProvider extends ChangeNotifier {
   final PreferencesLocalDataSource preferencesLocalDataSource;
+  final NotificationCoordinator notificationCoordinator;
 
   // Theme
   bool _isDarkMode = true;
@@ -43,7 +45,10 @@ class UiProvider extends ChangeNotifier {
   bool _enableNotifications = true;
   bool get enableNotifications => _enableNotifications;
 
-  UiProvider({required this.preferencesLocalDataSource}) {
+  UiProvider({
+    required this.preferencesLocalDataSource,
+    required this.notificationCoordinator,
+  }) {
     _loadUiData();
   }
 
@@ -123,9 +128,24 @@ class UiProvider extends ChangeNotifier {
     await preferencesLocalDataSource.saveEnableBiometrics(value);
   }
 
-  Future<void> toggleNotifications(bool value) async {
+  Future<NotificationStatus> toggleNotifications(bool value) async {
     _enableNotifications = value;
     notifyListeners();
-    await preferencesLocalDataSource.saveEnableNotifications(value);
+    
+    NotificationStatus status;
+    if (value) {
+      status = await notificationCoordinator.enableNotifications();
+      if (status == NotificationStatus.permissionDenied || 
+          status == NotificationStatus.timezoneUnavailable) {
+        // Si falló por permisos, la preferencia fue revertida internamente a OFF por el coordinador.
+        // Sincronizamos la UI para mostrar que están OFF.
+        _enableNotifications = false;
+        notifyListeners();
+      }
+    } else {
+      status = await notificationCoordinator.disableNotifications();
+    }
+    
+    return status;
   }
 }

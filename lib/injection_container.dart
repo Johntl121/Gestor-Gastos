@@ -8,6 +8,8 @@ import 'data/datasources/goal_local_data_source.dart';
 import 'data/datasources/subscription_local_data_source.dart';
 import 'data/datasources/transaction_local_data_source.dart';
 import 'core/services/secure_storage_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/notification_coordinator.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -69,6 +71,16 @@ Future<void> init() async {
     () => TransactionLocalDataSourceImpl(localDatabase: sl()),
   );
 
+  //! Notificaciones
+  sl.registerLazySingleton<NotificationService>(() => NotificationService());
+  sl.registerLazySingleton<NotificationCoordinator>(
+    () => NotificationCoordinator(
+      notificationService: sl(),
+      preferences: sl(),
+      subscriptionDataSource: sl(),
+    ),
+  );
+
   //! Repositorio
   sl.registerLazySingleton<TransactionRepository>(
     () => TransactionRepositoryImpl(
@@ -110,7 +122,12 @@ Future<void> init() async {
   //! Proveedores (Refactored)
 
   // 1. UI Provider
-  sl.registerLazySingleton(() => UiProvider(preferencesLocalDataSource: sl()));
+  sl.registerLazySingleton(
+    () => UiProvider(
+      preferencesLocalDataSource: sl(),
+      notificationCoordinator: sl(),
+    ),
+  );
 
   // 2. Wallet Provider
   sl.registerLazySingleton(
@@ -140,6 +157,7 @@ Future<void> init() async {
       getTransactionsByDateRange: sl(),
       preferencesLocalDataSource: sl(),
       subscriptionLocalDataSource: sl(),
+      notificationCoordinator: sl(),
     ),
   );
 

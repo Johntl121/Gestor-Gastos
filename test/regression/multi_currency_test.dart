@@ -34,7 +34,7 @@ void main() {
 
     test('PEN -> USD', () {
       // 100 PEN * (1.0 / 3.75)
-      expect(converter.convert(100, 'S/', '\$'), closeTo(26.66, 0.01));
+      expect(converter.convert(100, 'S/', '\$'), closeTo(26.67, 0.01));
     });
 
     test('USD -> PEN', () {

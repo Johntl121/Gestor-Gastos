@@ -7,7 +7,7 @@ import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/update_transaction_usecase.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/subscription_local_data_source.dart';
-import '../../core/services/notification_service.dart';
+import '../../core/services/notification_coordinator.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import '../../core/constants/app_categories.dart';
 import '../../core/constants/app_constants.dart';
@@ -21,6 +21,7 @@ class TransactionProvider extends ChangeNotifier {
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
   final PreferencesLocalDataSource preferencesLocalDataSource;
   final SubscriptionLocalDataSource subscriptionLocalDataSource;
+  final NotificationCoordinator notificationCoordinator;
 
   TransactionProvider({
     required this.getTransactionsUseCase,
@@ -30,6 +31,7 @@ class TransactionProvider extends ChangeNotifier {
     required this.getTransactionsByDateRange,
     required this.preferencesLocalDataSource,
     required this.subscriptionLocalDataSource,
+    required this.notificationCoordinator,
   }) {
     loadTransactions();
   }
@@ -260,32 +262,16 @@ class TransactionProvider extends ChangeNotifier {
     }
     notifyListeners();
 
-    // Schedule notification based on frequency
-    if (subscription.frequency == ExpenseFrequency.monthly) {
-      await NotificationService().scheduleMonthlyNotification(
-        id: subscription.id.hashCode,
-        title: "Recordatorio de Pago",
-        body: "¡Hoy vence tu pago mensual de ${subscription.name}! 📅",
-        dayOfMonth: subscription.paymentDate.day,
-        time: const TimeOfDay(hour: 9, minute: 0),
-      );
-    } else {
-      await NotificationService().scheduleYearlyNotification(
-        id: subscription.id.hashCode,
-        title: "Recordatorio de Pago Anual",
-        body: "¡Hoy vence tu pago anual de ${subscription.name}! 📅",
-        month: subscription.paymentDate.month,
-        day: subscription.paymentDate.day,
-        time: const TimeOfDay(hour: 9, minute: 0),
-      );
-    }
+    // The coordinator will fetch the subscription and decide what to do
+    // based on user permissions and global state.
+    await notificationCoordinator.scheduleSubscription(subscription);
   }
 
   Future<void> removeSubscription(String id) async {
     _subscriptions.removeWhere((s) => s.id == id);
     notifyListeners();
     await subscriptionLocalDataSource.deleteSubscription(id);
-    await NotificationService().cancelNotification(id.hashCode);
+    await notificationCoordinator.cancelSubscription(id);
   }
 
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {

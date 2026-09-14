@@ -259,11 +259,21 @@ class SettingsPage extends StatelessWidget {
                     Icons.notifications,
                     cardColor,
                     textColor,
-                    isDarkMode, (val) {
-                  uiProvider.toggleNotifications(val);
-                  if (val) {
+                    isDarkMode, (val) async {
+                  final status = await uiProvider.toggleNotifications(val);
+                  
+                  if (!context.mounted) return;
+                  
+                  // Using string matching to avoid importing NotificationCoordinator directly in UI if possible
+                  if (status.toString() == 'NotificationStatus.scheduled') {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text("🔔 Notificaciones Activas")));
+                  } else if (status.toString() == 'NotificationStatus.permissionDenied') {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("❌ Permiso denegado por el sistema")));
+                  } else if (status.toString() == 'NotificationStatus.timezoneUnavailable') {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("❌ Error de zona horaria")));
                   }
                 }),
                 _buildPreferenceSwitch(
