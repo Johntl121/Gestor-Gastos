@@ -298,6 +298,8 @@ class TransactionProvider extends ChangeNotifier {
       _subscriptions[index] = updatedSub;
       // Guardar en SQLite inmediatamente
       await subscriptionLocalDataSource.saveSubscription(updatedSub);
+      // Reconciliar scheduling de notificaciones
+      await notificationCoordinator.scheduleSubscription(updatedSub);
       notifyListeners();
     }
 

@@ -23,7 +23,7 @@ void main() {
     final rates = {
       'S/': 1.0,
       '\$': 3.75,
-      '€': 4.0,
+      '€': 4.10,
     };
     final converter = CurrencyConverter(rates: rates);
 
@@ -43,8 +43,8 @@ void main() {
     });
 
     test('USD -> EUR', () {
-      // 100 USD * (3.75 / 4.0)
-      expect(converter.convert(100, '\$', '€'), closeTo(93.75, 0.01));
+      // 100 USD * (3.75 / 4.10)
+      expect(converter.convert(100, '\$', '€'), closeTo(91.46, 0.01));
     });
 
     test('moneda/tasa inexistente -> error', () {

@@ -68,8 +68,8 @@ class NotificationService {
   }
 
   Future<bool> checkPermissions() async {
-    final androidImpl = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
+    final androidImpl =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl != null) {
       final granted = await androidImpl.areNotificationsEnabled();
@@ -81,7 +81,6 @@ class NotificationService {
     return true; // Assume true if we can't determine
   }
 
-  /// Schedules a repeating monthly notification (days 1-28).
   Future<void> scheduleRecurringMonthly({
     required int id,
     required String title,
@@ -90,8 +89,10 @@ class NotificationService {
     required TimeOfDay time,
     required String channelId,
     required String channelName,
+    bool skipCurrentMonth = false,
   }) async {
-    final scheduledDate = _nextInstanceOfMonthlyTime(dayOfMonth, time);
+    final scheduledDate = _nextInstanceOfMonthlyTime(dayOfMonth, time,
+        skipCurrentMonth: skipCurrentMonth);
     await _zonedScheduleWithFallback(
       id: id,
       title: title,
@@ -122,7 +123,8 @@ class NotificationService {
       scheduledDate: scheduledDate,
       channelId: channelId,
       channelName: channelName,
-      matchComponents: null, // we manually manage absolute yearly repeats if we want, but flutter local notif doesn't have yearly out of box easily unless dayOfMonthAndTime for same day? No, actually there's no native yearly repeat component unless we use absolute or dayOfMonthAndTime. Wait, there is no DateTimeComponents.year! So we MUST use absolute and reschedule it every year.
+      matchComponents:
+          null, // we manually manage absolute yearly repeats if we want, but flutter local notif doesn't have yearly out of box easily unless dayOfMonthAndTime for same day? No, actually there's no native yearly repeat component unless we use absolute or dayOfMonthAndTime. Wait, there is no DateTimeComponents.year! So we MUST use absolute and reschedule it every year.
     );
   }
 
@@ -201,10 +203,11 @@ class NotificationService {
     }
   }
 
-  tz.TZDateTime _nextInstanceOfMonthlyTime(int day, TimeOfDay time) {
+  tz.TZDateTime _nextInstanceOfMonthlyTime(int day, TimeOfDay time,
+      {bool skipCurrentMonth = false}) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate = _createDate(now.year, now.month, day, time);
-    if (scheduledDate.isBefore(now)) {
+    if (scheduledDate.isBefore(now) || skipCurrentMonth) {
       scheduledDate = _createDate(now.year, now.month + 1, day, time);
     }
     return scheduledDate;
