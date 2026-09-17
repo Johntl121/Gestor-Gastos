@@ -117,8 +117,8 @@ class NotificationCoordinator {
     return await _rescheduleAllActive();
   }
 
-  Future<void> cancelSubscription(String subId) async {
-    await _rescheduleAllActive();
+  Future<NotificationStatus> cancelSubscription(String subId) async {
+    return await _rescheduleAllActive();
   }
 
   // --- Recordatorios ---
@@ -126,8 +126,8 @@ class NotificationCoordinator {
     return await _rescheduleAllActive();
   }
 
-  Future<void> cancelReminder(String reminderId) async {
-    await _rescheduleAllActive();
+  Future<NotificationStatus> cancelReminder(String reminderId) async {
+    return await _rescheduleAllActive();
   }
 
   Future<NotificationStatus> _rescheduleAllActive() async {

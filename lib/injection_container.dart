@@ -41,6 +41,7 @@ import 'presentation/providers/ui_provider.dart';
 import 'presentation/providers/transaction_provider.dart';
 import 'presentation/providers/wallet_provider.dart';
 import 'presentation/providers/stats_provider.dart';
+import 'presentation/providers/reminder_provider.dart';
 
 final sl = GetIt.instance;
 
@@ -183,6 +184,14 @@ Future<void> init() async {
       preferencesLocalDataSource: sl(),
       subscriptionLocalDataSource: sl(),
       goalLocalDataSource: sl(),
+    ),
+  );
+
+  // 5. Reminder Provider
+  sl.registerLazySingleton(
+    () => ReminderProvider(
+      repository: sl(),
+      notificationCoordinator: sl(),
     ),
   );
 }
