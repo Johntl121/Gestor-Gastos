@@ -4,7 +4,7 @@ import '../constants/app_categories.dart';
 
 class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._internal();
-  static const int _databaseVersion = 22;
+  static const int _databaseVersion = 23;
   static Database? _database;
 
   factory LocalDatabase() {
@@ -270,6 +270,11 @@ class LocalDatabase {
         // Ignorar si ya existen
       }
     }
+
+    // --- MIGRACIÓN V23: RECORDATORIOS PERSONALIZADOS ---
+    if (oldVersion < 23) {
+      await _createRemindersTable(db);
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -332,6 +337,7 @@ class LocalDatabase {
 
     await _createFixedExpensesTable(db);
     await _createGoalsTable(db);
+    await _createRemindersTable(db);
 
     await _seedData(db);
   }
@@ -373,6 +379,33 @@ class LocalDatabase {
         orderIndex INTEGER DEFAULT 0,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE SET NULL,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE SET NULL
+      )
+    ''');
+  }
+
+  Future<void> _createRemindersTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE reminders(
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL,
+        amount REAL,
+        currencyCode TEXT,
+        categoryId INTEGER,
+        date TEXT NOT NULL,
+        hour INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),
+        minute INTEGER NOT NULL CHECK(minute BETWEEN 0 AND 59),
+        recurrence TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+        completedAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE SET NULL,
+        CONSTRAINT chk_amount_currency CHECK (
+          (amount IS NULL AND currencyCode IS NULL) OR 
+          (amount IS NOT NULL AND amount > 0 AND currencyCode IS NOT NULL)
+        )
       )
     ''');
   }
@@ -529,6 +562,7 @@ class LocalDatabase {
     await db.delete('accounts');
     await db.delete('goals');
     await db.delete('fixed_expenses');
+    await db.delete('reminders');
     await db.delete('categories');
     await db.delete('sqlite_sequence');
     // Garantizamos que las categorías maestras se re-siembren instantáneamente para evitar fallos de Foreign Key
