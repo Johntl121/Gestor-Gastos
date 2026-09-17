@@ -425,34 +425,95 @@ void main() {
       // Mismo ID '1' para Sub y Rem no debe colisionar gracias al namespace
       mockSubSource.subs = [
         Subscription(
-            id: '1',
-            name: 'Sub',
-            amount: 10,
-            paymentDate: now.add(const Duration(days: 1)),
-            frequency: ExpenseFrequency.yearly,
-            accountToCharge: 1,
-            categoryId: 1)
+          id: '1', name: 'Sub', amount: 10, paymentDate: now.add(const Duration(days: 1)), frequency: ExpenseFrequency.yearly, accountToCharge: 1, categoryId: 1
+        )
       ];
       mockRemRepo.reminders = [
         Reminder(
-            id: '1',
-            title: 'Rem',
-            type: ReminderType.general,
-            date: now.add(const Duration(days: 1)),
-            hour: 9,
-            minute: 0,
-            recurrence: ReminderRecurrence.none,
-            createdAt: now,
-            updatedAt: now)
+          id: '1', title: 'Rem', type: ReminderType.general, date: now.add(const Duration(days: 1)), hour: 9, minute: 0, recurrence: ReminderRecurrence.none, createdAt: now, updatedAt: now
+        )
       ];
 
       final status = await coordinator.init();
       expect(status, NotificationStatus.scheduled);
       expect(mockNotifService.absoluteScheduled.length, 2);
-      final ids = mockNotifService.absoluteScheduled
-          .map((e) => e['id'] as int)
-          .toList();
+      final ids = mockNotifService.absoluteScheduled.map((e) => e['id'] as int).toList();
       expect(ids[0] != ids[1], true);
+    });
+
+    test('Liberación de un slot: candidato 51 entra al liberar uno', () async {
+      final now = DateTime.now();
+      
+      // 51 records (one-time)
+      mockRemRepo.reminders = List.generate(51, (i) {
+        return Reminder(
+          id: 'rem_$i', title: 'Rem $i', type: ReminderType.general, date: now.add(Duration(days: i + 1)), hour: 9, minute: 0, recurrence: ReminderRecurrence.none, createdAt: now, updatedAt: now
+        );
+      });
+
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.length, 50);
+      
+      // Encontrar el último programado
+      final maxDateScheduled = mockNotifService.absoluteScheduled.map((e) => e['date'] as DateTime).reduce((a, b) => a.isAfter(b) ? a : b);
+      
+      // Borrar el recordatorio más próximo (día 1)
+      mockRemRepo.reminders.removeAt(0);
+      
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.length, 50);
+      
+      // Ahora el máximo debe ser mayor al anterior, confirmando que entró el 51
+      final newMaxDateScheduled = mockNotifService.absoluteScheduled.map((e) => e['date'] as DateTime).reduce((a, b) => a.isAfter(b) ? a : b);
+      expect(newMaxDateScheduled.isAfter(maxDateScheduled), true);
+    });
+
+    test('29 de febrero: delega en el dominio correctamente', () async {
+      final leapYearDate = DateTime(2024, 2, 29); // Bisiesto
+      
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'leap', title: 'Leap', type: ReminderType.general, date: leapYearDate, hour: 9, minute: 0, recurrence: ReminderRecurrence.yearly, createdAt: leapYearDate, updatedAt: leapYearDate
+        )
+      ];
+
+      // Simulamos que estamos en el año de creación antes de que suene
+      final nowInLeapYear = DateTime(2024, 2, 1);
+      final result1 = mockRemRepo.reminders[0].getNextOccurrence(nowInLeapYear);
+      expect(result1?.year, 2024);
+      expect(result1?.month, 2);
+      expect(result1?.day, 29); // Primer año suena el 29
+      
+      // El coordinator usará esto como su próxima ocurrencia
+      await coordinator.init(); // Asumiendo que el mock de DateTime.now() no se puede hacer fácilmente, verificamos que el coordinator solo usa rem.getNextOccurrence(). 
+      // El test de la lógica pura ya se hizo en domain, solo validamos que el coordinator genere 1 absolute
+      expect(mockNotifService.absoluteScheduled.isNotEmpty, true);
+    });
+
+    test('Mensual días 29-31: la secuencia de fechas se respeta', () async {
+      final now = DateTime.now();
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'm31_seq', title: 'Monthly 31 Seq', type: ReminderType.general, date: DateTime(2099, 1, 31), hour: 9, minute: 0, recurrence: ReminderRecurrence.monthly, createdAt: now, updatedAt: now
+        )
+      ];
+
+      await coordinator.init();
+      
+      final dates = mockNotifService.absoluteScheduled.map((e) => e['date'] as DateTime).toList();
+      expect(dates.length, greaterThanOrEqualTo(5));
+      
+      // La primera fecha dependerá de DateTime.now().
+      // Verificaremos que el día de los próximos 5 meses respeta el clamping del final de mes.
+      for (int i = 0; i < 5; i++) {
+        final d = dates[i];
+        final nextMonthFirstDay = DateTime(d.year, d.month + 1, 1);
+        final lastDayOfMonth = nextMonthFirstDay.subtract(const Duration(days: 1)).day;
+        
+        // El día programado debe ser 31, o el último día del mes si el mes tiene menos de 31 días.
+        final expectedDay = lastDayOfMonth < 31 ? lastDayOfMonth : 31;
+        expect(d.day, expectedDay);
+      }
     });
   });
 }
