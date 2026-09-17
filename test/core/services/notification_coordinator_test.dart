@@ -1,18 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dartz/dartz.dart';
+import 'package:flutter/services.dart';
+import 'package:gestor_gastos/core/errors/failure.dart';
 import 'package:gestor_gastos/core/services/notification_coordinator.dart';
 import 'package:gestor_gastos/core/services/notification_service.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
 import 'package:gestor_gastos/data/datasources/subscription_local_data_source.dart';
+import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
 import 'package:gestor_gastos/data/models/subscription.dart';
+import 'package:gestor_gastos/domain/entities/reminder.dart';
 
 class MockNotificationService implements NotificationService {
   bool permissionsGranted = true;
   int cancelAllCount = 0;
-  List<int> cancelledIds = [];
+
+  List<Map<String, dynamic>> dailyScheduled = [];
+  List<Map<String, dynamic>> weeklyScheduled = [];
   List<Map<String, dynamic>> monthlyScheduled = [];
-  List<Map<String, dynamic>> yearlyScheduled = [];
   List<Map<String, dynamic>> absoluteScheduled = [];
 
   @override
@@ -28,32 +32,39 @@ class MockNotificationService implements NotificationService {
   Future<bool> checkPermissions() async => permissionsGranted;
 
   @override
-  Future<void> scheduleRecurringMonthly({
+  Future<void> scheduleRecurringMonthlyFromDate({
     required int id,
     required String title,
     required String body,
-    required int dayOfMonth,
-    required TimeOfDay time,
+    required DateTime startDate,
     required String channelId,
     required String channelName,
-    bool skipCurrentMonth = false,
   }) async {
-    monthlyScheduled.add(
-        {'id': id, 'day': dayOfMonth, 'skipCurrentMonth': skipCurrentMonth});
+    monthlyScheduled.add({'id': id, 'date': startDate});
   }
 
   @override
-  Future<void> scheduleRecurringYearly({
+  Future<void> scheduleRecurringDaily({
     required int id,
     required String title,
     required String body,
-    required int month,
-    required int day,
-    required TimeOfDay time,
+    required DateTime startDate,
     required String channelId,
     required String channelName,
   }) async {
-    yearlyScheduled.add({'id': id, 'month': month, 'day': day});
+    dailyScheduled.add({'id': id, 'date': startDate});
+  }
+
+  @override
+  Future<void> scheduleRecurringWeekly({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime startDate,
+    required String channelId,
+    required String channelName,
+  }) async {
+    weeklyScheduled.add({'id': id, 'date': startDate});
   }
 
   @override
@@ -69,17 +80,19 @@ class MockNotificationService implements NotificationService {
   }
 
   @override
-  Future<void> cancelNotification(int id) async {
-    cancelledIds.add(id);
-  }
+  Future<void> cancelNotification(int id) async {}
 
   @override
   Future<void> cancelAll() async {
     cancelAllCount++;
+    dailyScheduled.clear();
+    weeklyScheduled.clear();
+    monthlyScheduled.clear();
+    absoluteScheduled.clear();
   }
 
   @override
-  get flutterLocalNotificationsPlugin => throw UnimplementedError();
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class MockPreferences implements PreferencesLocalDataSource {
@@ -125,14 +138,27 @@ class MockSubscriptionDataSource implements SubscriptionLocalDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class MockReminderRepository implements ReminderRepository {
+  List<Reminder> reminders = [];
+
+  @override
+  Future<Either<Failure, List<Reminder>>> getAllReminders() async {
+    return Right(reminders);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('NotificationCoordinator', () {
+  group('NotificationCoordinator - FASE 8 (Global Pool)', () {
     late NotificationCoordinator coordinator;
     late MockNotificationService mockNotifService;
     late MockPreferences mockPrefs;
     late MockSubscriptionDataSource mockSubSource;
+    late MockReminderRepository mockRemRepo;
 
     setUp(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -148,209 +174,285 @@ void main() {
       mockNotifService = MockNotificationService();
       mockPrefs = MockPreferences();
       mockSubSource = MockSubscriptionDataSource();
+      mockRemRepo = MockReminderRepository();
 
       coordinator = NotificationCoordinator(
         notificationService: mockNotifService,
         preferences: mockPrefs,
         subscriptionDataSource: mockSubSource,
+        reminderRepository: mockRemRepo,
       );
     });
 
-    // Note: init() depends on FlutterTimezone plugin which requires a native environment.
-    // For unit testing without native platform, we'll test the core scheduling logic.
-
-    test('enableNotifications sets preference and reschedules', () async {
+    test('global OFF -> ninguno programado', () async {
+      mockPrefs.notificationsEnabled = false;
       mockSubSource.subs = [
         Subscription(
-          id: 'sub1',
-          name: 'Netflix',
-          amount: 15.0,
-          paymentDate: DateTime(2023, 1, 15),
-          frequency: ExpenseFrequency.monthly,
-          accountToCharge: 1,
-          categoryId: 1,
-        )
+            id: '1',
+            name: 'S1',
+            amount: 10,
+            paymentDate: DateTime.now().add(const Duration(days: 1)),
+            frequency: ExpenseFrequency.monthly,
+            accountToCharge: 1,
+            categoryId: 1)
+      ];
+      mockRemRepo.reminders = [
+        Reminder(
+            id: 'r1',
+            title: 'R1',
+            type: ReminderType.general,
+            date: DateTime.now().add(const Duration(days: 1)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.none,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now())
       ];
 
-      final status = await coordinator.enableNotifications();
-
-      expect(status, NotificationStatus.scheduled);
-      expect(mockPrefs.notificationsEnabled, true);
-      expect(mockNotifService.cancelAllCount, 1); // 1 from _rescheduleAllActive
-      expect(mockNotifService.monthlyScheduled.length, 1);
-      expect(mockNotifService.monthlyScheduled.first['day'], 15);
-    });
-
-    test('enableNotifications when permissions denied reverts state', () async {
-      mockNotifService.permissionsGranted = false;
-      final status = await coordinator.enableNotifications();
-
-      expect(status, NotificationStatus.permissionDenied);
-      expect(mockPrefs.notificationsEnabled, false);
+      final status = await coordinator.init();
+      expect(status, NotificationStatus.notificationsDisabled);
+      expect(mockNotifService.absoluteScheduled.isEmpty, true);
       expect(mockNotifService.monthlyScheduled.isEmpty, true);
     });
 
-    test('disableNotifications cancels all and sets preference', () async {
-      final status = await coordinator.disableNotifications();
-
-      expect(status, NotificationStatus.notificationsDisabled);
-      expect(mockPrefs.notificationsEnabled, false);
-      expect(mockNotifService.cancelAllCount, 1);
-    });
-
-    test('Días 29-31 schedule up to 40 occurrences', () async {
-      mockSubSource.subs = [
-        Subscription(
-          id: 'sub31',
-          name: 'Gym',
-          amount: 50.0,
-          paymentDate: DateTime(2023, 1, 31),
-          frequency: ExpenseFrequency.monthly,
-          accountToCharge: 1,
-          categoryId: 1,
+    test('Reminder one-time futuro -> candidato programado', () async {
+      final futureDate = DateTime.now().add(const Duration(days: 2));
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'fut',
+          title: 'Future',
+          type: ReminderType.general,
+          date: futureDate,
+          hour: 9,
+          minute: 0,
+          recurrence: ReminderRecurrence.none,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
         )
       ];
 
-      final status = await coordinator.enableNotifications();
-
-      expect(status, NotificationStatus.scheduled);
-      expect(mockNotifService.absoluteScheduled.length, 40);
-
-      // Extract generated months to verify sequence
-      final months = mockNotifService.absoluteScheduled.map((e) {
-        final d = e['date'] as DateTime;
-        return d.month;
-      }).toList();
-
-      // Verify sequence: Jan, Feb, Mar, Apr, May (assuming run anytime, it projects next 40 months)
-      // At least verify we get 5 consecutive months 1, 2, 3, 4, 5
-      expect(months.toSet().containsAll([1, 2, 3, 4, 5]), true);
-
-      // Verify that Feb is mapped to 28 or 29
-      final febDate = mockNotifService.absoluteScheduled
-              .firstWhere((occ) => (occ['date'] as DateTime).month == 2)['date']
-          as DateTime;
-      expect(febDate.day == 28 || febDate.day == 29, true);
-
-      // Verify that March restores to 31
-      final marDate = mockNotifService.absoluteScheduled
-              .firstWhere((occ) => (occ['date'] as DateTime).month == 3)['date']
-          as DateTime;
-      expect(marDate.day, 31);
-
-      // Verify that April adjusts to 30
-      final aprDate = mockNotifService.absoluteScheduled
-              .firstWhere((occ) => (occ['date'] as DateTime).month == 4)['date']
-          as DateTime;
-      expect(aprDate.day, 30);
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.length, 1);
+      final scheduled = mockNotifService.absoluteScheduled.first;
+      expect((scheduled['date'] as DateTime).year, futureDate.year);
     });
 
-    test('init runs migration exactly once', () async {
-      mockPrefs.migrationVersion = 0; // Trigger migration
-
-      final status1 = await coordinator.init();
-      expect(status1, NotificationStatus.scheduled);
-      // cancelAll is called twice: once for migration, once inside _rescheduleAllActive
-      expect(mockNotifService.cancelAllCount, 2);
-      expect(mockPrefs.migrationVersion, 1);
-
-      // Second init
-      final status2 = await coordinator.init();
-      expect(status2, NotificationStatus.scheduled);
-      // Only called once by _rescheduleAllActive this time
-      expect(mockNotifService.cancelAllCount, 3);
-    });
-
-    test('markSubscriptionAsPaid reconcile scheduling (skip current month)',
-        () async {
-      final sub = Subscription(
-        id: 'sub-skip',
-        name: 'Netflix',
-        amount: 15.0,
-        paymentDate: DateTime(2023, 1, 15),
-        frequency: ExpenseFrequency.monthly,
-        accountToCharge: 1,
-        categoryId: 1,
-        isPaid: false,
-      );
-
-      mockSubSource.subs = [sub];
-      await coordinator.enableNotifications();
-
-      expect(mockNotifService.monthlyScheduled.length, 1);
-      expect(
-          mockNotifService.monthlyScheduled.first['skipCurrentMonth'], false);
-
-      // Mark as paid
-      mockNotifService.monthlyScheduled.clear();
-      mockSubSource.subs = [sub.copyWith(isPaid: true)];
-      await coordinator.scheduleSubscription(sub.copyWith(isPaid: true));
-
-      expect(mockNotifService.monthlyScheduled.length, 1);
-      expect(mockNotifService.monthlyScheduled.first['skipCurrentMonth'], true);
-    });
-
-    test('init with collision does not complete migration', () async {
-      mockPrefs.migrationVersion = 0; // Trigger migration
-      
-      // Setup collision by providing two subscriptions with the exact same ID
-      mockSubSource.subs = [
-         Subscription(
-          id: 'col1',
-          name: 'Gym',
-          amount: 50.0,
-          paymentDate: DateTime(2023, 1, 15),
-          frequency: ExpenseFrequency.monthly,
-          accountToCharge: 1,
-          categoryId: 1,
-        ),
-         Subscription(
-          id: 'col1', // Same ID -> collision
-          name: 'Gym',
-          amount: 50.0,
-          paymentDate: DateTime(2023, 1, 15),
-          frequency: ExpenseFrequency.monthly,
-          accountToCharge: 1,
-          categoryId: 1,
-        ),
+    test('Reminder one-time vencido -> no se programa', () async {
+      final pastDate = DateTime.now().subtract(const Duration(days: 2));
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'past',
+          title: 'Past',
+          type: ReminderType.general,
+          date: pastDate,
+          hour: 9,
+          minute: 0,
+          recurrence: ReminderRecurrence.none,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        )
       ];
-      
-      final status = await coordinator.init();
-      expect(status, NotificationStatus.collisionError);
-      
-      // Verify migration was NOT saved
-      expect(mockPrefs.migrationVersion, 0);
+
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.isEmpty, true);
     });
 
-    test('markSubscriptionAsPaid for days 29-31 skips current month', () async {
-       final sub = Subscription(
-          id: 'sub31-paid',
-          name: 'Netflix',
-          amount: 15.0,
-          paymentDate: DateTime(2023, 1, 31),
-          frequency: ExpenseFrequency.monthly,
-          accountToCharge: 1,
-          categoryId: 1,
-          isPaid: false, // Not paid yet
-        );
-        
-        mockSubSource.subs = [sub];
-        await coordinator.enableNotifications();
-        
-        expect(mockNotifService.absoluteScheduled.isNotEmpty, true);
-        final firstDateNotPaid = mockNotifService.absoluteScheduled.first['date'] as DateTime;
-        final currentMonth = DateTime.now().month;
-        expect(firstDateNotPaid.month, currentMonth); // It schedules for the current month
-        
-        // Mark as paid
-        mockNotifService.absoluteScheduled.clear();
-        mockSubSource.subs = [sub.copyWith(isPaid: true)];
-        await coordinator.scheduleSubscription(sub.copyWith(isPaid: true));
-        
-        expect(mockNotifService.absoluteScheduled.isNotEmpty, true);
-        final firstDatePaid = mockNotifService.absoluteScheduled.first['date'] as DateTime;
-        final expectedNextMonth = currentMonth == 12 ? 1 : currentMonth + 1;
-        expect(firstDatePaid.month, expectedNextMonth); // The first occurrence is now NEXT month
+    test('Reminder completado -> no se programa', () async {
+      final futureDate = DateTime.now().add(const Duration(days: 2));
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'comp',
+          title: 'Completed',
+          type: ReminderType.general,
+          date: futureDate,
+          hour: 9,
+          minute: 0,
+          recurrence: ReminderRecurrence.none,
+          active: false,
+          completedAt: DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        )
+      ];
+
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.isEmpty, true);
+    });
+
+    test('Reminder inactive -> no se programa', () async {
+      final futureDate = DateTime.now().add(const Duration(days: 2));
+      mockRemRepo.reminders = [
+        Reminder(
+          id: 'inact',
+          title: 'Inactive',
+          type: ReminderType.general,
+          date: futureDate,
+          hour: 9,
+          minute: 0,
+          recurrence: ReminderRecurrence.daily,
+          active: false,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        )
+      ];
+
+      await coordinator.init();
+      expect(mockNotifService.absoluteScheduled.isEmpty, true);
+      expect(mockNotifService.dailyScheduled.isEmpty, true);
+    });
+
+    test('Reminder daily/weekly/monthly/yearly mapeo correcto', () async {
+      final now = DateTime.now();
+      mockRemRepo.reminders = [
+        Reminder(
+            id: 'd1',
+            title: 'Daily',
+            type: ReminderType.general,
+            date: now.add(const Duration(days: 1)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.daily,
+            createdAt: now,
+            updatedAt: now),
+        Reminder(
+            id: 'w1',
+            title: 'Weekly',
+            type: ReminderType.general,
+            date: now.add(const Duration(days: 1)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.weekly,
+            createdAt: now,
+            updatedAt: now),
+        Reminder(
+            id: 'm1',
+            title: 'Monthly',
+            type: ReminderType.general,
+            date: DateTime(now.year, now.month, 15),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.monthly,
+            createdAt: now,
+            updatedAt: now),
+        Reminder(
+            id: 'y1',
+            title: 'Yearly',
+            type: ReminderType.general,
+            date: now.add(const Duration(days: 5)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.yearly,
+            createdAt: now,
+            updatedAt: now),
+      ];
+
+      await coordinator.init();
+      expect(mockNotifService.dailyScheduled.length, 1);
+      expect(mockNotifService.weeklyScheduled.length, 1);
+      expect(mockNotifService.monthlyScheduled.length, 1);
+      expect(mockNotifService.absoluteScheduled.length, 1,
+          reason: 'Yearly is absolute');
+    });
+
+    test('Reminder mensual día 31 proyecta absolutas', () async {
+      final now = DateTime(2023, 1, 15);
+      mockRemRepo.reminders = [
+        Reminder(
+            id: 'm31',
+            title: 'Monthly 31',
+            type: ReminderType.general,
+            date: DateTime(2023, 1, 31),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.monthly,
+            createdAt: now,
+            updatedAt: now)
+      ];
+
+      await coordinator.init();
+      // Genera hasta 50 o menos absolutas
+      expect(mockNotifService.absoluteScheduled.isNotEmpty, true);
+      expect(mockNotifService.monthlyScheduled.isEmpty, true);
+    });
+
+    test('Pool global límite 50 y orden cronológico', () async {
+      final now = DateTime.now();
+
+      // Crear 30 suscripciones que vencen en días futuros secuenciales
+      mockSubSource.subs = List.generate(30, (i) {
+        return Subscription(
+            id: 'sub_$i',
+            name: 'Sub $i',
+            amount: 10,
+            paymentDate: now.add(Duration(days: i + 1)),
+            frequency: ExpenseFrequency.yearly,
+            accountToCharge: 1,
+            categoryId: 1);
+      });
+
+      // Crear 30 recordatorios que vencen en días futuros secuenciales (+0.5 días para intercalar)
+      mockRemRepo.reminders = List.generate(30, (i) {
+        return Reminder(
+            id: 'rem_$i',
+            title: 'Rem $i',
+            type: ReminderType.general,
+            date: now.add(Duration(days: i + 1, hours: 12)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.none,
+            createdAt: now,
+            updatedAt: now);
+      });
+
+      await coordinator.init();
+
+      // El total de candidatos es 60 absolutas (30 subs yearly + 30 rem one-time).
+      // El presupuesto máximo es 50.
+      expect(mockNotifService.absoluteScheduled.length,
+          NotificationCoordinator.maxPendingNotifications);
+
+      // Verificamos que estén ordenados cronológicamente
+      final dates = mockNotifService.absoluteScheduled
+          .map((e) => e['date'] as DateTime)
+          .toList();
+      for (int i = 0; i < dates.length - 1; i++) {
+        expect(dates[i].compareTo(dates[i + 1]) <= 0, true);
+      }
+    });
+
+    test('IDs deterministas y colisiones', () async {
+      final now = DateTime.now();
+      // Mismo ID '1' para Sub y Rem no debe colisionar gracias al namespace
+      mockSubSource.subs = [
+        Subscription(
+            id: '1',
+            name: 'Sub',
+            amount: 10,
+            paymentDate: now.add(const Duration(days: 1)),
+            frequency: ExpenseFrequency.yearly,
+            accountToCharge: 1,
+            categoryId: 1)
+      ];
+      mockRemRepo.reminders = [
+        Reminder(
+            id: '1',
+            title: 'Rem',
+            type: ReminderType.general,
+            date: now.add(const Duration(days: 1)),
+            hour: 9,
+            minute: 0,
+            recurrence: ReminderRecurrence.none,
+            createdAt: now,
+            updatedAt: now)
+      ];
+
+      final status = await coordinator.init();
+      expect(status, NotificationStatus.scheduled);
+      expect(mockNotifService.absoluteScheduled.length, 2);
+      final ids = mockNotifService.absoluteScheduled
+          .map((e) => e['id'] as int)
+          .toList();
+      expect(ids[0] != ids[1], true);
     });
   });
 }

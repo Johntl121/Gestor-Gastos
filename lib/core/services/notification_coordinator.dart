@@ -4,7 +4,9 @@ import 'package:gestor_gastos/core/services/notification_service.dart';
 import 'package:gestor_gastos/core/utils/notification_id_utils.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
 import 'package:gestor_gastos/data/datasources/subscription_local_data_source.dart';
+import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
 import 'package:gestor_gastos/data/models/subscription.dart';
+import 'package:gestor_gastos/domain/entities/reminder.dart';
 
 enum NotificationStatus {
   scheduled,
@@ -14,40 +16,58 @@ enum NotificationStatus {
   collisionError
 }
 
-class _Occurrence {
-  final int id;
+enum _SchedulingType {
+  absolute,
+  recurringDaily,
+  recurringWeekly,
+  recurringMonthly,
+  recurringYearly,
+}
+
+class _NotificationCandidate {
+  final int notificationId;
   final String title;
   final String body;
-  final DateTime date;
+  final DateTime nextFireDate;
+  final String channelId;
+  final String channelName;
+  final _SchedulingType schedulingType;
 
-  _Occurrence(this.id, this.title, this.body, this.date);
+  _NotificationCandidate({
+    required this.notificationId,
+    required this.title,
+    required this.body,
+    required this.nextFireDate,
+    required this.channelId,
+    required this.channelName,
+    required this.schedulingType,
+  });
 }
 
 class NotificationCoordinator {
   final NotificationService _notificationService;
   final PreferencesLocalDataSource _preferences;
   final SubscriptionLocalDataSource _subscriptionDataSource;
+  final ReminderRepository _reminderRepository;
 
-  // Límite global para alarmas absolutas (29-31)
-  static const int _maxAbsoluteOccurrences = 40;
+  static const int maxPendingNotifications = 50;
 
   NotificationCoordinator({
     required NotificationService notificationService,
     required PreferencesLocalDataSource preferences,
     required SubscriptionLocalDataSource subscriptionDataSource,
+    required ReminderRepository reminderRepository,
   })  : _notificationService = notificationService,
         _preferences = preferences,
-        _subscriptionDataSource = subscriptionDataSource;
+        _subscriptionDataSource = subscriptionDataSource,
+        _reminderRepository = reminderRepository;
 
-  /// Initializes timezone, runs migration, and reschedules if needed.
   Future<NotificationStatus> init() async {
     String? timezoneName;
     try {
       final tzInfo = await FlutterTimezone.getLocalTimezone();
       timezoneName = tzInfo.identifier;
-      if (timezoneName.isEmpty) {
-        throw Exception("Empty timezone");
-      }
+      if (timezoneName.isEmpty) throw Exception("Empty timezone");
     } catch (e) {
       debugPrint("❌ Failed to get timezone: $e");
       return NotificationStatus.timezoneUnavailable;
@@ -65,26 +85,14 @@ class NotificationCoordinator {
     bool needsMigration = _preferences.getSchedulerMigrationVersion() < 1;
 
     if (needsMigration || tzChanged) {
-      if (needsMigration) {
-        debugPrint("🚀 Executing Scheduler Migration (version 0 -> 1)");
-      }
       await _notificationService.cancelAll();
-
       final status = await _rescheduleAllActive();
-
-      if (needsMigration) {
-        // La migración se marca completa si el proceso termina ordenadamente en cualquiera 
-        // de los estados válidos (scheduled, disabled, denied).
-        // Fallos transitorios inesperados arrojarían una excepción y evitarían llegar aquí.
-        if (status != NotificationStatus.collisionError) {
-          await _preferences.saveSchedulerMigrationVersion(1);
-        }
+      if (needsMigration && status != NotificationStatus.collisionError) {
+        await _preferences.saveSchedulerMigrationVersion(1);
       }
       return status;
     }
 
-    // Reponer horizonte cada vez que arranca la app de ser necesario
-    // Para no gastar en exceso procesador, lo hacemos de forma asíncrona pero lo retornaremos como success.
     return await _rescheduleAllActive();
   }
 
@@ -94,7 +102,6 @@ class NotificationCoordinator {
       await _preferences.saveEnableNotifications(false);
       return NotificationStatus.permissionDenied;
     }
-
     await _preferences.saveEnableNotifications(true);
     return await _rescheduleAllActive();
   }
@@ -105,153 +112,303 @@ class NotificationCoordinator {
     return NotificationStatus.notificationsDisabled;
   }
 
+  // --- Suscripciones ---
   Future<NotificationStatus> scheduleSubscription(Subscription sub) async {
-    if (!_preferences.getEnableNotifications()) {
-      return NotificationStatus.notificationsDisabled;
-    }
-
-    final hasPermission = await _notificationService.checkPermissions();
-    if (!hasPermission) {
-      await _preferences.saveEnableNotifications(false);
-      return NotificationStatus.permissionDenied;
-    }
-
-    // Al añadir una suscripción, el horizonte global podría cambiar.
-    // Lo más seguro es reprogramar todas.
     return await _rescheduleAllActive();
   }
 
   Future<void> cancelSubscription(String subId) async {
-    // Al eliminar, simplemente reprogramamos todo para llenar huecos del presupuesto
-    // Pero si queremos ser muy precisos, podríamos borrar la específica si no está en 29-31.
-    // Como la reconstrucción total es segura y rápida, la haremos.
-    final id = NotificationIdUtils.generateId('subscription', subId);
-    await _notificationService.cancelNotification(id);
     await _rescheduleAllActive();
   }
 
-  /// Reprograma el lote entero tras un evento de edición, pago, inicio o activación.
+  // --- Recordatorios ---
+  Future<NotificationStatus> scheduleReminder(Reminder reminder) async {
+    return await _rescheduleAllActive();
+  }
+
+  Future<void> cancelReminder(String reminderId) async {
+    await _rescheduleAllActive();
+  }
+
   Future<NotificationStatus> _rescheduleAllActive() async {
     if (!_preferences.getEnableNotifications()) {
       return NotificationStatus.notificationsDisabled;
     }
-
     final hasPermission = await _notificationService.checkPermissions();
     if (!hasPermission) {
       await _preferences.saveEnableNotifications(false);
       return NotificationStatus.permissionDenied;
     }
 
+    final now = DateTime.now();
+    List<_NotificationCandidate> allCandidates = [];
+
+    // 1. Recopilar candidatos de Suscripciones
     final subs = await _subscriptionDataSource.getSubscriptions();
-    if (_hasCollision(subs)) {
-      debugPrint("🚨 Collision detected in subscription IDs!");
-      return NotificationStatus.collisionError;
+    for (var sub in subs) {
+      allCandidates.addAll(_generateSubscriptionCandidates(sub, now));
     }
 
-    // 1. Cancelamos todas por seguridad, para que las que ya no entran en el presupuesto
-    // no queden colgando en el OS.
+    // 2. Recopilar candidatos de Recordatorios
+    final remindersResult = await _reminderRepository.getAllReminders();
+    final reminders = remindersResult.getOrElse(() => []);
+    for (var rem in reminders) {
+      allCandidates.addAll(_generateReminderCandidates(rem, now));
+    }
+
+    // 3. Validar colisiones lógicas pre-programación
+    final usedIds = <int>{};
+    for (var cand in allCandidates) {
+      if (usedIds.contains(cand.notificationId)) {
+        debugPrint(
+            "🚨 Collision detected in notification IDs: ${cand.notificationId}");
+        return NotificationStatus.collisionError;
+      }
+      usedIds.add(cand.notificationId);
+    }
+
+    // 4. Cancelar todo en OS
     await _notificationService.cancelAll();
 
-    List<_Occurrence> allAbsoluteOccurrences = [];
+    // 5. Ordenar por nextFireDate (ascendente)
+    // Desempate determinista por notificationId
+    allCandidates.sort((a, b) {
+      int dateCmp = a.nextFireDate.compareTo(b.nextFireDate);
+      if (dateCmp != 0) return dateCmp;
+      return a.notificationId.compareTo(b.notificationId);
+    });
 
-    for (var sub in subs) {
-      final notifId = NotificationIdUtils.generateId('subscription', sub.id);
+    // 6. Seleccionar hasta el límite global
+    final budget = allCandidates.take(maxPendingNotifications);
 
-      const title = "Recordatorio de Pago";
-      final body = "¡Hoy vence tu pago de ${sub.name}! 📅";
-      const channelId = "fixed_expenses_channel";
-      const channelName = "Gastos Fijos";
-
-      if (sub.frequency == ExpenseFrequency.yearly) {
-        await _notificationService.scheduleRecurringYearly(
-          id: notifId,
-          title: title,
-          body: body,
-          month: sub.paymentDate.month,
-          day: sub.paymentDate.day,
-          time: const TimeOfDay(hour: 9, minute: 0),
-          channelId: channelId,
-          channelName: channelName,
-        );
-      } else {
-        if (sub.paymentDate.day <= 28) {
-          await _notificationService.scheduleRecurringMonthly(
-            id: notifId,
-            title: title,
-            body: body,
-            dayOfMonth: sub.paymentDate.day,
-            time: const TimeOfDay(hour: 9, minute: 0),
-            channelId: channelId,
-            channelName: channelName,
-            skipCurrentMonth: sub.isPaid,
+    // 7. Programar en OS
+    for (var cand in budget) {
+      switch (cand.schedulingType) {
+        case _SchedulingType.absolute:
+          await _notificationService.scheduleAbsoluteNotification(
+            id: cand.notificationId,
+            title: cand.title,
+            body: cand.body,
+            date: cand.nextFireDate,
+            channelId: cand.channelId,
+            channelName: cand.channelName,
           );
-        } else {
-          // Generar ocurrencias futuras para el pool (proyectamos hasta el máximo por si acaso)
-          for (int i = 0; i < _maxAbsoluteOccurrences; i++) {
-            DateTime target =
-                _calculateAbsoluteOccurrence(sub.paymentDate, i, sub.isPaid);
-            // Usamos un hash derivado
-            final occId =
-                NotificationIdUtils.generateId('subscription_occ_$i', sub.id);
-            allAbsoluteOccurrences.add(_Occurrence(occId, title, body, target));
-          }
-        }
+          break;
+        case _SchedulingType.recurringDaily:
+          await _notificationService.scheduleRecurringDaily(
+            id: cand.notificationId,
+            title: cand.title,
+            body: cand.body,
+            startDate: cand.nextFireDate,
+            channelId: cand.channelId,
+            channelName: cand.channelName,
+          );
+          break;
+        case _SchedulingType.recurringWeekly:
+          await _notificationService.scheduleRecurringWeekly(
+            id: cand.notificationId,
+            title: cand.title,
+            body: cand.body,
+            startDate: cand.nextFireDate,
+            channelId: cand.channelId,
+            channelName: cand.channelName,
+          );
+          break;
+        case _SchedulingType.recurringMonthly:
+          await _notificationService.scheduleRecurringMonthlyFromDate(
+            id: cand.notificationId,
+            title: cand.title,
+            body: cand.body,
+            startDate: cand.nextFireDate,
+            channelId: cand.channelId,
+            channelName: cand.channelName,
+          );
+          break;
+        case _SchedulingType.recurringYearly:
+          // Tratado como absoluto en OS
+          await _notificationService.scheduleAbsoluteNotification(
+            id: cand.notificationId,
+            title: cand.title,
+            body: cand.body,
+            date: cand.nextFireDate,
+            channelId: cand.channelId,
+            channelName: cand.channelName,
+          );
+          break;
       }
-    }
-
-    // Ordenamos cronológicamente y tomamos el presupuesto
-    allAbsoluteOccurrences.sort((a, b) => a.date.compareTo(b.date));
-    final budget = allAbsoluteOccurrences.take(_maxAbsoluteOccurrences);
-
-    // Filtramos colisiones posibles entre ocurrencias extremas
-    final usedIds = <int>{};
-    for (var occ in budget) {
-      if (usedIds.contains(occ.id)) continue;
-      usedIds.add(occ.id);
-
-      await _notificationService.scheduleAbsoluteNotification(
-        id: occ.id,
-        title: occ.title,
-        body: occ.body,
-        date: occ.date,
-        channelId: "fixed_expenses_channel",
-        channelName: "Gastos Fijos",
-      );
     }
 
     return NotificationStatus.scheduled;
   }
 
-  DateTime _calculateAbsoluteOccurrence(
-      DateTime originalDate, int monthsToAdd, bool isPaid) {
-    final now = DateTime.now();
-    int startOffset = isPaid ? 1 : 0;
+  List<_NotificationCandidate> _generateSubscriptionCandidates(
+      Subscription sub, DateTime now) {
+    List<_NotificationCandidate> candidates = [];
+    const title = "Recordatorio de Pago";
+    final body = "¡Hoy vence tu pago de ${sub.name}! 📅";
+    const channelId = "fixed_expenses_channel";
+    const channelName = "Gastos Fijos";
 
+    if (sub.frequency == ExpenseFrequency.yearly) {
+      DateTime target =
+          DateTime(now.year, sub.paymentDate.month, sub.paymentDate.day, 9, 0);
+      if (target.isBefore(now)) {
+        target = DateTime(
+            now.year + 1, sub.paymentDate.month, sub.paymentDate.day, 9, 0);
+      }
+      final notifId = NotificationIdUtils.generateId('subscription', sub.id);
+      candidates.add(_NotificationCandidate(
+        notificationId: notifId,
+        title: title,
+        body: body,
+        nextFireDate: target,
+        channelId: channelId,
+        channelName: channelName,
+        schedulingType: _SchedulingType.recurringYearly,
+      ));
+    } else {
+      if (sub.paymentDate.day <= 28) {
+        DateTime target =
+            DateTime(now.year, now.month, sub.paymentDate.day, 9, 0);
+        if (target.isBefore(now) || sub.isPaid) {
+          target = DateTime(now.year, now.month + 1, sub.paymentDate.day, 9, 0);
+        }
+        final notifId = NotificationIdUtils.generateId('subscription', sub.id);
+        candidates.add(_NotificationCandidate(
+          notificationId: notifId,
+          title: title,
+          body: body,
+          nextFireDate: target,
+          channelId: channelId,
+          channelName: channelName,
+          schedulingType: _SchedulingType.recurringMonthly,
+        ));
+      } else {
+        for (int i = 0; i < maxPendingNotifications; i++) {
+          DateTime target =
+              _calculateAbsoluteOccurrence(sub.paymentDate, i, sub.isPaid, now);
+          if (target.isBefore(now)) continue;
+          final dateStr = '${target.year}-${target.month}-${target.day}';
+          final occId = NotificationIdUtils.generateId(
+              'subscription_occ', '${sub.id}_$dateStr');
+          candidates.add(_NotificationCandidate(
+            notificationId: occId,
+            title: title,
+            body: body,
+            nextFireDate: target,
+            channelId: channelId,
+            channelName: channelName,
+            schedulingType: _SchedulingType.absolute,
+          ));
+        }
+      }
+    }
+    return candidates;
+  }
+
+  List<_NotificationCandidate> _generateReminderCandidates(
+      Reminder rem, DateTime now) {
+    if (!rem.active) return [];
+
+    List<_NotificationCandidate> candidates = [];
+    final channelId = rem.type == ReminderType.payment
+        ? "payments_channel"
+        : "reminders_channel";
+    final channelName =
+        rem.type == ReminderType.payment ? "Pagos" : "Recordatorios";
+    final body = rem.description ?? "Recordatorio programado";
+
+    if (rem.recurrence == ReminderRecurrence.none) {
+      if (rem.completedAt != null) return [];
+      final target = rem.getNextOccurrence(now);
+      if (target != null && target.isAfter(now)) {
+        final notifId = NotificationIdUtils.generateId('reminder', rem.id);
+        candidates.add(_NotificationCandidate(
+          notificationId: notifId,
+          title: rem.title,
+          body: body,
+          nextFireDate: target,
+          channelId: channelId,
+          channelName: channelName,
+          schedulingType: _SchedulingType.absolute,
+        ));
+      }
+    } else {
+      if (rem.recurrence == ReminderRecurrence.daily ||
+          rem.recurrence == ReminderRecurrence.weekly ||
+          rem.recurrence == ReminderRecurrence.yearly ||
+          (rem.recurrence == ReminderRecurrence.monthly &&
+              rem.date.day <= 28)) {
+        final target = rem.getNextOccurrence(now);
+        if (target != null) {
+          final notifId = NotificationIdUtils.generateId('reminder', rem.id);
+          _SchedulingType type;
+          switch (rem.recurrence) {
+            case ReminderRecurrence.daily:
+              type = _SchedulingType.recurringDaily;
+              break;
+            case ReminderRecurrence.weekly:
+              type = _SchedulingType.recurringWeekly;
+              break;
+            case ReminderRecurrence.monthly:
+              type = _SchedulingType.recurringMonthly;
+              break;
+            case ReminderRecurrence.yearly:
+              type = _SchedulingType.recurringYearly;
+              break;
+            default:
+              type = _SchedulingType.absolute;
+          }
+          candidates.add(_NotificationCandidate(
+            notificationId: notifId,
+            title: rem.title,
+            body: body,
+            nextFireDate: target,
+            channelId: channelId,
+            channelName: channelName,
+            schedulingType: type,
+          ));
+        }
+      } else if (rem.recurrence == ReminderRecurrence.monthly &&
+          rem.date.day > 28) {
+        DateTime iterNow = now;
+        for (int i = 0; i < maxPendingNotifications; i++) {
+          final target = rem.getNextOccurrence(iterNow);
+          if (target == null) break;
+
+          final dateStr = '${target.year}-${target.month}-${target.day}';
+          final occId = NotificationIdUtils.generateId(
+              'reminder_occ', '${rem.id}_$dateStr');
+          candidates.add(_NotificationCandidate(
+            notificationId: occId,
+            title: rem.title,
+            body: body,
+            nextFireDate: target,
+            channelId: channelId,
+            channelName: channelName,
+            schedulingType: _SchedulingType.absolute,
+          ));
+
+          iterNow = target.add(const Duration(seconds: 1));
+        }
+      }
+    }
+    return candidates;
+  }
+
+  DateTime _calculateAbsoluteOccurrence(
+      DateTime originalDate, int monthsToAdd, bool isPaid, DateTime now) {
+    int startOffset = isPaid ? 1 : 0;
     int paymentDay = originalDate.day;
     int targetYear = now.year;
     int targetMonth = now.month + startOffset + monthsToAdd;
-
     while (targetMonth > 12) {
       targetMonth -= 12;
       targetYear += 1;
     }
-
     int maxDaysInTargetMonth = DateTime(targetYear, targetMonth + 1, 0).day;
     int validDay =
         (paymentDay > maxDaysInTargetMonth) ? maxDaysInTargetMonth : paymentDay;
-
-    return DateTime(targetYear, targetMonth, validDay, 9, 0); // Hardcode 9 AM
-  }
-
-  bool _hasCollision(List<Subscription> subs) {
-    final set = <int>{};
-    for (var s in subs) {
-      final id = NotificationIdUtils.generateId('subscription', s.id);
-      if (set.contains(id)) {
-        return true;
-      }
-      set.add(id);
-    }
-    return false;
+    return DateTime(targetYear, targetMonth, validDay, 9, 0);
   }
 }

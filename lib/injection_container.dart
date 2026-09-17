@@ -7,6 +7,7 @@ import 'data/datasources/preferences_local_data_source.dart';
 import 'data/datasources/goal_local_data_source.dart';
 import 'data/datasources/subscription_local_data_source.dart';
 import 'data/datasources/transaction_local_data_source.dart';
+import 'data/datasources/local/reminder_local_data_source.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/notification_coordinator.dart';
@@ -18,6 +19,8 @@ import 'domain/repositories/account_repository.dart';
 import 'data/repositories/account_repository_impl.dart';
 import 'domain/repositories/goal_operations_repository.dart';
 import 'data/repositories/goal_operations_repository_impl.dart';
+import 'domain/repositories/reminder_repository.dart';
+import 'data/repositories/reminder_repository_impl.dart';
 
 // Casos de Uso
 import 'domain/usecases/add_transaction_usecase.dart';
@@ -71,6 +74,10 @@ Future<void> init() async {
     () => TransactionLocalDataSourceImpl(localDatabase: sl()),
   );
 
+  sl.registerLazySingleton<ReminderLocalDataSource>(
+    () => ReminderLocalDataSourceImpl(localDatabase: sl()),
+  );
+
   //! Notificaciones
   sl.registerLazySingleton<NotificationService>(() => NotificationService());
   sl.registerLazySingleton<NotificationCoordinator>(
@@ -78,6 +85,7 @@ Future<void> init() async {
       notificationService: sl(),
       preferences: sl(),
       subscriptionDataSource: sl(),
+      reminderRepository: sl(),
     ),
   );
 
@@ -99,6 +107,12 @@ Future<void> init() async {
   sl.registerLazySingleton<GoalOperationsRepository>(
     () => GoalOperationsRepositoryImpl(
       localDatabase: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<ReminderRepository>(
+    () => ReminderRepositoryImpl(
+      localDataSource: sl(),
     ),
   );
 

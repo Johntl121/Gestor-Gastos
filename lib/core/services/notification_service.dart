@@ -123,8 +123,70 @@ class NotificationService {
       scheduledDate: scheduledDate,
       channelId: channelId,
       channelName: channelName,
-      matchComponents:
-          null, // we manually manage absolute yearly repeats if we want, but flutter local notif doesn't have yearly out of box easily unless dayOfMonthAndTime for same day? No, actually there's no native yearly repeat component unless we use absolute or dayOfMonthAndTime. Wait, there is no DateTimeComponents.year! So we MUST use absolute and reschedule it every year.
+      matchComponents: null,
+    );
+  }
+
+  Future<void> scheduleRecurringDaily({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime startDate,
+    required String channelId,
+    required String channelName,
+  }) async {
+    final tzDate = tz.TZDateTime.from(startDate, tz.local);
+    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: DateTimeComponents.time,
+    );
+  }
+
+  Future<void> scheduleRecurringWeekly({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime startDate,
+    required String channelId,
+    required String channelName,
+  }) async {
+    final tzDate = tz.TZDateTime.from(startDate, tz.local);
+    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  Future<void> scheduleRecurringMonthlyFromDate({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime startDate,
+    required String channelId,
+    required String channelName,
+  }) async {
+    final tzDate = tz.TZDateTime.from(startDate, tz.local);
+    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+    await _zonedScheduleWithFallback(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: tzDate,
+      channelId: channelId,
+      channelName: channelName,
+      matchComponents: DateTimeComponents.dayOfMonthAndTime,
     );
   }
 
