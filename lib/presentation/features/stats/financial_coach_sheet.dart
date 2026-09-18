@@ -87,6 +87,12 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
                   ))
                 : _buildAdviceContent(statsProvider, txProvider),
           ),
+          const SizedBox(height: 10),
+          const Text(
+            "Tus datos financieros se procesan mediante un servicio de IA externo para generar este análisis.",
+            style: TextStyle(fontSize: 10, color: Colors.white38),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

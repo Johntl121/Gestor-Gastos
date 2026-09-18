@@ -4,6 +4,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 
 class GeminiClient {
+  final http.Client? _client;
+
+  GeminiClient({http.Client? client}) : _client = client;
+
   // Model: Gemini 2.5 Flash Lite
   // Fallback: gemini-1.5-flash
   static const String _urlOficial =
@@ -47,7 +51,7 @@ $contextData
     final uri = Uri.parse("$_urlOficial?key=$apiKey");
 
     try {
-      final response = await http.post(
+      final response = await (_client ?? http.Client()).post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -79,13 +83,16 @@ $contextData
           String text = json['candidates'][0]['content']['parts'][0]['text'];
           return text;
         } catch (e) {
-          return "Error leyendo respuesta de IA: $e";
+          debugPrint("GeminiClient: Failed to parse JSON response. Operation: obtenerConsejo");
+          return "No se pudo procesar la solicitud con IA.\nInténtalo nuevamente.";
         }
       } else {
-        return "Error del servidor: ${response.statusCode}\n${response.body}";
+        debugPrint("GeminiClient: HTTP Error ${response.statusCode}. Operation: obtenerConsejo");
+        return "No se pudo procesar la solicitud con IA.\nInténtalo nuevamente.";
       }
     } catch (e) {
-      return "Fallo de conexión: $e";
+      debugPrint("GeminiClient: Network/Connection Exception. Operation: obtenerConsejo");
+      return "No se pudo procesar la solicitud con IA.\nInténtalo nuevamente.";
     }
   }
 
@@ -149,7 +156,7 @@ Tu respuesta DEBE ser ÚNICA y EXCLUSIVAMENTE un objeto JSON válido. NO incluya
       });
 
       debugPrint("🚀 GeminiClient: Analyzing transaction...");
-      final response = await http.post(
+      final response = await (_client ?? http.Client()).post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: body,
@@ -173,17 +180,15 @@ Tu respuesta DEBE ser ÚNICA y EXCLUSIVAMENTE un objeto JSON válido. NO incluya
           final Map<String, dynamic> data = jsonDecode(responseText);
           return data;
         } catch (e) {
-          debugPrint(
-              "GeminiClient JSON Parse Error: $e\nResponse: $responseText");
+          debugPrint("GeminiClient: Failed to parse JSON response. Operation: analyzeTransaction");
           return null;
         }
       } else {
-        debugPrint(
-            "❌ GeminiClient HTTP Error: ${response.statusCode} - ${response.body}");
+        debugPrint("GeminiClient: HTTP Error ${response.statusCode}. Operation: analyzeTransaction");
         return null;
       }
     } catch (e) {
-      debugPrint("GeminiClient Network Error: $e");
+      debugPrint("GeminiClient: Network/Connection Exception. Operation: analyzeTransaction");
       return null;
     }
   }

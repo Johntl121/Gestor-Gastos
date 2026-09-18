@@ -325,7 +325,13 @@ class _MainPageState extends State<MainPage> {
                       ],
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 15),
+                  const Text(
+                    "Tu voz se procesa mediante un servicio de IA externo.",
+                    style: TextStyle(fontSize: 10, color: Colors.white38),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 5),
                 ],
               ),
             );
