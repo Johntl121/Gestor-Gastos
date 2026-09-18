@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/reminder_provider.dart';
 import '../../../../domain/entities/reminder.dart';
 import 'widgets/reminder_card.dart';
+import 'widgets/reminder_form_sheet.dart';
 
 class RemindersPage extends StatefulWidget {
   const RemindersPage({super.key});
@@ -20,14 +21,18 @@ class _RemindersPageState extends State<RemindersPage> {
     });
   }
 
-  void _confirmDelete(BuildContext context, ReminderProvider provider, Reminder reminder) async {
+  void _confirmDelete(BuildContext context, ReminderProvider provider,
+      Reminder reminder) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Eliminar Recordatorio"),
-        content: const Text("¿Estás seguro de eliminar este recordatorio? Esta acción no se puede deshacer."),
+        content: const Text(
+            "¿Estás seguro de eliminar este recordatorio? Esta acción no se puede deshacer."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
@@ -41,7 +46,8 @@ class _RemindersPageState extends State<RemindersPage> {
       res.fold(
         (failure) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error al eliminar el recordatorio")));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text("Error al eliminar el recordatorio")));
           }
         },
         (_) {},
@@ -49,37 +55,52 @@ class _RemindersPageState extends State<RemindersPage> {
     }
   }
 
-  void _toggleActive(BuildContext context, ReminderProvider provider, Reminder reminder) async {
+  void _toggleActive(BuildContext context, ReminderProvider provider,
+      Reminder reminder) async {
     final res = await provider.toggleActive(reminder.id, !reminder.active);
     res.fold(
       (failure) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(failure.message)));
         }
       },
       (_) {},
     );
   }
 
-  void _completeOneTime(BuildContext context, ReminderProvider provider, Reminder reminder) async {
+  void _completeOneTime(BuildContext context, ReminderProvider provider,
+      Reminder reminder) async {
     final res = await provider.completeOneTime(reminder.id);
     res.fold(
       (failure) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(failure.message)));
         }
       },
       (_) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Recordatorio completado 🎉")));
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Recordatorio completado 🎉")));
         }
       },
     );
   }
 
-  Widget _buildSection(String title, List<Reminder> items, ReminderProvider provider) {
+  void _showReminderForm(BuildContext context, [Reminder? reminder]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReminderFormSheet(existingReminder: reminder),
+    );
+  }
+
+  Widget _buildSection(
+      String title, List<Reminder> items, ReminderProvider provider) {
     if (items.isEmpty) return const SizedBox.shrink();
-    
+
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -105,7 +126,7 @@ class _RemindersPageState extends State<RemindersPage> {
             final reminder = items[index];
             return ReminderCard(
               reminder: reminder,
-              onTap: () {}, // MVP: No details yet
+              onTap: () => _showReminderForm(context, reminder),
               onComplete: () => _completeOneTime(context, provider, reminder),
               onToggleActive: () => _toggleActive(context, provider, reminder),
               onDelete: () => _confirmDelete(context, provider, reminder),
@@ -127,7 +148,8 @@ class _RemindersPageState extends State<RemindersPage> {
       appBar: AppBar(
         backgroundColor: backgroundColor,
         elevation: 0,
-        title: Text("Todos los Recordatorios", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        title: Text("Todos los Recordatorios",
+            style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         centerTitle: true,
         iconTheme: IconThemeData(color: textColor),
       ),
@@ -155,11 +177,16 @@ class _RemindersPageState extends State<RemindersPage> {
                 _buildSection("Próximos", provider.upcoming, provider),
                 _buildSection("Inactivos", provider.inactive, provider),
                 _buildSection("Completados", provider.completed, provider),
-                const SizedBox(height: 40),
+                const SizedBox(height: 80),
               ],
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showReminderForm(context),
+        backgroundColor: const Color(0xFF00E5FF),
+        child: const Icon(Icons.add, color: Colors.black87),
       ),
     );
   }
