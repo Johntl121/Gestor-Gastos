@@ -152,6 +152,14 @@ class _RemindersPageState extends State<RemindersPage> {
             style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         centerTitle: true,
         iconTheme: IconThemeData(color: textColor),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add, size: 28),
+            color: const Color(0xFF00E5FF),
+            onPressed: () => _showReminderForm(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Consumer<ReminderProvider>(
         builder: (context, provider, _) {
@@ -182,11 +190,6 @@ class _RemindersPageState extends State<RemindersPage> {
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showReminderForm(context),
-        backgroundColor: const Color(0xFF00E5FF),
-        child: const Icon(Icons.add, color: Colors.black87),
       ),
     );
   }

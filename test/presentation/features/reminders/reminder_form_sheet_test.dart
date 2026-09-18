@@ -11,9 +11,14 @@ import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
 import 'package:gestor_gastos/presentation/providers/reminder_provider.dart';
 import 'package:gestor_gastos/presentation/providers/wallet_provider.dart';
 import 'package:gestor_gastos/presentation/features/reminders/widgets/reminder_form_sheet.dart';
+import 'package:gestor_gastos/presentation/features/reminders/reminders_page.dart';
+import 'package:gestor_gastos/presentation/features/wallet/wallet_page.dart';
 
 class MockWalletProvider extends Mock implements WalletProvider {}
-class MockNotificationCoordinator extends Mock implements NotificationCoordinator {}
+
+class MockNotificationCoordinator extends Mock
+    implements NotificationCoordinator {}
+
 class MockReminderRepository extends Mock implements ReminderRepository {}
 
 class FakeReminderProvider extends ChangeNotifier implements ReminderProvider {
@@ -26,19 +31,28 @@ class FakeReminderProvider extends ChangeNotifier implements ReminderProvider {
   @override
   List<Reminder> get reminders => _reminders;
   @override
-  List<Reminder> get overdue => _reminders.where((r) => r.getStatus(DateTime.now()) == ReminderStatus.overdue).toList();
+  List<Reminder> get overdue => _reminders
+      .where((r) => r.getStatus(DateTime.now()) == ReminderStatus.overdue)
+      .toList();
   @override
-  List<Reminder> get upcoming => _reminders.where((r) => r.getStatus(DateTime.now()) == ReminderStatus.upcoming).toList();
+  List<Reminder> get upcoming => _reminders
+      .where((r) => r.getStatus(DateTime.now()) == ReminderStatus.upcoming)
+      .toList();
   @override
-  List<Reminder> get inactive => _reminders.where((r) => r.getStatus(DateTime.now()) == ReminderStatus.inactive).toList();
+  List<Reminder> get inactive => _reminders
+      .where((r) => r.getStatus(DateTime.now()) == ReminderStatus.inactive)
+      .toList();
   @override
-  List<Reminder> get completed => _reminders.where((r) => r.getStatus(DateTime.now()) == ReminderStatus.completed).toList();
+  List<Reminder> get completed => _reminders
+      .where((r) => r.getStatus(DateTime.now()) == ReminderStatus.completed)
+      .toList();
   @override
   bool get isLoading => false;
   @override
   String? get error => null;
   @override
-  NotificationCoordinator get notificationCoordinator => MockNotificationCoordinator();
+  NotificationCoordinator get notificationCoordinator =>
+      MockNotificationCoordinator();
   @override
   ReminderRepository get repository => MockReminderRepository();
 
@@ -46,7 +60,8 @@ class FakeReminderProvider extends ChangeNotifier implements ReminderProvider {
   Future<void> loadReminders() async {}
 
   @override
-  Future<Either<Failure, NotificationStatus>> createReminder(Reminder reminder) async {
+  Future<Either<Failure, NotificationStatus>> createReminder(
+      Reminder reminder) async {
     if (shouldFailCreation) {
       return const Left(CacheFailure('Error de persistencia'));
     }
@@ -60,7 +75,8 @@ class FakeReminderProvider extends ChangeNotifier implements ReminderProvider {
   }
 
   @override
-  Future<Either<Failure, NotificationStatus>> updateReminder(Reminder reminder) async {
+  Future<Either<Failure, NotificationStatus>> updateReminder(
+      Reminder reminder) async {
     lastUpdatedReminder = reminder;
     final index = _reminders.indexWhere((r) => r.id == reminder.id);
     if (index >= 0) {
@@ -71,11 +87,16 @@ class FakeReminderProvider extends ChangeNotifier implements ReminderProvider {
   }
 
   @override
-  Future<Either<Failure, NotificationStatus>> deleteReminder(String id) async => const Right(NotificationStatus.scheduled);
+  Future<Either<Failure, NotificationStatus>> deleteReminder(String id) async =>
+      const Right(NotificationStatus.scheduled);
   @override
-  Future<Either<Failure, NotificationStatus>> toggleActive(String id, bool active) async => const Right(NotificationStatus.scheduled);
+  Future<Either<Failure, NotificationStatus>> toggleActive(
+          String id, bool active) async =>
+      const Right(NotificationStatus.scheduled);
   @override
-  Future<Either<Failure, NotificationStatus>> completeOneTime(String id) async => const Right(NotificationStatus.scheduled);
+  Future<Either<Failure, NotificationStatus>> completeOneTime(
+          String id) async =>
+      const Right(NotificationStatus.scheduled);
 
   @override
   Future<void> dispose() async {
@@ -96,7 +117,8 @@ void main() {
   Widget buildTestWidget({Reminder? existingReminder}) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<ReminderProvider>.value(value: mockReminderProvider),
+        ChangeNotifierProvider<ReminderProvider>.value(
+            value: mockReminderProvider),
         ChangeNotifierProvider<WalletProvider>.value(value: mockWalletProvider),
       ],
       child: MaterialApp(
@@ -128,14 +150,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockReminderProvider.lastCreatedReminder, isNull);
-    expect(find.text('Requerido'), findsOneWidget); 
+    expect(find.text('Requerido'), findsOneWidget);
   });
 
-  testWidgets('Crear con monto + moneda preseleccionada', (WidgetTester tester) async {
+  testWidgets('Crear con monto + moneda preseleccionada',
+      (WidgetTester tester) async {
     await tester.pumpWidget(buildTestWidget());
 
     await tester.enterText(find.byType(TextFormField).first, 'Compra');
-    
+
     final amountField = find.byType(TextFormField).at(2);
     await tester.enterText(amountField, '50.5');
     await tester.pump();
@@ -149,7 +172,8 @@ void main() {
     expect(created.currencyCode, 'PEN');
   });
 
-  testWidgets('Editar precarga valores y conserva id/createdAt', (WidgetTester tester) async {
+  testWidgets('Editar precarga valores y conserva id/createdAt',
+      (WidgetTester tester) async {
     final now = DateTime.now();
     final existing = Reminder(
       id: '1234',
@@ -180,18 +204,110 @@ void main() {
     expect(updated.updatedAt.isAfter(existing.updatedAt), isTrue);
   });
 
-  testWidgets('Scheduler permissionDenied no revierte creación', (WidgetTester tester) async {
-    mockReminderProvider.schedulerFailure = const DatabaseFailure('permissionDenied');
-    
+  testWidgets('Scheduler permissionDenied no revierte creación',
+      (WidgetTester tester) async {
+    mockReminderProvider.schedulerFailure =
+        const DatabaseFailure('permissionDenied');
+
     await tester.pumpWidget(buildTestWidget());
 
     await tester.enterText(find.byType(TextFormField).first, 'Test Scheduler');
-    
+
     await tester.tap(find.text('Crear Recordatorio'));
     await tester.pumpAndSettle();
 
     final created = mockReminderProvider.lastCreatedReminder;
     expect(created, isNotNull);
     expect(created!.title, 'Test Scheduler');
+  });
+
+  Widget buildFullAppWidget(Widget page) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ReminderProvider>.value(
+            value: mockReminderProvider),
+        ChangeNotifierProvider<WalletProvider>.value(value: mockWalletProvider),
+      ],
+      child: MaterialApp(
+        home: Scaffold(
+          body: page,
+        ),
+      ),
+    );
+  }
+
+  testWidgets(
+      'botón + de Wallet abre ReminderFormSheet y crear actualiza lista',
+      (WidgetTester tester) async {
+    await tester
+        .pumpWidget(buildFullAppWidget(const RemindersSummarySection()));
+
+    // El botón + debe estar presente
+    expect(find.byIcon(Icons.add), findsOneWidget);
+
+    // Abrir formulario
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReminderFormSheet), findsOneWidget);
+
+    // Crear un nuevo recordatorio
+    await tester.enterText(
+        find.byType(TextFormField).first, 'Nuevo desde Wallet');
+    await tester.tap(find.text('Crear Recordatorio'));
+    await tester.pumpAndSettle();
+
+    // El formulario debe cerrarse
+    expect(find.byType(ReminderFormSheet), findsNothing);
+
+    // La lista se actualizó
+    expect(mockReminderProvider.reminders.length, 1);
+    expect(
+        mockReminderProvider.lastCreatedReminder?.title, 'Nuevo desde Wallet');
+  });
+
+  testWidgets('botón de creación de RemindersPage abre el mismo formulario',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(buildFullAppWidget(const RemindersPage()));
+
+    // El botón + debe estar presente en el AppBar
+    expect(find.byIcon(Icons.add), findsOneWidget);
+
+    // Abrir formulario
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ReminderFormSheet), findsOneWidget);
+  });
+
+  testWidgets('editar abre formulario con existingReminder desde Wallet',
+      (WidgetTester tester) async {
+    final now = DateTime.now();
+    final reminder = Reminder(
+      id: '123',
+      title: 'Editar este recordatorio',
+      type: ReminderType.general,
+      date: now.subtract(const Duration(days: 1)), // Overdue
+      hour: 10,
+      minute: 0,
+      recurrence: ReminderRecurrence.none,
+      createdAt: now,
+      updatedAt: now,
+    );
+    mockReminderProvider.reminders.add(reminder);
+
+    await tester
+        .pumpWidget(buildFullAppWidget(const RemindersSummarySection()));
+
+    // Debería verse el recordatorio
+    expect(find.text('Editar este recordatorio'), findsOneWidget);
+
+    // Tap en el recordatorio (abre edición)
+    await tester.tap(find.text('Editar este recordatorio'));
+    await tester.pumpAndSettle();
+
+    // El formulario está en modo edición
+    expect(find.byType(ReminderFormSheet), findsOneWidget);
+    expect(find.text('Actualizar Recordatorio'), findsOneWidget);
   });
 }

@@ -1057,7 +1057,6 @@ class RemindersSummarySection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     "Recordatorios",
@@ -1066,6 +1065,7 @@ class RemindersSummarySection extends StatelessWidget {
                         fontSize: 18,
                         fontWeight: FontWeight.bold),
                   ),
+                  const Spacer(),
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -1078,6 +1078,27 @@ class RemindersSummarySection extends StatelessWidget {
                       "Ver todos",
                       style: TextStyle(
                           color: Colors.cyan, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _showReminderForm(context),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                          color: const Color(0xFF00E5FF),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00E5FF)
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            )
+                          ]),
+                      child: const Icon(Icons.add,
+                          color: Colors.black87, size: 26),
                     ),
                   ),
                 ],
