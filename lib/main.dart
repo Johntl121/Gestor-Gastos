@@ -16,6 +16,7 @@ import 'presentation/providers/ui_provider.dart';
 import 'presentation/providers/transaction_provider.dart';
 import 'presentation/providers/wallet_provider.dart';
 import 'presentation/providers/stats_provider.dart';
+import 'presentation/providers/reminder_provider.dart';
 
 import 'core/services/notification_service.dart';
 import 'core/services/notification_coordinator.dart';
@@ -97,6 +98,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => di.sl<UiProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<WalletProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<TransactionProvider>()),
+        ChangeNotifierProvider(create: (_) => di.sl<ReminderProvider>()),
         ChangeNotifierProxyProvider2<TransactionProvider, WalletProvider,
             StatsProvider>(
           create: (_) => di.sl<StatsProvider>(),
