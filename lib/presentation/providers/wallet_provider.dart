@@ -4,7 +4,6 @@ import '../../core/usecases/usecase.dart';
 import '../../domain/entities/account_entity.dart';
 import '../../domain/entities/balance_breakdown.dart';
 import '../../domain/entities/goal_entity.dart';
-import '../../domain/entities/transaction_entity.dart';
 import '../../domain/usecases/account_usecases.dart';
 import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/get_account_balance_usecase.dart';
@@ -14,7 +13,6 @@ import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/goal_operations_usecases.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/goal_local_data_source.dart';
-import '../../core/constants/app_constants.dart';
 import '../../core/services/currency_converter.dart';
 import '../../core/utils/money_utils.dart';
 import '../../data/models/goal_model.dart';
@@ -315,44 +313,12 @@ class WalletProvider extends ChangeNotifier {
 
   Future<void> deleteGoal(String id,
       {bool refund = false, int? refundAccountId}) async {
-    final index = _goals.indexWhere((g) => g.id == id);
-    if (index == -1) return;
-
-    final goal = _goals[index];
-    TransactionEntity? refundTx;
-
-    if (refund && refundAccountId != null && goal.currentAmount > 0) {
-      if (goal.accountId == null) {
-        errorMessage =
-            'No se puede reembolsar: La meta no tiene una cuenta asociada.';
-        notifyListeners();
-        return;
-      }
-      final refundAccount =
-          _accounts.firstWhere((a) => a.id == refundAccountId);
-      final goalAccount = _accounts.firstWhere((a) => a.id == goal.accountId);
-
-      double? receivedAmount;
-      if (goalAccount.currencySymbol != refundAccount.currencySymbol) {
-        receivedAmount = _currencyConverter.convert(goal.currentAmount,
-            goalAccount.currencySymbol, refundAccount.currencySymbol);
-      }
-
-      refundTx = TransactionEntity(
-        accountId: goal.accountId!, // Desde la cuenta de la meta
-        categoryId: AppConstants.transferCategoryId,
-        amount: goal.currentAmount,
-        date: DateTime.now(),
-        description: "Reembolso Meta: ${goal.name}",
-        note: "Dinero devuelto al eliminar meta",
-        type: TransactionType.transfer,
-        destinationAccountId: refundAccountId, // Hacia la cuenta seleccionada
-        receivedAmount: receivedAmount,
-      );
-    }
-
     final result = await deleteGoalAtomicUseCase(
-        DeleteGoalAtomicParams(goalId: id, refundTransaction: refundTx));
+        DeleteGoalAtomicParams(
+            goalId: id,
+            refund: refund,
+            refundAccountId: refundAccountId
+        ));
 
     result.fold((fail) {
       errorMessage = fail.message;
@@ -379,42 +345,13 @@ class WalletProvider extends ChangeNotifier {
 
   Future<void> depositToGoal(
       String goalId, double amount, int sourceAccountId) async {
-    final index = _goals.indexWhere((g) => g.id == goalId);
-    if (index == -1) return;
-
-    final goal = _goals[index];
-
-    if (goal.accountId == null) {
-      errorMessage =
-          'No se puede depositar: La meta no tiene una cuenta configurada.';
-      notifyListeners();
-      return;
-    }
-
-    // C-1: Multi-currency conversion for goal deposit
-    final sourceAccount = _accounts.firstWhere((a) => a.id == sourceAccountId);
-    final goalAccount = _accounts.firstWhere((a) => a.id == goal.accountId);
-
-    double? receivedAmount;
-    if (sourceAccount.currencySymbol != goalAccount.currencySymbol) {
-      receivedAmount = _currencyConverter.convert(
-          amount, sourceAccount.currencySymbol, goalAccount.currencySymbol);
-    }
-
-    // CONTABILIDAD: TRANSFER desde la cuenta origen hacia la alcancía de la meta
-    final transaction = TransactionEntity(
-        accountId: sourceAccountId,
-        categoryId: AppConstants.transferCategoryId,
-        amount: amount,
-        date: DateTime.now(),
-        description: "Transferencia Meta: ${goal.name}",
-        note: "Ahorro depositado a meta",
-        type: TransactionType.transfer,
-        destinationAccountId: goal.accountId,
-        receivedAmount: receivedAmount);
-
+    
     final result = await depositToGoalUseCase(
-        DepositToGoalParams(goalId: goalId, transaction: transaction));
+        DepositToGoalParams(
+            goalId: goalId, 
+            amount: amount, 
+            sourceAccountId: sourceAccountId
+        ));
 
     result.fold((fail) {
       errorMessage = fail.message;
@@ -425,37 +362,8 @@ class WalletProvider extends ChangeNotifier {
   }
 
   Future<void> purchaseGoal(String goalId, {int? categoryId}) async {
-    final index = _goals.indexWhere((g) => g.id == goalId);
-    if (index == -1) return;
-
-    final goal = _goals[index];
-
-    if (goal.accountId == null) {
-      errorMessage =
-          'No se puede comprar la meta: No tiene una cuenta configurada.';
-      notifyListeners();
-      return;
-    }
-
-    // Determinar accountId: la alcancía de la meta
-    final purchaseAccountId = goal.accountId!;
-
-    // Determinar categoría: param override > meta.categoryId > default Compras
-    final finalCategoryId =
-        categoryId ?? goal.categoryId ?? AppConstants.shoppingCategoryId;
-
-    // CONTABILIDAD: EXPENSE desde la alcancía de la meta
-    final transaction = TransactionEntity(
-        accountId: purchaseAccountId,
-        categoryId: finalCategoryId,
-        amount: -goal.currentAmount.abs(), // Gastar lo que realmente se ahorró
-        date: DateTime.now(),
-        description: "Meta Cumplida: ${goal.name}",
-        note: "Compra realizada con éxito 🏆",
-        type: TransactionType.expense);
-
     final result = await purchaseGoalUseCase(
-        PurchaseGoalParams(goalId: goalId, transaction: transaction));
+        PurchaseGoalParams(goalId: goalId, categoryId: categoryId));
 
     result.fold((fail) {
       errorMessage = fail.message;
