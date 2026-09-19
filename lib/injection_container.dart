@@ -132,6 +132,29 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
   sl.registerLazySingleton(() => GetTransactionsByDateRangeUseCase(sl()));
+  sl.registerLazySingleton(() => DepositToGoalUseCase(
+      repository: sl(),
+      goalLocalDataSource: sl(),
+      accountRepository: sl(),
+      preferencesLocalDataSource: sl()));
+  sl.registerLazySingleton(() => PurchaseGoalUseCase(
+      repository: sl(),
+      goalLocalDataSource: sl()));
+  sl.registerLazySingleton(() => DeleteGoalAtomicUseCase(
+      repository: sl(),
+      goalLocalDataSource: sl(),
+      accountRepository: sl(),
+      preferencesLocalDataSource: sl()));
+
+  //! Proveedores (Refactored)
+
+  // 1. UI Provider
+  sl.registerLazySingleton(
+    () => UiProvider(
+      preferencesLocalDataSource: sl(),
+      notificationCoordinator: sl(),
+    ),
+  );
   // 2. Wallet Provider
   sl.registerLazySingleton(
     () => WalletProvider(
@@ -143,6 +166,16 @@ Future<void> init() async {
       getMonthlyBudgetUseCase: sl(),
       addTransactionUseCase: sl(),
       preferencesLocalDataSource: sl(),
+    ),
+  );
+
+  // 2.5 Goal Provider
+  sl.registerLazySingleton(
+    () => GoalProvider(
+      goalOperationsRepository: sl(),
+      depositToGoalUseCase: sl(),
+      purchaseGoalUseCase: sl(),
+      deleteGoalAtomicUseCase: sl(),
     ),
   );
 
