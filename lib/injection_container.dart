@@ -17,10 +17,12 @@ import 'domain/repositories/transaction_repository.dart';
 import 'domain/repositories/account_repository.dart';
 import 'domain/repositories/goal_operations_repository.dart';
 import 'domain/repositories/reminder_repository.dart';
+import 'domain/repositories/subscription_repository.dart';
 import 'data/repositories/account_repository_impl.dart';
 import 'data/repositories/transaction_repository_impl.dart';
 import 'data/repositories/goal_operations_repository_impl.dart';
 import 'data/repositories/reminder_repository_impl.dart';
+import 'data/repositories/subscription_repository_impl.dart';
 
 // Casos de Uso
 import 'domain/usecases/account_usecases.dart';
@@ -87,7 +89,7 @@ Future<void> init() async {
     () => NotificationCoordinator(
       notificationService: sl(),
       preferences: sl(),
-      subscriptionDataSource: sl(),
+      subscriptionRepository: sl(),
       reminderRepository: sl(),
     ),
   );
@@ -110,6 +112,12 @@ Future<void> init() async {
   sl.registerLazySingleton<GoalOperationsRepository>(
     () => GoalOperationsRepositoryImpl(
       localDatabase: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<SubscriptionRepository>(
+    () => SubscriptionRepositoryImpl(
+      localDataSource: sl(),
     ),
   );
 
@@ -179,16 +187,6 @@ Future<void> init() async {
     ),
   );
 
-  // 2.5 Goal Provider
-  sl.registerLazySingleton(
-    () => GoalProvider(
-      goalOperationsRepository: sl(),
-      depositToGoalUseCase: sl(),
-      purchaseGoalUseCase: sl(),
-      deleteGoalAtomicUseCase: sl(),
-    ),
-  );
-
   // 3. Transaction Provider
   sl.registerLazySingleton(
     () => TransactionProvider(
@@ -209,7 +207,7 @@ Future<void> init() async {
       getBudgetMood: sl(),
       getTransactionsByDateRange: sl(),
       preferencesLocalDataSource: sl(),
-      subscriptionLocalDataSource: sl(),
+      subscriptionRepository: sl(),
       goalLocalDataSource: sl(),
     ),
   );

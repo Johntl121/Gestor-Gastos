@@ -3,7 +3,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:gestor_gastos/core/services/notification_service.dart';
 import 'package:gestor_gastos/core/utils/notification_id_utils.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
-import 'package:gestor_gastos/data/datasources/subscription_local_data_source.dart';
+import 'package:gestor_gastos/domain/repositories/subscription_repository.dart';
 import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
 import 'package:gestor_gastos/data/models/subscription.dart';
 import 'package:gestor_gastos/domain/entities/reminder.dart';
@@ -47,7 +47,7 @@ class _NotificationCandidate {
 class NotificationCoordinator {
   final NotificationService _notificationService;
   final PreferencesLocalDataSource _preferences;
-  final SubscriptionLocalDataSource _subscriptionDataSource;
+  final SubscriptionRepository _subscriptionRepository;
   final ReminderRepository _reminderRepository;
 
   static const int maxPendingNotifications = 50;
@@ -55,11 +55,11 @@ class NotificationCoordinator {
   NotificationCoordinator({
     required NotificationService notificationService,
     required PreferencesLocalDataSource preferences,
-    required SubscriptionLocalDataSource subscriptionDataSource,
+    required SubscriptionRepository subscriptionRepository,
     required ReminderRepository reminderRepository,
   })  : _notificationService = notificationService,
         _preferences = preferences,
-        _subscriptionDataSource = subscriptionDataSource,
+        _subscriptionRepository = subscriptionRepository,
         _reminderRepository = reminderRepository;
 
   Future<NotificationStatus> init() async {
@@ -144,7 +144,8 @@ class NotificationCoordinator {
     List<_NotificationCandidate> allCandidates = [];
 
     // 1. Recopilar candidatos de Suscripciones
-    final subs = await _subscriptionDataSource.getSubscriptions();
+    final subResult = await _subscriptionRepository.getSubscriptions();
+    final subs = subResult.getOrElse(() => []);
     for (var sub in subs) {
       allCandidates.addAll(_generateSubscriptionCandidates(sub, now));
     }

@@ -5,7 +5,7 @@ import 'package:gestor_gastos/core/errors/failure.dart';
 import 'package:gestor_gastos/core/services/notification_coordinator.dart';
 import 'package:gestor_gastos/core/services/notification_service.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
-import 'package:gestor_gastos/data/datasources/subscription_local_data_source.dart';
+import 'package:gestor_gastos/domain/repositories/subscription_repository.dart';
 import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
 import 'package:gestor_gastos/data/models/subscription.dart';
 import 'package:gestor_gastos/domain/entities/reminder.dart';
@@ -128,14 +128,17 @@ class MockPreferences implements PreferencesLocalDataSource {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class MockSubscriptionDataSource implements SubscriptionLocalDataSource {
+class MockSubscriptionRepository implements SubscriptionRepository {
   List<Subscription> subs = [];
 
   @override
-  Future<List<Subscription>> getSubscriptions() async => subs;
+  Future<Either<Failure, List<Subscription>>> getSubscriptions() async => Right(subs);
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Future<Either<Failure, void>> saveSubscription(Subscription subscription) async => const Right(null);
+
+  @override
+  Future<Either<Failure, void>> deleteSubscription(String id) async => const Right(null);
 }
 
 class MockReminderRepository implements ReminderRepository {
@@ -157,7 +160,7 @@ void main() {
     late NotificationCoordinator coordinator;
     late MockNotificationService mockNotifService;
     late MockPreferences mockPrefs;
-    late MockSubscriptionDataSource mockSubSource;
+    late MockSubscriptionRepository mockSubSource;
     late MockReminderRepository mockRemRepo;
 
     setUp(() {
@@ -173,13 +176,13 @@ void main() {
       );
       mockNotifService = MockNotificationService();
       mockPrefs = MockPreferences();
-      mockSubSource = MockSubscriptionDataSource();
+      mockSubSource = MockSubscriptionRepository();
       mockRemRepo = MockReminderRepository();
 
       coordinator = NotificationCoordinator(
         notificationService: mockNotifService,
         preferences: mockPrefs,
-        subscriptionDataSource: mockSubSource,
+        subscriptionRepository: mockSubSource,
         reminderRepository: mockRemRepo,
       );
     });

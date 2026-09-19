@@ -7,7 +7,7 @@ import 'package:gestor_gastos/presentation/providers/stats_provider.dart';
 import 'package:gestor_gastos/presentation/providers/wallet_provider.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
 import 'package:gestor_gastos/data/datasources/goal_local_data_source.dart';
-import 'package:gestor_gastos/data/datasources/subscription_local_data_source.dart';
+import 'package:gestor_gastos/domain/repositories/subscription_repository.dart';
 import 'package:gestor_gastos/data/models/goal_model.dart';
 import 'package:gestor_gastos/data/models/account_model.dart';
 import 'package:gestor_gastos/core/services/currency_converter.dart';
@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockPreferences extends Mock implements PreferencesLocalDataSource {}
 class MockGoals extends Mock implements GoalLocalDataSource {}
-class MockSubscriptions extends Mock implements SubscriptionLocalDataSource {}
+class MockSubscriptions extends Mock implements SubscriptionRepository {}
 class MockWalletProvider extends Mock implements WalletProvider {}
 class MockGetBudgetMoodUseCase extends Mock implements GetBudgetMoodUseCase {}
 class MockGetTransactionsByDateRangeUseCase extends Mock implements GetTransactionsByDateRangeUseCase {}
@@ -45,7 +45,7 @@ void main() {
 
     when(() => prefs.getCurrency()).thenReturn('S/');
     when(() => prefs.getBudgetLimit()).thenReturn(1000.0);
-    when(() => subs.getSubscriptions()).thenAnswer((_) async => []);
+    when(() => subs.getSubscriptions()).thenAnswer((_) async => const Right([]));
     
     // Meta con cuenta USD
     when(() => goalsSrc.getGoals()).thenAnswer((_) async => [
@@ -84,7 +84,7 @@ void main() {
       getTransactionsByDateRange: getTxns,
       preferencesLocalDataSource: prefs,
       goalLocalDataSource: goalsSrc,
-      subscriptionLocalDataSource: subs,
+      subscriptionRepository: subs,
     );
     provider.updateWalletProvider(wallet);
 

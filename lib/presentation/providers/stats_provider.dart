@@ -9,7 +9,7 @@ import '../../core/usecases/usecase.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
-import '../../data/datasources/subscription_local_data_source.dart';
+import '../../domain/repositories/subscription_repository.dart';
 import '../../data/datasources/goal_local_data_source.dart';
 import 'wallet_provider.dart';
 
@@ -44,14 +44,14 @@ class StatsProvider extends ChangeNotifier {
   final GetBudgetMoodUseCase getBudgetMood;
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
   final PreferencesLocalDataSource preferencesLocalDataSource;
-  final SubscriptionLocalDataSource subscriptionLocalDataSource;
+  final SubscriptionRepository subscriptionRepository;
   final GoalLocalDataSource goalLocalDataSource;
 
   StatsProvider({
     required this.getBudgetMood,
     required this.getTransactionsByDateRange,
     required this.preferencesLocalDataSource,
-    required this.subscriptionLocalDataSource,
+    required this.subscriptionRepository,
     required this.goalLocalDataSource,
   }) {
     loadStatsData();
@@ -341,7 +341,8 @@ class StatsProvider extends ChangeNotifier {
     buffer.writeln();
 
     // 3. Gastos Fijos (Desde SQLite)
-    final subscriptions = await subscriptionLocalDataSource.getSubscriptions();
+    final subsResult = await subscriptionRepository.getSubscriptions();
+    final subscriptions = subsResult.fold((l) => <Subscription>[], (r) => r);
     if (subscriptions.isNotEmpty) {
       buffer.writeln("--- GASTOS FIJOS ACTIVOS ---");
       for (var s in subscriptions) {
