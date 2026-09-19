@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../data/models/subscription.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../core/errors/failure.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/delete_transaction_usecase.dart';
 import '../../domain/usecases/get_transactions_usecase.dart';
 import '../../domain/usecases/update_transaction_usecase.dart';
+import '../../domain/usecases/subscriptions/pay_subscription_usecase.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/subscription_local_data_source.dart';
 import '../../core/services/notification_coordinator.dart';
@@ -19,6 +21,7 @@ class TransactionProvider extends ChangeNotifier {
   final UpdateTransactionUseCase updateTransactionUseCase;
   final DeleteTransactionUseCase deleteTransactionUseCase;
   final GetTransactionsByDateRangeUseCase getTransactionsByDateRange;
+  final PaySubscriptionUseCase paySubscriptionUseCase;
   final PreferencesLocalDataSource preferencesLocalDataSource;
   final SubscriptionLocalDataSource subscriptionLocalDataSource;
   final NotificationCoordinator notificationCoordinator;
@@ -29,6 +32,7 @@ class TransactionProvider extends ChangeNotifier {
     required this.updateTransactionUseCase,
     required this.deleteTransactionUseCase,
     required this.getTransactionsByDateRange,
+    required this.paySubscriptionUseCase,
     required this.preferencesLocalDataSource,
     required this.subscriptionLocalDataSource,
     required this.notificationCoordinator,
@@ -122,8 +126,6 @@ class TransactionProvider extends ChangeNotifier {
     await loadTransactions();
   }
 
-
-
   Future<bool> _checkSubscriptionStatuses() async {
     final now = DateTime.now();
 
@@ -131,7 +133,7 @@ class TransactionProvider extends ChangeNotifier {
     final Set<String> paidMonthlyNames = {};
     // Set para suscripciones anuales pagadas en el año actual
     final Set<String> paidYearlyNames = {};
-    
+
     bool changed = false;
 
     // Escaneo O(N) único sobre las transacciones
@@ -148,7 +150,7 @@ class TransactionProvider extends ChangeNotifier {
 
     try {
       final subs = await subscriptionLocalDataSource.getSubscriptions();
-      
+
       // Escaneo O(M) sobre las suscripciones
       for (int i = 0; i < subs.length; i++) {
         final sub = subs[i];
@@ -162,7 +164,7 @@ class TransactionProvider extends ChangeNotifier {
           changed = true;
         }
       }
-      
+
       // Note for P9-02C: Currently, this logic will be moved to a UseCase.
       return changed;
     } catch (e) {
@@ -262,14 +264,23 @@ class TransactionProvider extends ChangeNotifier {
         colorValue: subscription.customColor ??
             AppCategories.getColor(subscription.categoryId).toARGB32());
 
-    // Actualización optimista manual a nivel de DB
-    final updatedSub = subscription.copyWith(isPaid: true);
-    await subscriptionLocalDataSource.saveSubscription(updatedSub);
-    await notificationCoordinator.scheduleSubscription(updatedSub);
-    notifyListeners();
+    final result = await paySubscriptionUseCase(PaySubscriptionParams(
+      subscription: subscription,
+      transaction: transaction,
+    ));
 
-    // Agregar la transacción y recargar (re-calculando status automáticamente)
-    await addTransaction(transaction);
+    result.fold(
+      (Failure fail) {
+        debugPrint("❌ ERROR AL PAGAR SUSCRIPCIÓN: ${fail.message}");
+        errorMessage = fail.message;
+        notifyListeners();
+      },
+      (_) async {
+        final updatedSub = subscription.copyWith(isPaid: true);
+        await notificationCoordinator.scheduleSubscription(updatedSub);
+        await loadTransactions();
+      },
+    );
   }
 
   Future<List<TransactionEntity>> getTransactionsForDay(DateTime day) async {

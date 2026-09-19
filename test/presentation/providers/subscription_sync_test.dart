@@ -15,6 +15,7 @@ import 'package:gestor_gastos/domain/usecases/add_transaction_usecase.dart';
 import 'package:gestor_gastos/domain/usecases/update_transaction_usecase.dart';
 import 'package:gestor_gastos/domain/usecases/delete_transaction_usecase.dart';
 import 'package:gestor_gastos/domain/usecases/get_transactions_by_date_range_usecase.dart';
+import 'package:gestor_gastos/domain/usecases/subscriptions/pay_subscription_usecase.dart';
 
 class MockSubscriptionRepository extends Mock implements SubscriptionRepository {}
 class MockSubscriptionLocalDataSource extends Mock implements SubscriptionLocalDataSource {}
@@ -25,6 +26,7 @@ class MockAddTransactionUseCase extends Mock implements AddTransactionUseCase {}
 class MockUpdateTransactionUseCase extends Mock implements UpdateTransactionUseCase {}
 class MockDeleteTransactionUseCase extends Mock implements DeleteTransactionUseCase {}
 class MockGetTransactionsByDateRange extends Mock implements GetTransactionsByDateRangeUseCase {}
+class MockPaySubscriptionUseCase extends Mock implements PaySubscriptionUseCase {}
 
 class FakeSubscription extends Fake implements Subscription {}
 
@@ -38,6 +40,7 @@ void main() {
   late MockUpdateTransactionUseCase mockUpdateTransaction;
   late MockDeleteTransactionUseCase mockDeleteTransaction;
   late MockGetTransactionsByDateRange mockGetTransactionsByDateRange;
+  late MockPaySubscriptionUseCase mockPaySubscriptionUseCase;
 
   late TransactionProvider transactionProvider;
   late SubscriptionProvider subscriptionProvider;
@@ -52,6 +55,7 @@ void main() {
     mockUpdateTransaction = MockUpdateTransactionUseCase();
     mockDeleteTransaction = MockDeleteTransactionUseCase();
     mockGetTransactionsByDateRange = MockGetTransactionsByDateRange();
+    mockPaySubscriptionUseCase = MockPaySubscriptionUseCase();
     
     // By default, no transactions
     when(() => mockGetTransactions.call(any())).thenAnswer((_) async => Right(List.empty(growable: true)));
@@ -66,6 +70,7 @@ void main() {
       updateTransactionUseCase: mockUpdateTransaction,
       deleteTransactionUseCase: mockDeleteTransaction,
       getTransactionsByDateRange: mockGetTransactionsByDateRange,
+      paySubscriptionUseCase: mockPaySubscriptionUseCase,
       preferencesLocalDataSource: mockPreferences,
       subscriptionLocalDataSource: mockSubscriptionLocalDataSource,
       notificationCoordinator: mockNotificationCoordinator,

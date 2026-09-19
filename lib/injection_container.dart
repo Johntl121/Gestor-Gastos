@@ -17,6 +17,9 @@ import 'domain/repositories/transaction_repository.dart';
 import 'domain/repositories/account_repository.dart';
 import 'domain/repositories/goal_operations_repository.dart';
 import 'domain/repositories/reminder_repository.dart';
+import 'domain/repositories/subscription_operations_repository.dart';
+import 'data/repositories/subscription_operations_repository_impl.dart';
+import 'domain/usecases/subscriptions/pay_subscription_usecase.dart';
 import 'domain/repositories/subscription_repository.dart';
 import 'data/repositories/account_repository_impl.dart';
 import 'data/repositories/transaction_repository_impl.dart';
@@ -46,7 +49,6 @@ import 'presentation/providers/reminder_provider.dart';
 import 'presentation/providers/goal_provider.dart';
 import 'presentation/providers/stats_provider.dart';
 import 'presentation/providers/subscription_provider.dart';
-
 
 final sl = GetIt.instance;
 
@@ -122,6 +124,12 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerLazySingleton<SubscriptionOperationsRepository>(
+    () => SubscriptionOperationsRepositoryImpl(
+      localDatabase: sl(),
+    ),
+  );
+
   sl.registerLazySingleton<ReminderRepository>(
     () => ReminderRepositoryImpl(
       localDataSource: sl(),
@@ -146,14 +154,15 @@ Future<void> init() async {
       goalLocalDataSource: sl(),
       accountRepository: sl(),
       preferencesLocalDataSource: sl()));
-  sl.registerLazySingleton(() => PurchaseGoalUseCase(
-      repository: sl(),
-      goalLocalDataSource: sl()));
+  sl.registerLazySingleton(
+      () => PurchaseGoalUseCase(repository: sl(), goalLocalDataSource: sl()));
   sl.registerLazySingleton(() => DeleteGoalAtomicUseCase(
       repository: sl(),
       goalLocalDataSource: sl(),
       accountRepository: sl(),
       preferencesLocalDataSource: sl()));
+
+  sl.registerLazySingleton(() => PaySubscriptionUseCase(sl()));
 
   //! Proveedores (Refactored)
 
@@ -196,6 +205,7 @@ Future<void> init() async {
       updateTransactionUseCase: sl(),
       deleteTransactionUseCase: sl(),
       getTransactionsByDateRange: sl(),
+      paySubscriptionUseCase: sl(),
       preferencesLocalDataSource: sl(),
       subscriptionLocalDataSource: sl(),
       notificationCoordinator: sl(),
