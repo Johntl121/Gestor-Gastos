@@ -5,6 +5,7 @@ import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/goal_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../../data/models/subscription.dart';
 import '../../../domain/entities/goal_entity.dart';
 import '../../../domain/entities/account_entity.dart';
@@ -260,6 +261,9 @@ class _WalletPageState extends State<WalletPage> {
                           final walletProvider = Provider.of<WalletProvider>(
                               context,
                               listen: false);
+                          final subscriptionProvider =
+                              Provider.of<SubscriptionProvider>(context,
+                                  listen: false);
 
                           await transactionProvider
                               .markSubscriptionAsPaid(subToPay);
@@ -267,6 +271,7 @@ class _WalletPageState extends State<WalletPage> {
                           // Sincronizar saldos de cuenta en WalletProvider
                           if (mounted) {
                             await walletProvider.loadWalletData();
+                            await subscriptionProvider.loadSubscriptions();
                           }
 
                           if (ctx.mounted) {
@@ -798,7 +803,7 @@ class _FixedExpensesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TransactionProvider>(
+    return Consumer<SubscriptionProvider>(
       builder: (context, provider, _) {
         final subscriptions = provider.subscriptions;
         final walletProvider =

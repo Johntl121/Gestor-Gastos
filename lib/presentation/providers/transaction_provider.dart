@@ -36,8 +36,10 @@ class TransactionProvider extends ChangeNotifier {
     loadTransactions();
   }
 
+  /// Callback to notify presentation layer when subscriptions are automatically updated
+  VoidCallback? onSubscriptionsUpdated;
+
   List<TransactionEntity> _transactions = [];
-  List<Subscription> _subscriptions = [];
   bool _isLoading = false;
   String? errorMessage;
 
@@ -48,7 +50,6 @@ class TransactionProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
 
   List<TransactionEntity> get transactions => _transactions;
-  List<Subscription> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
   bool get hasMore => _hasMore;
   bool get isLoadingMore => _isLoadingMore;
@@ -76,12 +77,11 @@ class TransactionProvider extends ChangeNotifier {
       },
     );
 
-    // Migrar datos de SharedPreferences a SQLite si existen
-    // Migrar datos (removed)
-    await _loadSubscriptions();
-
-    // Validar status (revisar si ya se pagó este ciclo) con optimización O(N+M)
-    _checkSubscriptionStatuses();
+    // Check subscription statuses (now fetches directly from data source)
+    final bool subsChanged = await _checkSubscriptionStatuses();
+    if (subsChanged) {
+      onSubscriptionsUpdated?.call();
+    }
 
     _isLoading = false;
     notifyListeners();
@@ -118,26 +118,21 @@ class TransactionProvider extends ChangeNotifier {
   /// Refresca los datos del provider (útil tras Factory Reset)
   Future<void> refreshData() async {
     _transactions = [];
-    _subscriptions = [];
+
     await loadTransactions();
   }
 
-  Future<void> _loadSubscriptions() async {
-    try {
-      _subscriptions = await subscriptionLocalDataSource.getSubscriptions();
-    } catch (e) {
-      debugPrint("Sub load error: $e");
-    }
-  }
 
-  void _checkSubscriptionStatuses() {
-    bool changed = false;
+
+  Future<bool> _checkSubscriptionStatuses() async {
     final now = DateTime.now();
 
     // Set para suscripciones mensuales pagadas en el mes/año actual
     final Set<String> paidMonthlyNames = {};
     // Set para suscripciones anuales pagadas en el año actual
     final Set<String> paidYearlyNames = {};
+    
+    bool changed = false;
 
     // Escaneo O(N) único sobre las transacciones
     for (var tx in _transactions) {
@@ -151,27 +146,28 @@ class TransactionProvider extends ChangeNotifier {
       }
     }
 
-    // Escaneo O(M) sobre las suscripciones
-    for (int i = 0; i < _subscriptions.length; i++) {
-      final sub = _subscriptions[i];
-      final bool isPaid = sub.frequency == ExpenseFrequency.monthly
-          ? paidMonthlyNames.contains(sub.name)
-          : paidYearlyNames.contains(sub.name);
+    try {
+      final subs = await subscriptionLocalDataSource.getSubscriptions();
+      
+      // Escaneo O(M) sobre las suscripciones
+      for (int i = 0; i < subs.length; i++) {
+        final sub = subs[i];
+        final bool isPaid = sub.frequency == ExpenseFrequency.monthly
+            ? paidMonthlyNames.contains(sub.name)
+            : paidYearlyNames.contains(sub.name);
 
-      if (sub.isPaid != isPaid) {
-        _subscriptions[i] = sub.copyWith(isPaid: isPaid);
-        changed = true;
+        if (sub.isPaid != isPaid) {
+          final updatedSub = sub.copyWith(isPaid: isPaid);
+          await subscriptionLocalDataSource.saveSubscription(updatedSub);
+          changed = true;
+        }
       }
-    }
-
-    if (changed) {
-      _saveAllSubscriptionsToDb();
-    }
-  }
-
-  Future<void> _saveAllSubscriptionsToDb() async {
-    for (var sub in _subscriptions) {
-      await subscriptionLocalDataSource.saveSubscription(sub);
+      
+      // Note for P9-02C: Currently, this logic will be moved to a UseCase.
+      return changed;
+    } catch (e) {
+      debugPrint("Error checking subscription statuses: $e");
+      return false;
     }
   }
 
@@ -247,32 +243,7 @@ class TransactionProvider extends ChangeNotifier {
     await addTransaction(transaction);
   }
 
-  // --- Subscription Logic ---
-
-  Future<void> addSubscription(Subscription subscription) async {
-    final idx = _subscriptions.indexWhere((s) => s.id == subscription.id);
-    if (idx != -1) {
-      _subscriptions[idx] = subscription;
-      await subscriptionLocalDataSource.saveSubscription(subscription);
-    } else {
-      final subWithOrder =
-          subscription.copyWith(orderIndex: _subscriptions.length);
-      _subscriptions.add(subWithOrder);
-      await subscriptionLocalDataSource.saveSubscription(subWithOrder);
-    }
-    notifyListeners();
-
-    // The coordinator will fetch the subscription and decide what to do
-    // based on user permissions and global state.
-    await notificationCoordinator.scheduleSubscription(subscription);
-  }
-
-  Future<void> removeSubscription(String id) async {
-    _subscriptions.removeWhere((s) => s.id == id);
-    notifyListeners();
-    await subscriptionLocalDataSource.deleteSubscription(id);
-    await notificationCoordinator.cancelSubscription(id);
-  }
+  // --- Subscription Logic (Payment) ---
 
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {
     final transaction = TransactionEntity(
@@ -291,35 +262,14 @@ class TransactionProvider extends ChangeNotifier {
         colorValue: subscription.customColor ??
             AppCategories.getColor(subscription.categoryId).toARGB32());
 
-    // Optimistic Update manual para bloqueo INMEDIATO en la UI
-    final index = _subscriptions.indexWhere((s) => s.id == subscription.id);
-    if (index != -1) {
-      final updatedSub = subscription.copyWith(isPaid: true);
-      _subscriptions[index] = updatedSub;
-      // Guardar en SQLite inmediatamente
-      await subscriptionLocalDataSource.saveSubscription(updatedSub);
-      // Reconciliar scheduling de notificaciones
-      await notificationCoordinator.scheduleSubscription(updatedSub);
-      notifyListeners();
-    }
+    // Actualización optimista manual a nivel de DB
+    final updatedSub = subscription.copyWith(isPaid: true);
+    await subscriptionLocalDataSource.saveSubscription(updatedSub);
+    await notificationCoordinator.scheduleSubscription(updatedSub);
+    notifyListeners();
 
     // Agregar la transacción y recargar (re-calculando status automáticamente)
     await addTransaction(transaction);
-  }
-
-  void reorderSubscriptions(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    final item = _subscriptions.removeAt(oldIndex);
-    _subscriptions.insert(newIndex, item);
-
-    for (int i = 0; i < _subscriptions.length; i++) {
-      _subscriptions[i] = _subscriptions[i].copyWith(orderIndex: i);
-      subscriptionLocalDataSource.saveSubscription(_subscriptions[i]);
-    }
-
-    notifyListeners();
   }
 
   Future<List<TransactionEntity>> getTransactionsForDay(DateTime day) async {

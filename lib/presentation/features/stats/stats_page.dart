@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/ui_provider.dart';
+import '../../providers/subscription_provider.dart';
 
 // Components
 import 'financial_coach_sheet.dart';
@@ -50,11 +51,12 @@ class _StatsPageState extends State<StatsPage>
     // Access Providers
     final statsProvider = Provider.of<StatsProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
+    final subProvider = Provider.of<SubscriptionProvider>(context);
     final uiProvider = Provider.of<UiProvider>(context);
 
     // Calculate Categories (Dynamically mapped with actual colors)
     final categories =
-        statsProvider.getSpendingByCategory(txProvider.subscriptions);
+        statsProvider.getSpendingByCategory(subProvider.subscriptions);
 
     // Calculate Total Amount
     final totalAmount = statsProvider.calculateTotalAmount(categories);

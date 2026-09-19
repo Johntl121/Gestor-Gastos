@@ -8,6 +8,7 @@ import '../../../domain/entities/transaction_entity.dart';
 import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../providers/stats_provider.dart';
 import '../../../data/datasources/preferences_local_data_source.dart';
 import '../../../core/services/database_helper.dart';
@@ -153,9 +154,9 @@ class _HomePageState extends State<HomePage> {
 
 // --- TOP LEVEL NOTIFICATION HELPER ---
 
-bool _hasPendingNotifications(TransactionProvider txProvider) {
+bool _hasPendingNotifications(SubscriptionProvider subProvider) {
   final now = DateTime.now();
-  for (var sub in txProvider.subscriptions) {
+  for (var sub in subProvider.subscriptions) {
     if (sub.isPaid) continue;
     final due = sub.nextDueDate;
     final diff = due.difference(now).inDays;
@@ -165,12 +166,12 @@ bool _hasPendingNotifications(TransactionProvider txProvider) {
 }
 
 void _showNotificationSheet(BuildContext context) {
-  final txProvider = Provider.of<TransactionProvider>(context, listen: false);
+  final subProvider = Provider.of<SubscriptionProvider>(context, listen: false);
   final uiProvider = Provider.of<UiProvider>(context, listen: false);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
 
-  final subs = txProvider.subscriptions.where((s) {
+  final subs = subProvider.subscriptions.where((s) {
     if (s.isPaid) return false;
     final due = s.nextDueDate;
     final diff =
@@ -332,8 +333,8 @@ class _HeaderSection extends StatelessWidget {
     final theme = Theme.of(context);
     final textColor = theme.textTheme.bodyLarge?.color ?? Colors.white;
 
-    return Consumer2<UiProvider, TransactionProvider>(
-      builder: (context, uiProvider, txProvider, _) {
+    return Consumer3<UiProvider, TransactionProvider, SubscriptionProvider>(
+      builder: (context, uiProvider, txProvider, subProvider, _) {
         final isDarkMode = uiProvider.isDarkMode;
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -402,7 +403,7 @@ class _HeaderSection extends StatelessWidget {
                     child: Icon(Icons.notifications_none,
                         color: isDarkMode ? Colors.white : Colors.black54),
                   ),
-                  if (_hasPendingNotifications(txProvider))
+                  if (_hasPendingNotifications(subProvider))
                     Container(
                       width: 10,
                       height: 10,

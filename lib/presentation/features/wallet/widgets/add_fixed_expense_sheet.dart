@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/subscription.dart';
-import '../../../providers/transaction_provider.dart';
+import '../../../providers/subscription_provider.dart';
 import '../../../providers/wallet_provider.dart';
 import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/icon_mapper.dart';
@@ -158,7 +158,7 @@ class _AddFixedExpenseSheetState extends State<AddFixedExpenseSheet> {
 
       final name = _nameController.text;
       final amount = double.tryParse(_amountController.text) ?? 0.0;
-      final provider = Provider.of<TransactionProvider>(context, listen: false);
+      final provider = Provider.of<SubscriptionProvider>(context, listen: false);
 
       if (widget.subscriptionToEdit != null) {
         final updatedSub = widget.subscriptionToEdit!.copyWith(

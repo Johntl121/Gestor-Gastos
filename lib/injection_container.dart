@@ -45,6 +45,7 @@ import 'presentation/providers/wallet_provider.dart';
 import 'presentation/providers/reminder_provider.dart';
 import 'presentation/providers/goal_provider.dart';
 import 'presentation/providers/stats_provider.dart';
+import 'presentation/providers/subscription_provider.dart';
 
 
 final sl = GetIt.instance;
@@ -197,6 +198,14 @@ Future<void> init() async {
       getTransactionsByDateRange: sl(),
       preferencesLocalDataSource: sl(),
       subscriptionLocalDataSource: sl(),
+      notificationCoordinator: sl(),
+    ),
+  );
+
+  // 3.5 Subscription Provider
+  sl.registerLazySingleton(
+    () => SubscriptionProvider(
+      subscriptionRepository: sl(),
       notificationCoordinator: sl(),
     ),
   );
