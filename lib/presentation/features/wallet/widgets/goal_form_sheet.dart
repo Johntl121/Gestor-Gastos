@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../domain/entities/goal_entity.dart';
 import '../../../providers/wallet_provider.dart';
+import '../../../providers/goal_provider.dart';
 import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/icon_mapper.dart';
 
@@ -178,11 +179,12 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
       final name = _nameController.text.trim();
       final amount = double.tryParse(_amountController.text) ?? 0;
       final iconData = IconMapper.getIcon(_selectedIconName);
-      final provider = Provider.of<WalletProvider>(context, listen: false);
+      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+      final goalProvider = Provider.of<GoalProvider>(context, listen: false);
 
       if (widget.goalToEdit == null) {
         // CREATE
-        provider.addGoal(
+        goalProvider.addGoal(
           name,
           amount,
           iconData.codePoint,
@@ -207,8 +209,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
           accountId: _selectedAccountId,
           categoryId: _selectedCategoryId,
         );
-        provider.updateGoal(updated);
+        goalProvider.updateGoal(updated);
       }
+      walletProvider.loadWalletData();
       Navigator.pop(context);
     }
   }

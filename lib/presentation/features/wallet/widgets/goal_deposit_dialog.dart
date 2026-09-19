@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../domain/entities/goal_entity.dart';
 import '../../../providers/wallet_provider.dart';
+import '../../../providers/goal_provider.dart';
 import '../../../providers/transaction_provider.dart';
 
 class GoalDepositDialog extends StatefulWidget {
@@ -315,11 +316,12 @@ class _GoalDepositDialogState extends State<GoalDepositDialog> {
               ));
             }
 
-            await Provider.of<WalletProvider>(context, listen: false)
+            final success = await Provider.of<GoalProvider>(context, listen: false)
                 .depositToGoal(
                     widget.goal.id.toString(), amount, _selectedSourceId!);
 
-            if (context.mounted) {
+            if (success && context.mounted) {
+              context.read<WalletProvider>().loadWalletData();
               Provider.of<TransactionProvider>(context, listen: false)
                   .loadTransactions();
               Navigator.pop(context);

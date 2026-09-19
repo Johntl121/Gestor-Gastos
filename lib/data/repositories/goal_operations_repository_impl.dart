@@ -1,15 +1,43 @@
 import 'package:dartz/dartz.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../core/errors/failure.dart';
 import '../../core/services/database_helper.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/goal_operations_repository.dart';
 import '../helpers/account_transaction_helper.dart';
 import '../models/transaction_model.dart';
+import '../models/goal_model.dart';
+import '../../domain/entities/goal_entity.dart';
 
 class GoalOperationsRepositoryImpl implements GoalOperationsRepository {
   final LocalDatabase localDatabase;
 
   GoalOperationsRepositoryImpl({required this.localDatabase});
+
+  @override
+  Future<Either<Failure, List<GoalEntity>>> getGoals() async {
+    try {
+      final db = await localDatabase.database;
+      final List<Map<String, dynamic>> maps =
+          await db.query('goals', orderBy: 'orderIndex ASC');
+      return Right(maps.map((j) => GoalModel.fromJson(j)).toList());
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> saveGoal(GoalEntity goal) async {
+    try {
+      final db = await localDatabase.database;
+      final model = GoalModel.fromEntity(goal);
+      await db.insert('goals', model.toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure(e.toString()));
+    }
+  }
 
   @override
   Future<Either<Failure, void>> depositToGoalAtomic(

@@ -3,19 +3,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/usecases/usecase.dart';
 import '../../domain/entities/account_entity.dart';
 import '../../domain/entities/balance_breakdown.dart';
-import '../../domain/entities/goal_entity.dart';
 import '../../domain/usecases/account_usecases.dart';
 import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/get_account_balance_usecase.dart';
 import '../../domain/usecases/get_monthly_budget_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
-import '../../domain/usecases/goal_operations_usecases.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
-import '../../data/datasources/goal_local_data_source.dart';
-import '../../core/services/currency_converter.dart';
 import '../../core/utils/money_utils.dart';
-import '../../data/models/goal_model.dart';
+import '../../core/services/currency_converter.dart';
 
 class WalletProvider extends ChangeNotifier {
   final GetAccountBalanceUseCase getAccountBalance;
@@ -25,12 +21,7 @@ class WalletProvider extends ChangeNotifier {
   final DeleteAccountUseCase deleteAccountUseCase;
   final GetMonthlyBudgetUseCase getMonthlyBudgetUseCase;
   final AddTransactionUseCase addTransactionUseCase;
-  final DepositToGoalUseCase depositToGoalUseCase;
-  final PurchaseGoalUseCase purchaseGoalUseCase;
-  final DeleteGoalAtomicUseCase deleteGoalAtomicUseCase;
   final PreferencesLocalDataSource preferencesLocalDataSource;
-  final GoalLocalDataSource goalLocalDataSource;
-
   WalletProvider({
     required this.getAccountBalance,
     required this.getAccountsUseCase,
@@ -39,18 +30,13 @@ class WalletProvider extends ChangeNotifier {
     required this.deleteAccountUseCase,
     required this.getMonthlyBudgetUseCase,
     required this.addTransactionUseCase,
-    required this.depositToGoalUseCase,
-    required this.purchaseGoalUseCase,
-    required this.deleteGoalAtomicUseCase,
     required this.preferencesLocalDataSource,
-    required this.goalLocalDataSource,
   }) {
     // Initialization is now explicit via initApp()
   }
 
   List<AccountEntity> _accounts = [];
   double _budgetLimit = 2400.00;
-  List<GoalEntity> _goals = [];
   String _currencySymbol = 'S/';
   Map<String, double> _exchangeRates = {};
   CurrencyConverter _currencyConverter = CurrencyConverter(rates: {});
@@ -58,7 +44,6 @@ class WalletProvider extends ChangeNotifier {
 
   List<AccountEntity> get accounts => _accounts;
   double get budgetLimit => _budgetLimit;
-  List<GoalEntity> get goals => _goals;
   String get currencySymbol => _currencySymbol;
   Map<String, double> get exchangeRates => _exchangeRates;
   CurrencyConverter get currencyConverter => _currencyConverter;
@@ -181,10 +166,6 @@ class WalletProvider extends ChangeNotifier {
       (budget) => _budgetLimit = budget,
     );
 
-    // 4. Load Goals
-    final cachedGoals = await goalLocalDataSource.getGoals();
-    _goals = List<GoalEntity>.from(cachedGoals);
-
     // 5. Load Currency Symbol and Rates
     _currencySymbol = preferencesLocalDataSource.getCurrency();
     _exchangeRates = preferencesLocalDataSource.getExchangeRates();
@@ -196,7 +177,6 @@ class WalletProvider extends ChangeNotifier {
   /// Refresca los datos del provider (útil tras Factory Reset)
   Future<void> refreshData() async {
     _accounts = [];
-    _goals = [];
     await loadWalletData();
   }
 
@@ -274,104 +254,6 @@ class WalletProvider extends ChangeNotifier {
     await preferencesLocalDataSource.saveCurrency(symbol);
   }
 
-  // --- Goals Section ---
-
-  void addGoal(String name, double targetAmount, int iconCode, int colorValue,
-      {String? iconName,
-      DateTime? deadline,
-      int? accountId,
-      int? categoryId}) async {
-    final newGoal = GoalModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      targetAmount: targetAmount,
-      currentAmount: 0,
-      iconCode: iconCode,
-      iconName: iconName,
-      colorValue: colorValue,
-      isCompleted: false,
-      deadline: deadline,
-      accountId: accountId,
-      categoryId: categoryId,
-      orderIndex: _goals.length,
-    );
-    _goals.add(newGoal);
-    notifyListeners();
-    await goalLocalDataSource.saveGoal(newGoal);
-  }
-
-  // Eliminado _saveGoals ya que usaremos persistencia individual por meta-id
-
-  void updateGoal(GoalEntity updatedGoal) async {
-    final index = _goals.indexWhere((g) => g.id == updatedGoal.id);
-    if (index != -1) {
-      _goals[index] = updatedGoal;
-      notifyListeners();
-      await goalLocalDataSource.saveGoal(GoalModel.fromEntity(updatedGoal));
-    }
-  }
-
-  Future<void> deleteGoal(String id,
-      {bool refund = false, int? refundAccountId}) async {
-    final result = await deleteGoalAtomicUseCase(
-        DeleteGoalAtomicParams(
-            goalId: id,
-            refund: refund,
-            refundAccountId: refundAccountId
-        ));
-
-    result.fold((fail) {
-      errorMessage = fail.message;
-      notifyListeners();
-    }, (_) async {
-      await loadWalletData();
-    });
-  }
-
-  void reorderGoals(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
-    final GoalEntity item = _goals.removeAt(oldIndex);
-    _goals.insert(newIndex, item);
-
-    for (int i = 0; i < _goals.length; i++) {
-      _goals[i] = _goals[i].copyWith(orderIndex: i);
-      goalLocalDataSource.saveGoal(GoalModel.fromEntity(_goals[i]));
-    }
-
-    notifyListeners();
-  }
-
-  Future<void> depositToGoal(
-      String goalId, double amount, int sourceAccountId) async {
-    
-    final result = await depositToGoalUseCase(
-        DepositToGoalParams(
-            goalId: goalId, 
-            amount: amount, 
-            sourceAccountId: sourceAccountId
-        ));
-
-    result.fold((fail) {
-      errorMessage = fail.message;
-      notifyListeners();
-    }, (_) async {
-      await loadWalletData();
-    });
-  }
-
-  Future<void> purchaseGoal(String goalId, {int? categoryId}) async {
-    final result = await purchaseGoalUseCase(
-        PurchaseGoalParams(goalId: goalId, categoryId: categoryId));
-
-    result.fold((fail) {
-      errorMessage = fail.message;
-      notifyListeners();
-    }, (_) async {
-      await loadWalletData();
-    });
-  }
 
   String getAccountName(int id) {
     try {

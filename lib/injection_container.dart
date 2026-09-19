@@ -14,34 +14,36 @@ import 'core/services/notification_coordinator.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
-import 'data/repositories/transaction_repository_impl.dart';
 import 'domain/repositories/account_repository.dart';
-import 'data/repositories/account_repository_impl.dart';
 import 'domain/repositories/goal_operations_repository.dart';
-import 'data/repositories/goal_operations_repository_impl.dart';
 import 'domain/repositories/reminder_repository.dart';
+import 'data/repositories/account_repository_impl.dart';
+import 'data/repositories/transaction_repository_impl.dart';
+import 'data/repositories/goal_operations_repository_impl.dart';
 import 'data/repositories/reminder_repository_impl.dart';
 
 // Casos de Uso
+import 'domain/usecases/account_usecases.dart';
 import 'domain/usecases/add_transaction_usecase.dart';
+import 'domain/usecases/delete_transaction_usecase.dart';
 import 'domain/usecases/get_account_balance_usecase.dart';
 import 'domain/usecases/get_budget_mood_usecase.dart';
-import 'domain/usecases/get_transactions_usecase.dart';
 import 'domain/usecases/get_monthly_budget_usecase.dart';
+import 'domain/usecases/get_transactions_by_date_range_usecase.dart';
+import 'domain/usecases/get_transactions_usecase.dart';
 import 'domain/usecases/update_transaction_usecase.dart';
-import 'domain/usecases/delete_transaction_usecase.dart';
-import 'domain/usecases/account_usecases.dart';
+import 'domain/usecases/goal_operations_usecases.dart';
 import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
-import 'domain/usecases/get_transactions_by_date_range_usecase.dart';
-import 'domain/usecases/goal_operations_usecases.dart';
 
 // Providers (New)
 import 'presentation/providers/ui_provider.dart';
 import 'presentation/providers/transaction_provider.dart';
 import 'presentation/providers/wallet_provider.dart';
-import 'presentation/providers/stats_provider.dart';
 import 'presentation/providers/reminder_provider.dart';
+import 'presentation/providers/goal_provider.dart';
+import 'presentation/providers/stats_provider.dart';
+
 
 final sl = GetIt.instance;
 
@@ -130,30 +132,6 @@ Future<void> init() async {
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
   sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
   sl.registerLazySingleton(() => GetTransactionsByDateRangeUseCase(sl()));
-  sl.registerLazySingleton(() => DepositToGoalUseCase(
-      repository: sl(),
-      goalLocalDataSource: sl(),
-      accountRepository: sl(),
-      preferencesLocalDataSource: sl()));
-  sl.registerLazySingleton(() => PurchaseGoalUseCase(
-      repository: sl(),
-      goalLocalDataSource: sl()));
-  sl.registerLazySingleton(() => DeleteGoalAtomicUseCase(
-      repository: sl(),
-      goalLocalDataSource: sl(),
-      accountRepository: sl(),
-      preferencesLocalDataSource: sl()));
-
-  //! Proveedores (Refactored)
-
-  // 1. UI Provider
-  sl.registerLazySingleton(
-    () => UiProvider(
-      preferencesLocalDataSource: sl(),
-      notificationCoordinator: sl(),
-    ),
-  );
-
   // 2. Wallet Provider
   sl.registerLazySingleton(
     () => WalletProvider(
@@ -164,11 +142,17 @@ Future<void> init() async {
       deleteAccountUseCase: sl(),
       getMonthlyBudgetUseCase: sl(),
       addTransactionUseCase: sl(),
+      preferencesLocalDataSource: sl(),
+    ),
+  );
+
+  // 2.5 Goal Provider
+  sl.registerLazySingleton(
+    () => GoalProvider(
+      goalOperationsRepository: sl(),
       depositToGoalUseCase: sl(),
       purchaseGoalUseCase: sl(),
       deleteGoalAtomicUseCase: sl(),
-      preferencesLocalDataSource: sl(),
-      goalLocalDataSource: sl(),
     ),
   );
 

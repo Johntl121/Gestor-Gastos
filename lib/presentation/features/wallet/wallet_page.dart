@@ -3,6 +3,7 @@ import 'package:confetti/confetti.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../../providers/goal_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../../data/models/subscription.dart';
 import '../../../domain/entities/goal_entity.dart';
@@ -656,9 +657,9 @@ class _GoalsSection extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final textColor = theme.textTheme.titleLarge?.color ?? Colors.black;
 
-    return Consumer<WalletProvider>(
-      builder: (context, walletProvider, _) {
-        final goals = walletProvider.goals;
+    return Consumer2<WalletProvider, GoalProvider>(
+      builder: (context, walletProvider, goalProvider, _) {
+        final goals = goalProvider.goals;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -711,7 +712,7 @@ class _GoalsSection extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   proxyDecorator: _proxyDecorator,
                   onReorder: (oldIndex, newIndex) {
-                    walletProvider.reorderGoals(oldIndex, newIndex);
+                    goalProvider.reorderGoals(oldIndex, newIndex);
                   },
                   onReorderStart: (_) => onDraggingChanged(true),
                   onReorderEnd: (_) => onDraggingChanged(false),
@@ -762,7 +763,10 @@ class _GoalsSection extends StatelessWidget {
                             ),
                           );
                           if (confirm == true) {
-                            walletProvider.deleteGoal(goal.id.toString());
+                            final success = await goalProvider.deleteGoal(goal.id.toString());
+                            if (success && context.mounted) {
+                              context.read<WalletProvider>().loadWalletData();
+                            }
                           }
                         },
                       ),

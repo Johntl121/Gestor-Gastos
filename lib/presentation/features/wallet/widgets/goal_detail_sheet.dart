@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../domain/entities/goal_entity.dart';
 import '../../../providers/wallet_provider.dart';
+import '../../../providers/goal_provider.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../../core/constants/app_categories.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -21,7 +22,7 @@ class GoalDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<WalletProvider, GoalEntity?>(
+    return Selector<GoalProvider, GoalEntity?>(
       selector: (context, provider) =>
           provider.goals.where((g) => g.id == goal.id).firstOrNull,
       builder: (context, updatedGoal, child) {
@@ -651,9 +652,13 @@ class GoalDetailSheet extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   onConfettiTrigger();
-                  await provider.purchaseGoal(currentGoal.id.toString(),
-                      categoryId: selectedCategoryId);
-
+                  final success = await context.read<GoalProvider>().purchaseGoal(
+                        currentGoal.id.toString(),
+                        categoryId: selectedCategoryId,
+                      );
+                  if (success && context.mounted) {
+                    context.read<WalletProvider>().loadWalletData();
+                  }
                   if (context.mounted) {
                     Provider.of<TransactionProvider>(context, listen: false)
                         .loadTransactions();
@@ -775,8 +780,13 @@ class GoalDetailSheet extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await provider.deleteGoal(currentGoal.id.toString(),
-                        refund: true, refundAccountId: selectedRefundAccount);
+                    final success = await context.read<GoalProvider>().deleteGoal(
+                          currentGoal.id.toString(),
+                          refundAccountId: selectedRefundAccount,
+                        );
+                    if (success && context.mounted) {
+                      context.read<WalletProvider>().loadWalletData();
+                    }
                     if (!ctx.mounted) return;
                     Navigator.pop(ctx);
                     if (!context.mounted) return;
@@ -812,10 +822,13 @@ class GoalDetailSheet extends StatelessWidget {
                   const Text("Cancelar", style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: () {
-                Provider.of<WalletProvider>(context, listen: false)
+              onPressed: () async {
+                final success = await context.read<GoalProvider>()
                     .deleteGoal(currentGoal.id.toString());
-                Navigator.pop(ctx);
+                if (success && context.mounted) {
+                  context.read<WalletProvider>().loadWalletData();
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
