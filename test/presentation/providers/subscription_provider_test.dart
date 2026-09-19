@@ -2,12 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dartz/dartz.dart';
 import 'package:gestor_gastos/presentation/providers/subscription_provider.dart';
 import 'package:gestor_gastos/domain/repositories/subscription_repository.dart';
+import 'package:gestor_gastos/domain/repositories/transaction_repository.dart';
 import 'package:gestor_gastos/core/services/notification_coordinator.dart';
 import 'package:gestor_gastos/data/models/subscription.dart';
 import 'package:gestor_gastos/core/errors/failure.dart';
 import 'package:gestor_gastos/core/services/notification_service.dart';
 import 'package:gestor_gastos/data/datasources/preferences_local_data_source.dart';
 import 'package:gestor_gastos/domain/repositories/reminder_repository.dart';
+import 'package:gestor_gastos/domain/usecases/subscriptions/refresh_subscription_cycles_usecase.dart';
 
 class MockSubscriptionRepository implements SubscriptionRepository {
   List<Subscription> subs = [];
@@ -60,6 +62,23 @@ class MockNotificationCoordinator extends NotificationCoordinator {
   }
 }
 
+class MockRefreshSubscriptionCyclesUseCase implements RefreshSubscriptionCyclesUseCase {
+  bool shouldFail = false;
+  List<Subscription> subs = [];
+
+  @override
+  SubscriptionRepository get subscriptionRepository => throw UnimplementedError();
+
+  @override
+  TransactionRepository get transactionRepository => throw UnimplementedError();
+
+  @override
+  Future<Either<Failure, List<Subscription>>> call(RefreshSubscriptionCyclesParams params) async {
+    if (shouldFail) return const Left(DatabaseFailure('DB Error'));
+    return Right(subs);
+  }
+}
+
 class _DummyNotificationService implements NotificationService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -84,6 +103,7 @@ class _DummyReminderRepo implements ReminderRepository {
 void main() {
   late MockSubscriptionRepository mockRepo;
   late MockNotificationCoordinator mockCoordinator;
+  late MockRefreshSubscriptionCyclesUseCase mockRefreshSubscriptionCyclesUseCase;
   late SubscriptionProvider provider;
 
   final tSubscription = Subscription(
@@ -111,15 +131,19 @@ void main() {
   setUp(() {
     mockRepo = MockSubscriptionRepository();
     mockCoordinator = MockNotificationCoordinator();
+    mockRefreshSubscriptionCyclesUseCase = MockRefreshSubscriptionCyclesUseCase();
     
     provider = SubscriptionProvider(
       subscriptionRepository: mockRepo,
       notificationCoordinator: mockCoordinator,
+      refreshSubscriptionCyclesUseCase: mockRefreshSubscriptionCyclesUseCase,
     );
   });
 
   test('loadSubscriptions - success', () async {
     mockRepo.subs = [tSubscription];
+    mockRefreshSubscriptionCyclesUseCase.subs = [tSubscription];
+    
     await provider.loadSubscriptions();
 
     expect(provider.subscriptions, [tSubscription]);
@@ -128,12 +152,13 @@ void main() {
   });
 
   test('loadSubscriptions - failure', () async {
-    mockRepo.shouldFail = true;
+    mockRefreshSubscriptionCyclesUseCase.shouldFail = true;
+        
     await provider.loadSubscriptions();
 
     expect(provider.subscriptions, isEmpty);
     expect(provider.isLoading, false);
-    expect(provider.errorMessage, 'Error loading');
+    expect(provider.errorMessage, 'DB Error');
   });
 
   test('addSubscription - new subscription', () async {
@@ -171,6 +196,7 @@ void main() {
 
   test('reorderSubscriptions', () async {
     mockRepo.subs = [tSubscription, tSubscription2];
+    mockRefreshSubscriptionCyclesUseCase.subs = [tSubscription, tSubscription2];
     await provider.loadSubscriptions();
 
     provider.reorderSubscriptions(0, 2);

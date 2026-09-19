@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../data/models/subscription.dart';
+import '../../core/errors/failure.dart';
 import '../../domain/repositories/subscription_repository.dart';
 import '../../core/services/notification_coordinator.dart';
+
+import '../../domain/usecases/subscriptions/refresh_subscription_cycles_usecase.dart';
 
 class SubscriptionProvider extends ChangeNotifier {
   final SubscriptionRepository subscriptionRepository;
   final NotificationCoordinator notificationCoordinator;
+  final RefreshSubscriptionCyclesUseCase refreshSubscriptionCyclesUseCase;
 
   SubscriptionProvider({
     required this.subscriptionRepository,
     required this.notificationCoordinator,
+    required this.refreshSubscriptionCyclesUseCase,
   }) {
     loadSubscriptions();
   }
@@ -25,10 +30,11 @@ class SubscriptionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final result = await subscriptionRepository.getSubscriptions();
+    final result = await refreshSubscriptionCyclesUseCase(
+        RefreshSubscriptionCyclesParams(now: DateTime.now()));
 
     result.fold(
-      (failure) {
+      (Failure failure) {
         errorMessage = failure.message;
         _isLoading = false;
         notifyListeners();

@@ -20,6 +20,7 @@ import 'domain/repositories/reminder_repository.dart';
 import 'domain/repositories/subscription_operations_repository.dart';
 import 'data/repositories/subscription_operations_repository_impl.dart';
 import 'domain/usecases/subscriptions/pay_subscription_usecase.dart';
+import 'domain/usecases/subscriptions/refresh_subscription_cycles_usecase.dart';
 import 'domain/repositories/subscription_repository.dart';
 import 'data/repositories/account_repository_impl.dart';
 import 'data/repositories/transaction_repository_impl.dart';
@@ -163,6 +164,10 @@ Future<void> init() async {
       preferencesLocalDataSource: sl()));
 
   sl.registerLazySingleton(() => PaySubscriptionUseCase(sl()));
+  sl.registerLazySingleton(() => RefreshSubscriptionCyclesUseCase(
+        subscriptionRepository: sl(),
+        transactionRepository: sl(),
+      ));
 
   //! Proveedores (Refactored)
 
@@ -217,6 +222,7 @@ Future<void> init() async {
     () => SubscriptionProvider(
       subscriptionRepository: sl(),
       notificationCoordinator: sl(),
+      refreshSubscriptionCyclesUseCase: sl(),
     ),
   );
 

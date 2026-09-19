@@ -25,6 +25,7 @@ class TransactionProvider extends ChangeNotifier {
   final PreferencesLocalDataSource preferencesLocalDataSource;
   final SubscriptionLocalDataSource subscriptionLocalDataSource;
   final NotificationCoordinator notificationCoordinator;
+  final VoidCallback? onSessionExpired;
 
   TransactionProvider({
     required this.getTransactionsUseCase,
@@ -36,12 +37,12 @@ class TransactionProvider extends ChangeNotifier {
     required this.preferencesLocalDataSource,
     required this.subscriptionLocalDataSource,
     required this.notificationCoordinator,
+    this.onSessionExpired,
   }) {
     loadTransactions();
   }
 
-  /// Callback to notify presentation layer when subscriptions are automatically updated
-  VoidCallback? onSubscriptionsUpdated;
+
 
   List<TransactionEntity> _transactions = [];
   bool _isLoading = false;
@@ -80,12 +81,6 @@ class TransactionProvider extends ChangeNotifier {
         if (list.length < _limit) _hasMore = false;
       },
     );
-
-    // Check subscription statuses (now fetches directly from data source)
-    final bool subsChanged = await _checkSubscriptionStatuses();
-    if (subsChanged) {
-      onSubscriptionsUpdated?.call();
-    }
 
     _isLoading = false;
     notifyListeners();
@@ -126,52 +121,7 @@ class TransactionProvider extends ChangeNotifier {
     await loadTransactions();
   }
 
-  Future<bool> _checkSubscriptionStatuses() async {
-    final now = DateTime.now();
 
-    // Set para suscripciones mensuales pagadas en el mes/año actual
-    final Set<String> paidMonthlyNames = {};
-    // Set para suscripciones anuales pagadas en el año actual
-    final Set<String> paidYearlyNames = {};
-
-    bool changed = false;
-
-    // Escaneo O(N) único sobre las transacciones
-    for (var tx in _transactions) {
-      if (tx.type == TransactionType.expense) {
-        if (tx.date.year == now.year) {
-          paidYearlyNames.add(tx.description);
-          if (tx.date.month == now.month) {
-            paidMonthlyNames.add(tx.description);
-          }
-        }
-      }
-    }
-
-    try {
-      final subs = await subscriptionLocalDataSource.getSubscriptions();
-
-      // Escaneo O(M) sobre las suscripciones
-      for (int i = 0; i < subs.length; i++) {
-        final sub = subs[i];
-        final bool isPaid = sub.frequency == ExpenseFrequency.monthly
-            ? paidMonthlyNames.contains(sub.name)
-            : paidYearlyNames.contains(sub.name);
-
-        if (sub.isPaid != isPaid) {
-          final updatedSub = sub.copyWith(isPaid: isPaid);
-          await subscriptionLocalDataSource.saveSubscription(updatedSub);
-          changed = true;
-        }
-      }
-
-      // Note for P9-02C: Currently, this logic will be moved to a UseCase.
-      return changed;
-    } catch (e) {
-      debugPrint("Error checking subscription statuses: $e");
-      return false;
-    }
-  }
 
   Future<void> addTransaction(TransactionEntity transaction) async {
     _isLoading = true;

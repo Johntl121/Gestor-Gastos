@@ -10,7 +10,7 @@ import '../../../core/services/speech_service.dart';
 import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../providers/subscription_provider.dart';
+
 
 // Pages
 import 'home_page.dart';
@@ -43,11 +43,6 @@ class _MainPageState extends State<MainPage> {
       // 2. Cargamos transacciones (esto disparará el ProxyProvider hacia StatsProvider)
       final transactionProvider =
           Provider.of<TransactionProvider>(context, listen: false);
-      transactionProvider.onSubscriptionsUpdated = () {
-        if (mounted) {
-          Provider.of<SubscriptionProvider>(context, listen: false).loadSubscriptions();
-        }
-      };
       
       try {
         await transactionProvider.loadTransactions();
