@@ -225,7 +225,7 @@ class StatsProvider extends ChangeNotifier {
       final IconData icon = AppCategories.getIcon(t.categoryId);
 
       double convertedAmount = t.amount.abs();
-      if (_walletProvider != null) {
+      if (_walletProvider != null && _walletProvider!.accounts.isNotEmpty) {
         final account = _walletProvider!.accounts.firstWhere(
             (a) => a.id == t.accountId,
             orElse: () => _walletProvider!.accounts.first);
@@ -298,15 +298,13 @@ class StatsProvider extends ChangeNotifier {
         continue; // Ignorar transferencias
       }
 
-      double convertedAmount = t.amount.abs();
-      if (_walletProvider != null) {
+      double convertedAmount = t.amount;
+      if (_walletProvider != null && _walletProvider!.accounts.isNotEmpty) {
         final account = _walletProvider!.accounts.firstWhere(
             (a) => a.id == t.accountId,
             orElse: () => _walletProvider!.accounts.first);
         convertedAmount = _walletProvider!.currencyConverter.convert(
-            t.amount.abs(),
-            account.currencySymbol,
-            _walletProvider!.currencySymbol);
+            t.amount, account.currencySymbol, _walletProvider!.currencySymbol);
       }
 
       if (t.type == TransactionType.income) totalIncome += convertedAmount;

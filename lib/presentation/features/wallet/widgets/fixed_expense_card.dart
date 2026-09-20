@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../data/models/subscription.dart';
 import '../../../../domain/entities/account_entity.dart';
 import '../../../../core/constants/app_categories.dart';
+import '../../../../core/constants/icon_mapper.dart';
 import '../../../../core/utils/currency_formatter.dart';
 
 class FixedExpenseCard extends StatelessWidget {
@@ -62,7 +63,13 @@ class FixedExpenseCard extends StatelessWidget {
       statusColor = isDarkMode ? Colors.grey[400]! : Colors.grey[500]!; // Gris
     }
 
-    final itemColor = AppCategories.getColor(subscription.categoryId);
+    final itemColor = subscription.customColor != null
+        ? Color(subscription.customColor!)
+        : AppCategories.getColor(subscription.categoryId);
+    
+    final itemIcon = subscription.customIcon != null
+        ? IconMapper.getIcon(subscription.customIcon!)
+        : AppCategories.getIcon(subscription.categoryId);
 
     // Dynamic Gradient based on "Dark Mode Premium" rule
     // Gradient: Top slightly lighter, Bottom slightly darker for volume.
@@ -130,10 +137,7 @@ class FixedExpenseCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      IconData(
-                          AppCategories.getIcon(subscription.categoryId)
-                              .codePoint,
-                          fontFamily: 'MaterialIcons'),
+                      itemIcon,
                       color: itemColor,
                       size: 25,
                     ),
