@@ -8,6 +8,7 @@ import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../providers/subscription_provider.dart';
+import '../../providers/coach_provider.dart';
 
 // Components
 import 'financial_coach_sheet.dart';
@@ -53,6 +54,7 @@ class _StatsPageState extends State<StatsPage>
     final txProvider = Provider.of<TransactionProvider>(context);
     final subProvider = Provider.of<SubscriptionProvider>(context);
     final uiProvider = Provider.of<UiProvider>(context);
+    final coachProvider = Provider.of<CoachProvider>(context);
 
     // Calculate Categories (Dynamically mapped with actual colors)
     final categories =
@@ -144,8 +146,8 @@ class _StatsPageState extends State<StatsPage>
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) {
-              final isReady = (statsProvider.canRequestAnalysis('weekly') ||
-                      statsProvider.canRequestAnalysis('monthly')) &&
+              final isReady = (coachProvider.canRequestAnalysis('weekly') ||
+                      coachProvider.canRequestAnalysis('monthly')) &&
                   txProvider.transactions.isNotEmpty;
 
               final scale = isReady ? _pulseAnimation.value : 1.0;

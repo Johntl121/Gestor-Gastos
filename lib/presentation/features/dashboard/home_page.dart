@@ -9,7 +9,7 @@ import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/subscription_provider.dart';
-import '../../providers/stats_provider.dart';
+import '../../providers/coach_provider.dart';
 import '../../../data/datasources/preferences_local_data_source.dart';
 import '../../../core/services/database_helper.dart';
 import '../../../injection_container.dart' as sl;
@@ -78,7 +78,7 @@ class _HomePageState extends State<HomePage> {
             _buildDevButton(ctx, "🤖 Reset Coach Timer", Colors.blueAccent,
                 () async {
               Navigator.pop(ctx);
-              await Provider.of<StatsProvider>(ctx, listen: false)
+              await Provider.of<CoachProvider>(ctx, listen: false)
                   .resetCoachCooldown();
               if (ctx.mounted) {
                 ScaffoldMessenger.of(ctx).showSnackBar(

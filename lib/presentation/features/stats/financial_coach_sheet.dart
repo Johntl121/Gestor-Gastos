@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import '../../../core/services/gemini_client.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/transaction_provider.dart';
+import '../../providers/coach_provider.dart';
+import '../../providers/wallet_provider.dart';
+import '../../../domain/usecases/coach/build_financial_context_usecase.dart';
+import '../../../domain/usecases/coach/get_financial_advice_usecase.dart';
 
 class FinancialCoachSheet extends StatefulWidget {
   const FinancialCoachSheet({super.key});
@@ -18,14 +21,14 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
   @override
   void initState() {
     super.initState();
-    // El initState solo establece el modo por defecto.
-    // La UI lee directamente del Provider via currentAdvice(_selectedMode).
   }
 
   @override
   Widget build(BuildContext context) {
     final statsProvider = Provider.of<StatsProvider>(context);
     final txProvider = Provider.of<TransactionProvider>(context);
+    final coachProvider = Provider.of<CoachProvider>(context);
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
 
     return Container(
       height: 600,
@@ -60,10 +63,10 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
           // Controls
           Row(
             children: [
-              _buildAnalysisButton(statsProvider, txProvider, 'weekly',
+              _buildAnalysisButton(coachProvider, txProvider, statsProvider, walletProvider, 'weekly',
                   "Análisis Semanal", Icons.calendar_view_week),
               const SizedBox(width: 10),
-              _buildAnalysisButton(statsProvider, txProvider, 'monthly',
+              _buildAnalysisButton(coachProvider, txProvider, statsProvider, walletProvider, 'monthly',
                   "Análisis Mensual", Icons.calendar_month),
             ],
           ),
@@ -74,7 +77,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
 
           // Content
           Expanded(
-            child: statsProvider.isAdviceLoading
+            child: coachProvider.isAdviceLoading
                 ? const Center(
                     child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -85,7 +88,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
                           style: TextStyle(color: Colors.white70)),
                     ],
                   ))
-                : _buildAdviceContent(statsProvider, txProvider),
+                : _buildAdviceContent(coachProvider, txProvider),
           ),
           const SizedBox(height: 10),
           const Text(
@@ -99,8 +102,10 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
   }
 
   Widget _buildAnalysisButton(
-      StatsProvider provider,
+      CoachProvider coachProvider,
       TransactionProvider txProvider,
+      StatsProvider statsProvider,
+      WalletProvider walletProvider,
       String type,
       String label,
       IconData icon) {
@@ -110,8 +115,8 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     int daysWait = 0;
 
     if (hasData) {
-      isAvailable = provider.canRequestAnalysis(type);
-      daysWait = provider.getDaysUntilAvailable(type);
+      isAvailable = coachProvider.canRequestAnalysis(type);
+      daysWait = coachProvider.getDaysUntilAvailable(type);
     }
 
     final isSelected = _selectedMode == type;
@@ -146,7 +151,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
           }
 
           setState(() => _selectedMode = type);
-          _handleRequest(provider, txProvider, type);
+          _handleRequest(coachProvider, statsProvider, walletProvider, type);
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -208,9 +213,8 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     );
   }
 
-  /// Construye el contenido según si hay advice guardado o no
   Widget _buildAdviceContent(
-      StatsProvider statsProvider, TransactionProvider txProvider) {
+      CoachProvider coachProvider, TransactionProvider txProvider) {
     final hasMinData = txProvider.transactions.length > 5;
 
     if (!hasMinData) {
@@ -222,7 +226,7 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
       );
     }
 
-    final advice = statsProvider.currentAdvice(_selectedMode);
+    final advice = coachProvider.currentAdvice(_selectedMode);
 
     if (advice == null || advice.isEmpty) {
       final isWeekly = _selectedMode == 'weekly';
@@ -286,42 +290,25 @@ class _FinancialCoachSheetState extends State<FinancialCoachSheet> {
     );
   }
 
-  Future<void> _handleRequest(StatsProvider statsProvider,
-      TransactionProvider txProvider, String type) async {
-    // Check min transactions
-    if (txProvider.transactions.length <= 5) return;
-
-    if (!statsProvider.canRequestAnalysis(type)) {
+  Future<void> _handleRequest(CoachProvider coachProvider, StatsProvider statsProvider, WalletProvider walletProvider, String type) async {
+    if (!coachProvider.canRequestAnalysis(type)) {
       return;
     }
 
-    statsProvider.setAdviceLoading(true);
-    try {
-      // --- Usar el nuevo Context Builder centralizado ---
-      final contextData = await statsProvider.buildFinancialContextForAI();
+    final contextParams = BuildFinancialContextParams(
+      currentPeriodTransactions: statsProvider.currentPeriodTransactions,
+      topCategories: statsProvider.getSpendingByCategory([]), // Sin suscripciones extra para resumen puro
+      currencySymbol: statsProvider.currencySymbol,
+      accounts: walletProvider.accounts,
+      currencyConvert: (amount, from, to) => walletProvider.currencyConverter.convert(amount, from, to),
+    );
 
-      // --- Llamar a la API con el contexto estructurado ---
-      final advice = await GeminiClient().obtenerConsejo(
-        contextData: contextData,
-        periodType: type,
-        isNewUser: false,
-      );
+    final params = GetFinancialAdviceParams(
+      periodType: type,
+      contextParams: contextParams,
+    );
 
-      if (type == 'weekly') {
-        await statsProvider.saveWeeklyAdvice(advice);
-      } else {
-        await statsProvider.saveMonthlyAdvice(advice);
-      }
-    } catch (e) {
-      final errorMessage =
-          "Error al contactar al coach. Inténtalo más tarde.\nDetalle: $e";
-      if (type == 'weekly') {
-        await statsProvider.saveWeeklyAdvice(errorMessage);
-      } else {
-        await statsProvider.saveMonthlyAdvice(errorMessage);
-      }
-    } finally {
-      statsProvider.setAdviceLoading(false);
-    }
+    await coachProvider.requestAdvice(type, params);
   }
 }
+

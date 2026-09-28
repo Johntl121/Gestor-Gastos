@@ -11,6 +11,7 @@ import 'data/datasources/local/reminder_local_data_source.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/notification_coordinator.dart';
+import 'core/services/gemini_client.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -27,6 +28,8 @@ import 'data/repositories/transaction_repository_impl.dart';
 import 'data/repositories/goal_operations_repository_impl.dart';
 import 'data/repositories/reminder_repository_impl.dart';
 import 'data/repositories/subscription_repository_impl.dart';
+import 'domain/repositories/coach_cache_repository.dart';
+import 'data/repositories/coach_cache_repository_impl.dart';
 
 // Casos de Uso
 import 'domain/usecases/account_usecases.dart';
@@ -41,6 +44,8 @@ import 'domain/usecases/update_transaction_usecase.dart';
 import 'domain/usecases/goal_operations_usecases.dart';
 import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
+import 'domain/usecases/coach/build_financial_context_usecase.dart';
+import 'domain/usecases/coach/get_financial_advice_usecase.dart';
 
 // Providers (New)
 import 'presentation/providers/ui_provider.dart';
@@ -50,6 +55,7 @@ import 'presentation/providers/reminder_provider.dart';
 import 'presentation/providers/goal_provider.dart';
 import 'presentation/providers/stats_provider.dart';
 import 'presentation/providers/subscription_provider.dart';
+import 'presentation/providers/coach_provider.dart';
 
 final sl = GetIt.instance;
 
@@ -98,6 +104,8 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerLazySingleton<GeminiClient>(() => GeminiClient());
+
   //! Repositorio
   sl.registerLazySingleton<TransactionRepository>(
     () => TransactionRepositoryImpl(
@@ -137,6 +145,10 @@ Future<void> init() async {
     ),
   );
 
+  sl.registerLazySingleton<CoachCacheRepository>(
+    () => CoachCacheRepositoryImpl(),
+  );
+
   //! Casos de Uso
   sl.registerLazySingleton(() => AddTransactionUseCase(sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
@@ -167,6 +179,18 @@ Future<void> init() async {
   sl.registerLazySingleton(() => RefreshSubscriptionCyclesUseCase(
         subscriptionRepository: sl(),
         transactionRepository: sl(),
+      ));
+
+  sl.registerLazySingleton(() => BuildFinancialContextUseCase(
+        preferencesLocalDataSource: sl(),
+        subscriptionRepository: sl(),
+        goalLocalDataSource: sl(),
+      ));
+
+  sl.registerLazySingleton(() => GetFinancialAdviceUseCase(
+        buildContextUseCase: sl(),
+        cacheRepository: sl(),
+        geminiClient: sl(),
       ));
 
   //! Proveedores (Refactored)
@@ -242,6 +266,14 @@ Future<void> init() async {
     () => ReminderProvider(
       repository: sl(),
       notificationCoordinator: sl(),
+    ),
+  );
+
+  // 6. Coach Provider
+  sl.registerLazySingleton(
+    () => CoachProvider(
+      cacheRepository: sl(),
+      getFinancialAdvice: sl(),
     ),
   );
 }
