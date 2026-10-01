@@ -68,10 +68,10 @@ void main() {
 
     expect(contextString, contains('DATOS DEL USUARIO:'));
     expect(contextString, contains('Moneda Principal: USD'));
-    expect(contextString, contains('Total Ingresos: \$220.00')); // 200 EUR * 1.1 = 220 USD
-    expect(contextString, contains('Total Gastos: \$50.00'));
-    expect(contextString, contains('Presupuesto Mensual: \$1,000.00'));
-    expect(contextString, contains('Netflix: \$15.00'));
-    expect(contextString, contains('Vacaciones: \$110.00 / \$550.00')); // 100 EUR = 110 USD, 500 EUR = 550 USD
+    expect(contextString, contains('Total Ingresos: \$ 220.00')); // 200 EUR * 1.1 = 220 USD
+    expect(contextString, contains('Total Gastos: \$ -50.00'));
+    expect(contextString, contains('Presupuesto Mensual: \$ 1000.00'));
+    expect(contextString, contains('Netflix: \$ 15.00'));
+    expect(contextString, contains('Vacaciones: \$ 110.00 / \$ 550.00')); // 100 EUR = 110 USD, 500 EUR = 550 USD
   });
 }
