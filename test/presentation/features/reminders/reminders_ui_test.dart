@@ -8,7 +8,7 @@ import 'package:gestor_gastos/core/services/notification_coordinator.dart';
 
 import 'package:gestor_gastos/domain/entities/reminder.dart';
 import 'package:gestor_gastos/presentation/providers/reminder_provider.dart';
-import 'package:gestor_gastos/presentation/features/wallet/wallet_page.dart';
+import 'package:gestor_gastos/presentation/features/wallet/widgets/reminders_summary_section.dart';
 import 'package:gestor_gastos/presentation/features/reminders/reminders_page.dart';
 import 'package:gestor_gastos/presentation/features/reminders/widgets/reminder_card.dart';
 
