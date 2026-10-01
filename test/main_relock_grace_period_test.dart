@@ -78,5 +78,29 @@ void main() {
       );
       expect(shouldLock2, isFalse);
     });
+
+    test('paused en t0, paused nuevamente en t0+40s, resumed en t0+70s -> relock', () {
+      DateTime? backgroundedAt;
+      void simulatePaused(DateTime time) {
+        backgroundedAt ??= time;
+      }
+
+      // t0
+      simulatePaused(DateTime(2025, 1, 1, 10, 0, 0));
+
+      // t0+40s
+      simulatePaused(DateTime(2025, 1, 1, 10, 0, 40));
+
+      // t0+70s
+      final resumedAt = DateTime(2025, 1, 1, 10, 1, 10);
+
+      final lock = shouldLockApp(
+        backgroundedAt: backgroundedAt,
+        resumedAt: resumedAt,
+        gracePeriod: const Duration(seconds: 60),
+      );
+
+      expect(lock, isTrue);
+    });
   });
 }

@@ -60,6 +60,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _showPrivacyShield = false;
   DateTime? _backgroundedAt;
   static const Duration _gracePeriod = Duration(seconds: 60);
+  int _lifecycleToken = 0;
 
   @override
   void initState() {
@@ -87,6 +88,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
+    final currentToken = ++_lifecycleToken;
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
       if (!_isLocked && !_showPrivacyShield) {
         setState(() {
@@ -94,7 +96,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         });
       }
     } else if (state == AppLifecycleState.paused) {
-      _backgroundedAt = DateTime.now();
+      _backgroundedAt ??= appClock();
       if (!_isLocked && !_showPrivacyShield) {
         setState(() {
           _showPrivacyShield = true;
@@ -105,7 +107,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (_backgroundedAt != null) {
         lock = shouldLockApp(
           backgroundedAt: _backgroundedAt,
-          resumedAt: DateTime.now(),
+          resumedAt: appClock(),
           gracePeriod: _gracePeriod,
         );
         _backgroundedAt = null;
@@ -113,7 +115,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       if (lock) {
         final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
-        if (mounted) {
+        if (mounted && currentToken == _lifecycleToken) {
           setState(() {
             _showPrivacyShield = false;
             if (pin != null && pin.isNotEmpty) {
@@ -122,7 +124,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           });
         }
       } else {
-        if (mounted) {
+        if (mounted && currentToken == _lifecycleToken) {
           setState(() {
             _showPrivacyShield = false;
           });
@@ -283,3 +285,6 @@ bool shouldLockApp({
   if (backgroundedAt == null) return false;
   return resumedAt.difference(backgroundedAt) >= gracePeriod;
 }
+
+@visibleForTesting
+DateTime Function() appClock = DateTime.now;
