@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_currencies.dart';
 import '../../core/services/secure_storage_service.dart';
 
+import '../../core/services/pin_security_service.dart';
+
 const String keyFirstTime = 'FIRST_TIME';
 const String keyUserName = 'USER_NAME';
 const String keyCurrency = 'CURRENCY';
@@ -53,10 +55,12 @@ abstract class PreferencesLocalDataSource {
 class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
   final SharedPreferences sharedPreferences;
   final SecureStorageService secureStorage;
+  final PinSecurityService pinSecurityService;
 
   PreferencesLocalDataSourceImpl({
     required this.sharedPreferences,
     required this.secureStorage,
+    required this.pinSecurityService,
   });
 
   @override
@@ -107,14 +111,39 @@ class PreferencesLocalDataSourceImpl implements PreferencesLocalDataSource {
 
   @override
   Future<void> migratePinIfNeeded() async {
-    final oldPin = sharedPreferences.getString(keySecurityPin);
-    if (oldPin != null) {
+    final securePin = await secureStorage.getPin();
+    final sharedPin = sharedPreferences.getString(keySecurityPin);
+
+    if (securePin != null) {
+      if (pinSecurityService.isValidFormat(securePin)) {
+        // Ya está migrado a v1, no hacer nada.
+        return;
+      } else if (pinSecurityService.isLegacyPin(securePin)) {
+        // Es legacy (4 dígitos en SecureStorage), migrar ese valor.
+        try {
+          final hashed = await pinSecurityService.hashPin(securePin);
+          await secureStorage.savePin(hashed);
+          await sharedPreferences.remove(keySecurityPin);
+          debugPrint("🔐 Migración exitosa: PIN de SecureStorage legacy a v1");
+        } catch (e) {
+          debugPrint("❌ Error migrando PIN de SecureStorage: $e");
+        }
+        return;
+      }
+      // Si el securePin es corrupto (no v1 ni legacy), no sobrescribimos con shared.
+      // Se queda allí de forma segura y verifyPin fallará.
+      return;
+    }
+
+    // Si securePin es null, buscamos en SharedPreferences
+    if (sharedPin != null && pinSecurityService.isLegacyPin(sharedPin)) {
       try {
-        await secureStorage.savePin(oldPin);
+        final hashed = await pinSecurityService.hashPin(sharedPin);
+        await secureStorage.savePin(hashed);
         await sharedPreferences.remove(keySecurityPin);
-        debugPrint("🔐 Migración exitosa: PIN movido a almacenamiento seguro");
+        debugPrint("🔐 Migración exitosa: PIN de SharedPreferences a v1 en SecureStorage");
       } catch (e) {
-        debugPrint("❌ Error migrando PIN: $e");
+        debugPrint("❌ Error migrando PIN de SharedPreferences: $e");
       }
     }
   }

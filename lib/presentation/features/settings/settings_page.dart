@@ -206,9 +206,12 @@ class SettingsPage extends StatelessWidget {
                     // OFF: Verify to Disable
                     if (uiProvider.isPinEnabled) {
                       _showPinDialog(context, isCreating: false,
-                          onConfirmed: (pin) {
-                        if (uiProvider.verifyPin(pin)) {
-                          uiProvider.removePin();
+                          onConfirmed: (pin) async {
+                        final isValid = await uiProvider.verifyPin(pin);
+                        if (!context.mounted) return;
+                        if (isValid) {
+                          await uiProvider.removePin();
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text("PIN Eliminado 🔓")));
@@ -241,12 +244,23 @@ class SettingsPage extends StatelessWidget {
                         label: Text("Cambiar PIN",
                             style: TextStyle(color: subTextColor)),
                         onPressed: () {
-                          _showPinDialog(context, isCreating: true,
-                              onConfirmed: (pin) {
-                            uiProvider.setPin(pin);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text("PIN Actualizado")));
+                          _showPinDialog(context, isCreating: false,
+                              onConfirmed: (oldPin) async {
+                            final isValid = await uiProvider.verifyPin(oldPin);
+                            if (!context.mounted) return;
+                            if (isValid) {
+                              _showPinDialog(context, isCreating: true,
+                                  onConfirmed: (newPin) async {
+                                await uiProvider.setPin(newPin);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text("PIN Actualizado")));
+                              });
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("PIN Incorrecto")));
+                            }
                           });
                         },
                       ),

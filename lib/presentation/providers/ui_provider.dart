@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../../data/models/subscription.dart';
 import '../../data/datasources/preferences_local_data_source.dart';
 import '../../core/services/notification_coordinator.dart';
+import '../../core/services/pin_security_service.dart';
 
 class UiProvider extends ChangeNotifier {
   final PreferencesLocalDataSource preferencesLocalDataSource;
   final NotificationCoordinator notificationCoordinator;
+  final PinSecurityService pinSecurityService;
 
   // Theme
   bool _isDarkMode = true;
@@ -38,8 +40,8 @@ class UiProvider extends ChangeNotifier {
   String? get profileImagePath => _profileImagePath;
 
   // Security
-  String? _userPin;
-  bool get isPinEnabled => _userPin != null;
+  bool _hasPin = false;
+  bool get isPinEnabled => _hasPin;
   bool _enableBiometrics = false;
   bool get enableBiometrics => _enableBiometrics;
   bool _enableNotifications = true;
@@ -48,6 +50,7 @@ class UiProvider extends ChangeNotifier {
   UiProvider({
     required this.preferencesLocalDataSource,
     required this.notificationCoordinator,
+    required this.pinSecurityService,
   }) {
     _loadUiData();
   }
@@ -60,8 +63,9 @@ class UiProvider extends ChangeNotifier {
     _userAvatar = preferencesLocalDataSource.getUserAvatar();
     _profileImagePath = preferencesLocalDataSource.getProfileImagePath();
 
-    // 2. Cargar PIN de forma asíncrona desde almacenamiento seguro
-    _userPin = await preferencesLocalDataSource.getSecurityPinAsync();
+    // 2. Cargar estado de PIN de forma asíncrona desde almacenamiento seguro
+    final storedPin = await preferencesLocalDataSource.getSecurityPinAsync();
+    _hasPin = storedPin != null;
 
     _isDarkMode = preferencesLocalDataSource.getThemeMode();
     _enableBiometrics = preferencesLocalDataSource.getEnableBiometrics();
@@ -107,19 +111,22 @@ class UiProvider extends ChangeNotifier {
   }
 
   Future<void> setPin(String pin) async {
-    _userPin = pin;
+    final hashedPin = await pinSecurityService.hashPin(pin);
+    await preferencesLocalDataSource.saveSecurityPin(hashedPin);
+    _hasPin = true;
     notifyListeners();
-    await preferencesLocalDataSource.saveSecurityPin(pin);
   }
 
   Future<void> removePin() async {
-    _userPin = null;
-    notifyListeners();
     await preferencesLocalDataSource.saveSecurityPin(null);
+    _hasPin = false;
+    notifyListeners();
   }
 
-  bool verifyPin(String input) {
-    return _userPin == input;
+  Future<bool> verifyPin(String input) async {
+    final storedPin = await preferencesLocalDataSource.getSecurityPinAsync();
+    if (storedPin == null) return false;
+    return await pinSecurityService.verifyPin(input, storedPin);
   }
 
   Future<void> toggleBiometrics(bool value) async {

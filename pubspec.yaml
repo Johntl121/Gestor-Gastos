@@ -37,6 +37,7 @@ dependencies:
   http: ^1.6.0
   flutter_secure_storage: ^10.0.0
   flutter_timezone: ^5.1.0
+  cryptography: ^2.9.0
 
 dev_dependencies:
   flutter_test:

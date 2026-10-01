@@ -12,6 +12,7 @@ import 'core/services/secure_storage_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/notification_coordinator.dart';
 import 'core/services/gemini_client.dart';
+import 'core/services/pin_security_service.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -69,11 +70,13 @@ Future<void> init() async {
 
   // Storage Seguro para datos sensibles (PIN)
   sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
+  sl.registerLazySingleton<PinSecurityService>(() => PinSecurityService());
 
   sl.registerLazySingleton<PreferencesLocalDataSource>(
     () => PreferencesLocalDataSourceImpl(
       sharedPreferences: sl(),
       secureStorage: sl(),
+      pinSecurityService: sl(),
     ),
   );
 
@@ -200,6 +203,7 @@ Future<void> init() async {
     () => UiProvider(
       preferencesLocalDataSource: sl(),
       notificationCoordinator: sl(),
+      pinSecurityService: sl(),
     ),
   );
   // 2. Wallet Provider
