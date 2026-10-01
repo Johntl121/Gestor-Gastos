@@ -13,6 +13,8 @@ import '../../providers/transaction_provider.dart';
 
 
 // Pages
+import 'widgets/main_navigation_items.dart';
+import 'widgets/add_action_sheet_option.dart';
 import 'home_page.dart';
 import '../stats/stats_page.dart';
 import '../transactions/history_page.dart';
@@ -650,7 +652,7 @@ class _MainPageState extends State<MainPage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               // Inicio
-              _buildNavItem(
+              MainNavigationItem(
                 icon: currentIndex == 0
                     ? Icons.home_rounded
                     : Icons.home_outlined,
@@ -661,7 +663,7 @@ class _MainPageState extends State<MainPage> {
                 onTap: () => _onItemTapped(0),
               ),
               // Estadísticas
-              _buildNavItem(
+              MainNavigationItem(
                 icon: currentIndex == 1
                     ? Icons.bar_chart_rounded
                     : Icons.bar_chart_outlined,
@@ -672,32 +674,11 @@ class _MainPageState extends State<MainPage> {
                 onTap: () => _onItemTapped(1),
               ),
               // Botón central "Añadir"
-              GestureDetector(
+              MainFabButton(
                 onTap: () => _showAddBottomSheet(context),
-                child: Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Colors.cyan, Colors.blueAccent],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.cyan.withValues(alpha: 0.35),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.add_rounded,
-                      color: Colors.white, size: 28),
-                ),
               ),
               // Historial
-              _buildNavItem(
+              MainNavigationItem(
                 icon: currentIndex == 2
                     ? Icons.history_rounded
                     : Icons.history_outlined,
@@ -708,7 +689,7 @@ class _MainPageState extends State<MainPage> {
                 onTap: () => _onItemTapped(2),
               ),
               // Billetera
-              _buildNavItem(
+              MainNavigationItem(
                 icon: currentIndex == 3
                     ? Icons.account_balance_wallet_rounded
                     : Icons.account_balance_wallet_outlined,
@@ -725,39 +706,6 @@ class _MainPageState extends State<MainPage> {
       body: IndexedStack(
         index: currentIndex,
         children: _pages,
-      ),
-    );
-  }
-
-  /// Barra inferior: ítem de navegación individual
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required Color activeColor,
-    required Color inactiveColor,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 64,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: isActive ? activeColor : inactiveColor, size: 26),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? activeColor : inactiveColor,
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -795,8 +743,7 @@ class _MainPageState extends State<MainPage> {
             ),
             const SizedBox(height: 24),
             // Opción Manual
-            _buildSheetOption(
-              ctx: ctx,
+            AddActionSheetOption(
               icon: Icons.edit_note_rounded,
               iconColor: Colors.cyanAccent,
               title: 'Registro Manual',
@@ -811,8 +758,7 @@ class _MainPageState extends State<MainPage> {
             ),
             const SizedBox(height: 12),
             // Opción Voz
-            _buildSheetOption(
-              ctx: ctx,
+            AddActionSheetOption(
               icon: Icons.mic_rounded,
               iconColor: Colors.tealAccent,
               title: 'Por Voz con IA',
@@ -828,56 +774,4 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildSheetOption({
-    required BuildContext ctx,
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style:
-                          const TextStyle(color: Colors.white54, fontSize: 12)),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                color: Colors.white38, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
 }
