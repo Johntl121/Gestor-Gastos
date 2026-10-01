@@ -72,19 +72,28 @@ void main() {
   }
 
   Reminder createReminder(String id, ReminderStatus status, {ReminderRecurrence rec = ReminderRecurrence.none}) {
-    final now = DateTime.now();
+    // Para evitar ambigüedades con el reloj real y hacer el test determinista:
+    // Utilizamos fechas absolutas lejanas en el pasado o futuro.
+    // Como ReminderCard internamente usa DateTime.now(), al usar años extremos garantizamos
+    // el resultado deseado de forma inequívoca sin importar cuándo se ejecute el test.
+    final fixedBaseDate = DateTime(2020, 1, 1, 12, 0);
+    
+    final targetDate = status == ReminderStatus.overdue 
+        ? DateTime(2000, 1, 1)  // Definitivamente en el pasado
+        : DateTime(2100, 1, 1); // Definitivamente en el futuro
+
     return Reminder(
       id: id,
       title: 'Test $id',
       type: ReminderType.general,
-      date: status == ReminderStatus.overdue ? now.subtract(const Duration(days: 1)) : now.add(const Duration(days: 1)),
+      date: targetDate,
       hour: 10,
       minute: 0,
       recurrence: rec,
       active: status != ReminderStatus.inactive && status != ReminderStatus.completed,
-      completedAt: status == ReminderStatus.completed ? now : null,
-      createdAt: now,
-      updatedAt: now,
+      completedAt: status == ReminderStatus.completed ? fixedBaseDate : null,
+      createdAt: fixedBaseDate,
+      updatedAt: fixedBaseDate,
     );
   }
 
