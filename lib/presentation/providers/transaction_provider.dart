@@ -11,9 +11,7 @@ import '../../data/datasources/preferences_local_data_source.dart';
 import '../../data/datasources/subscription_local_data_source.dart';
 import '../../core/services/notification_coordinator.dart';
 import '../../domain/usecases/get_transactions_by_date_range_usecase.dart';
-import '../../core/constants/app_categories.dart';
 import '../../core/constants/app_constants.dart';
-import '../../core/constants/icon_mapper.dart';
 
 class TransactionProvider extends ChangeNotifier {
   final GetTransactionsUseCase getTransactionsUseCase;
@@ -198,26 +196,8 @@ class TransactionProvider extends ChangeNotifier {
   // --- Subscription Logic (Payment) ---
 
   Future<void> markSubscriptionAsPaid(Subscription subscription) async {
-    final transaction = TransactionEntity(
-        accountId: subscription.accountToCharge,
-        categoryId: subscription.categoryId,
-        amount: -subscription.amount,
-        date: DateTime.now(),
-        description: subscription.name,
-        note: subscription.frequency == ExpenseFrequency.monthly
-            ? "Pago mensual"
-            : "Pago anual",
-        type: TransactionType.expense,
-        iconCode: subscription.customIcon != null
-            ? IconMapper.getIcon(subscription.customIcon).codePoint
-            : AppCategories.getIcon(subscription.categoryId).codePoint,
-        colorValue: subscription.customColor ??
-            AppCategories.getColor(subscription.categoryId).toARGB32(),
-        subscriptionId: subscription.id);
-
     final result = await paySubscriptionUseCase(PaySubscriptionParams(
       subscription: subscription,
-      transaction: transaction,
     ));
 
     result.fold(
