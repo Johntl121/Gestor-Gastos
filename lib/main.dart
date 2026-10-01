@@ -57,6 +57,9 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isLocked = false;
+  bool _showPrivacyShield = false;
+  DateTime? _backgroundedAt;
+  static const Duration _gracePeriod = Duration(seconds: 60);
 
   @override
   void initState() {
@@ -68,9 +71,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _checkInitialLock() async {
     final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
     if (pin != null && pin.isNotEmpty) {
-      setState(() {
-        _isLocked = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLocked = true;
+        });
+      }
     }
   }
 
@@ -82,14 +87,46 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.paused) {
-      // App went to background: Lock if PIN is enabled
-      final pin =
-          await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
-      if (pin != null && pin.isNotEmpty) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      if (!_isLocked && !_showPrivacyShield) {
         setState(() {
-          _isLocked = true;
+          _showPrivacyShield = true;
         });
+      }
+    } else if (state == AppLifecycleState.paused) {
+      _backgroundedAt = DateTime.now();
+      if (!_isLocked && !_showPrivacyShield) {
+        setState(() {
+          _showPrivacyShield = true;
+        });
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      bool lock = false;
+      if (_backgroundedAt != null) {
+        lock = shouldLockApp(
+          backgroundedAt: _backgroundedAt,
+          resumedAt: DateTime.now(),
+          gracePeriod: _gracePeriod,
+        );
+        _backgroundedAt = null;
+      }
+
+      if (lock) {
+        final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+        if (mounted) {
+          setState(() {
+            _showPrivacyShield = false;
+            if (pin != null && pin.isNotEmpty) {
+              _isLocked = true;
+            }
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _showPrivacyShield = false;
+          });
+        }
       }
     }
   }
@@ -209,6 +246,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             themeMode: uiProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             theme: lightTheme,
             darkTheme: darkTheme,
+            builder: (context, child) {
+              return Stack(
+                children: [
+                  if (child != null) child,
+                  if (_showPrivacyShield && !_isLocked)
+                    Container(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: const Center(
+                        child: Icon(Icons.security, size: 80, color: Colors.grey),
+                      ),
+                    ),
+                ],
+              );
+            },
             home: _isLocked
                 ? LockScreen(onUnlocked: () {
                     setState(() {
@@ -221,4 +272,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+@visibleForTesting
+bool shouldLockApp({
+  required DateTime? backgroundedAt,
+  required DateTime resumedAt,
+  required Duration gracePeriod,
+}) {
+  if (backgroundedAt == null) return false;
+  return resumedAt.difference(backgroundedAt) >= gracePeriod;
 }
