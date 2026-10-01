@@ -20,6 +20,7 @@ class TransactionEntity extends Equatable {
   final int? colorValue;
   final String? categoryIcon;
   final int? categoryColor;
+  final String? subscriptionId;
 
   const TransactionEntity({
     this.id,
@@ -39,6 +40,7 @@ class TransactionEntity extends Equatable {
     this.colorValue,
     this.categoryIcon,
     this.categoryColor,
+    this.subscriptionId,
   });
 
   @override
@@ -60,5 +62,6 @@ class TransactionEntity extends Equatable {
         colorValue,
         categoryIcon,
         categoryColor,
+        subscriptionId,
       ];
 }

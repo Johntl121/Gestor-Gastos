@@ -33,16 +33,16 @@ class RefreshSubscriptionCyclesUseCase {
         (fail) => Left(fail),
         (transactions) async {
           // Set para suscripciones mensuales pagadas en el mes/año actual
-          final Set<String> paidMonthlyNames = {};
+          final Set<String> paidMonthlyIds = {};
           // Set para suscripciones anuales pagadas en el año actual
-          final Set<String> paidYearlyNames = {};
+          final Set<String> paidYearlyIds = {};
 
           for (var tx in transactions) {
-            if (tx.type == TransactionType.expense) {
+            if (tx.type == TransactionType.expense && tx.subscriptionId != null) {
               if (tx.date.year == now.year) {
-                paidYearlyNames.add(tx.description);
+                paidYearlyIds.add(tx.subscriptionId!);
                 if (tx.date.month == now.month) {
-                  paidMonthlyNames.add(tx.description);
+                  paidMonthlyIds.add(tx.subscriptionId!);
                 }
               }
             }
@@ -59,8 +59,8 @@ class RefreshSubscriptionCyclesUseCase {
               for (int i = 0; i < subs.length; i++) {
                 final sub = subs[i];
                 final bool isPaid = sub.frequency == ExpenseFrequency.monthly
-                    ? paidMonthlyNames.contains(sub.name)
-                    : paidYearlyNames.contains(sub.name);
+                    ? paidMonthlyIds.contains(sub.id)
+                    : paidYearlyIds.contains(sub.id);
 
                 if (sub.isPaid != isPaid) {
                   final updatedSub = sub.copyWith(isPaid: isPaid);

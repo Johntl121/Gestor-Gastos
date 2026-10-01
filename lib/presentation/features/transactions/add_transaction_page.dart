@@ -333,6 +333,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             note: note.isNotEmpty ? note : null,
             type: _transactionType, // Explicit type update
             imagePath: _selectedImage?.path,
+            subscriptionId: widget.transactionToEdit!.subscriptionId,
           );
           await transactionProvider.updateTransaction(updatedTransaction);
         } else {

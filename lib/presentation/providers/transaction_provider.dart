@@ -212,7 +212,8 @@ class TransactionProvider extends ChangeNotifier {
             ? IconMapper.getIcon(subscription.customIcon).codePoint
             : AppCategories.getIcon(subscription.categoryId).codePoint,
         colorValue: subscription.customColor ??
-            AppCategories.getColor(subscription.categoryId).toARGB32());
+            AppCategories.getColor(subscription.categoryId).toARGB32(),
+        subscriptionId: subscription.id);
 
     final result = await paySubscriptionUseCase(PaySubscriptionParams(
       subscription: subscription,

@@ -65,6 +65,7 @@ void main() {
         imagePath TEXT,
         iconCode INTEGER,
         colorValue INTEGER,
+        subscriptionId TEXT,
         isSubscription INTEGER DEFAULT 0
       )
     ''');

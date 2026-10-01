@@ -19,6 +19,7 @@ class TransactionModel extends TransactionEntity {
     super.accountName,
     super.categoryIcon,
     super.categoryColor,
+    super.subscriptionId,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +53,7 @@ class TransactionModel extends TransactionEntity {
       accountName: json['acc_name'], // Desde JOIN
       categoryIcon: json['cat_icon'], // Desde JOIN
       categoryColor: json['cat_color'], // Desde JOIN
+      subscriptionId: json['subscriptionId'],
     );
   }
 
@@ -76,6 +78,7 @@ class TransactionModel extends TransactionEntity {
       'imagePath': imagePath,
       'iconCode': iconCode,
       'colorValue': colorValue,
+      'subscriptionId': subscriptionId,
     };
   }
 
@@ -98,6 +101,7 @@ class TransactionModel extends TransactionEntity {
       accountName: entity.accountName,
       categoryIcon: entity.categoryIcon,
       categoryColor: entity.categoryColor,
+      subscriptionId: entity.subscriptionId,
     );
   }
 }

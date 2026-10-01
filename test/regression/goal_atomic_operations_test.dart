@@ -62,6 +62,7 @@ void main() {
         imagePath TEXT,
         iconCode INTEGER,
         colorValue INTEGER,
+        subscriptionId TEXT,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE CASCADE,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )

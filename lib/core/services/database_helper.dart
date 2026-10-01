@@ -4,7 +4,7 @@ import '../constants/app_categories.dart';
 
 class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._internal();
-  static const int _databaseVersion = 23;
+  static const int _databaseVersion = 24;
   static Database? _database;
 
   factory LocalDatabase() {
@@ -275,6 +275,15 @@ class LocalDatabase {
     if (oldVersion < 23) {
       await _createRemindersTable(db);
     }
+
+    // --- MIGRACIÓN V24: RELACIÓN DE SUSCRIPCIÓN ---
+    if (oldVersion < 24) {
+      try {
+        await db.execute("ALTER TABLE transactions ADD COLUMN subscriptionId TEXT");
+      } catch (e) {
+        // Ignorar si ya existe
+      }
+    }
   }
 
   Future<void> _onConfigure(Database db) async {
@@ -321,6 +330,7 @@ class LocalDatabase {
         imagePath TEXT,
         iconCode INTEGER,
         colorValue INTEGER,
+        subscriptionId TEXT,
         FOREIGN KEY (accountId) REFERENCES accounts (id) ON DELETE CASCADE,
         FOREIGN KEY (categoryId) REFERENCES categories (id) ON DELETE CASCADE
       )
