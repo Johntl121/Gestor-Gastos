@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../../../data/datasources/preferences_local_data_source.dart';
+import '../../../core/services/biometric_service.dart';
 import '../../../injection_container.dart' as sl;
 
 /// LockScreen: Bloquea el acceso a la app hasta validar el PIN.
@@ -17,10 +18,40 @@ class LockScreen extends StatefulWidget {
 
 class _LockScreenState extends State<LockScreen> {
   String _inputPin = "";
+  bool _biometricAttempted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _attemptBiometrics();
+    });
+  }
+
+  Future<void> _attemptBiometrics() async {
+    if (!mounted) return;
+    
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    if (!uiProvider.enableBiometrics) return;
+    
+    if (_biometricAttempted) return;
+    _biometricAttempted = true;
+
+    final biometricService = sl.sl<BiometricService>();
+    
+    final isSupported = await biometricService.isSupported();
+    if (!isSupported || !mounted) return;
+
+    final hasEnrolled = await biometricService.hasEnrolledBiometrics();
+    if (!hasEnrolled || !mounted) return;
+
+    final success = await biometricService.authenticate(
+      localizedReason: 'Desbloquee para acceder a sus gastos'
+    );
+
+    if (success && mounted) {
+      widget.onUnlocked();
+    }
   }
 
   void _onKeyPress(String val) {

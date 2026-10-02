@@ -96,11 +96,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         });
       }
     } else if (state == AppLifecycleState.paused) {
-      _backgroundedAt ??= appClock();
-      if (!_isLocked && !_showPrivacyShield) {
-        setState(() {
-          _showPrivacyShield = true;
-        });
+      if (!_isLocked) {
+        _backgroundedAt ??= appClock();
+        if (!_showPrivacyShield) {
+          setState(() {
+            _showPrivacyShield = true;
+          });
+        }
       }
     } else if (state == AppLifecycleState.resumed) {
       bool lock = false;

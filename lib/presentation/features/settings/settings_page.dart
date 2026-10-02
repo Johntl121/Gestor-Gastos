@@ -6,6 +6,7 @@ import '../../providers/ui_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../../../data/datasources/preferences_local_data_source.dart';
+import '../../../core/services/biometric_service.dart';
 import '../../../../core/services/database_helper.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../injection_container.dart' as sl;
@@ -296,12 +297,30 @@ class SettingsPage extends StatelessWidget {
                     Icons.fingerprint,
                     cardColor,
                     textColor,
-                    isDarkMode, (val) {
-                  uiProvider.toggleBiometrics(val);
+                    isDarkMode, (val) async {
                   if (val) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("👆 Biometría Vinculada (Simulado)")));
+                    final pin = await sl.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+                    if (pin == null || pin.isEmpty) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("❌ Configure un PIN de seguridad primero")));
+                      return;
+                    }
+                    final biometricService = sl.sl<BiometricService>();
+                    if (!await biometricService.isSupported()) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("❌ Dispositivo no compatible con biometría")));
+                      return;
+                    }
+                    if (!await biometricService.hasEnrolledBiometrics()) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text("❌ Debe enrolar su huella/rostro en los ajustes del dispositivo")));
+                      return;
+                    }
                   }
+                  uiProvider.toggleBiometrics(val);
                 }),
               ],
             ),

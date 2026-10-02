@@ -38,6 +38,7 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   flutter_timezone: ^5.1.0
   cryptography: ^2.9.0
+  local_auth: 3.0.2
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +48,7 @@ dev_dependencies:
   mocktail: ^1.0.5
   mockito: ^5.6.4
   build_runner: ^2.15.1
+  local_auth_platform_interface: ^1.1.0
 
 flutter:
   uses-material-design: true

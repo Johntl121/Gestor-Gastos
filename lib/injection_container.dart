@@ -1,3 +1,4 @@
+import 'package:gestor_gastos/core/services/biometric_service.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,6 +72,7 @@ Future<void> init() async {
   // Storage Seguro para datos sensibles (PIN)
   sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
   sl.registerLazySingleton<PinSecurityService>(() => PinSecurityService());
+  sl.registerLazySingleton<BiometricService>(() => BiometricServiceImpl());
 
   sl.registerLazySingleton<PreferencesLocalDataSource>(
     () => PreferencesLocalDataSourceImpl(
