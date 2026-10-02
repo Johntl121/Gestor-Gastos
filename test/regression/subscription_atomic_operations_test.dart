@@ -284,4 +284,12 @@ class _MockLocalDatabase implements LocalDatabase {
 
   @override
   Future<void> clearAllTables() async {}
+
+  @override
+  Future<void> closeAndRelease() async {}
+
+  @override
+  Future<T> executeMaintenance<T>(Future<T> Function() operation) async {
+    return await operation();
+  }
 }

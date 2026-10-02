@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../constants/app_categories.dart';
@@ -6,6 +7,9 @@ class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._internal();
   static const int _databaseVersion = 24;
   static Database? _database;
+  
+  bool _isMaintenanceActive = false;
+  Completer<void>? _maintenanceCompleter;
 
   factory LocalDatabase() {
     return _instance;
@@ -14,9 +18,36 @@ class LocalDatabase {
   LocalDatabase._internal();
 
   Future<Database> get database async {
+    while (_isMaintenanceActive) {
+      await _maintenanceCompleter?.future;
+    }
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
+  }
+
+  Future<void> closeAndRelease() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
+  Future<T> executeMaintenance<T>(Future<T> Function() operation) async {
+    while (_isMaintenanceActive) {
+      await _maintenanceCompleter?.future;
+    }
+    _isMaintenanceActive = true;
+    _maintenanceCompleter = Completer<void>();
+    
+    try {
+      return await operation();
+    } finally {
+      _isMaintenanceActive = false;
+      final completer = _maintenanceCompleter;
+      _maintenanceCompleter = null;
+      completer?.complete();
+    }
   }
 
   Future<Database> _initDatabase() async {
