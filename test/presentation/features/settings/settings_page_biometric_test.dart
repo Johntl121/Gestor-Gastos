@@ -30,22 +30,11 @@ class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDat
       Invocation.method(#getSecurityPinAsync, []),
       returnValue: Future.value(null));
       
-  @override
-  Future<bool> get isBiometricEnabledAsync => super.noSuchMethod(
-      Invocation.getter(#isBiometricEnabledAsync),
-      returnValue: Future.value(false));
-      
-  @override
   bool get isBiometricEnabled => super.noSuchMethod(
       Invocation.getter(#isBiometricEnabled),
       returnValue: false, returnValueForMissingStub: false);
       
-  @override
-  bool get isNotificationsEnabled => super.noSuchMethod(
-      Invocation.getter(#isNotificationsEnabled),
-      returnValue: false, returnValueForMissingStub: false);
-      
-  @override
+@override
   String getCurrency() => super.noSuchMethod(
       Invocation.method(#getCurrency, []),
       returnValue: 'PEN');
@@ -106,10 +95,6 @@ class MockTransactionProvider extends Mock implements TransactionProvider {}
 
 class MockNotificationCoordinator extends Mock implements NotificationCoordinator {}
 class MockPinSecurityService extends Mock implements PinSecurityService {
-  @override
-  Future<bool> hasPinEnrolled() => super.noSuchMethod(
-      Invocation.method(#hasPinEnrolled, []),
-      returnValue: Future.value(false));
 }
 
 void main() {

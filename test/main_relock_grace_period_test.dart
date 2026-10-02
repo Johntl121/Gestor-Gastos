@@ -104,16 +104,15 @@ void main() {
     });
 
     test('paused cuando _isLocked == true -> no inicia _backgroundedAt', () {
-      bool isLocked = true;
       DateTime? backgroundedAt;
 
-      void simulateLifecyclePaused(DateTime time) {
-        if (!isLocked) {
+      void simulateLifecyclePaused(DateTime time, bool locked) {
+        if (!locked) {
           backgroundedAt ??= time;
         }
       }
 
-      simulateLifecyclePaused(DateTime(2025, 1, 1, 10, 0, 0));
+      simulateLifecyclePaused(DateTime(2025, 1, 1, 10, 0, 0), true);
       expect(backgroundedAt, isNull);
     });
   });

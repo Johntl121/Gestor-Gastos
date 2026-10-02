@@ -22,29 +22,18 @@ class MockBiometricService extends Mock implements BiometricService {
       returnValue: Future.value(false));
 
   @override
-  Future<bool> authenticate({required String? localizedReason}) =>
+  Future<bool> authenticate({required String localizedReason}) =>
       super.noSuchMethod(
           Invocation.method(#authenticate, [], {#localizedReason: localizedReason}),
           returnValue: Future.value(false));
 }
 
 class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDataSource {
-  @override
-  Future<bool> get isBiometricEnabledAsync => super.noSuchMethod(
-      Invocation.getter(#isBiometricEnabledAsync),
-      returnValue: Future.value(false));
-      
-  @override
   bool get isBiometricEnabled => super.noSuchMethod(
       Invocation.getter(#isBiometricEnabled),
       returnValue: false, returnValueForMissingStub: false);
       
-  @override
-  bool get isNotificationsEnabled => super.noSuchMethod(
-      Invocation.getter(#isNotificationsEnabled),
-      returnValue: false, returnValueForMissingStub: false);
-      
-  @override
+@override
   String getCurrency() => super.noSuchMethod(
       Invocation.method(#getCurrency, []),
       returnValue: 'PEN');
@@ -98,10 +87,6 @@ class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDat
 class MockNotificationCoordinator extends Mock implements NotificationCoordinator {}
 
 class MockPinSecurityService extends Mock implements PinSecurityService {
-  @override
-  Future<bool> hasPinEnrolled() => super.noSuchMethod(
-      Invocation.method(#hasPinEnrolled, []),
-      returnValue: Future.value(false));
 }
 
 void main() {
@@ -151,21 +136,21 @@ void main() {
     await tester.pumpWidget(buildLockScreen(() {}));
     await tester.pumpAndSettle();
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')));
+    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
   });
 
   testWidgets('success -> onUnlock', (WidgetTester tester) async {
     uiProvider.toggleBiometrics(true);
     when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
     when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')))
+    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
         .thenAnswer((_) async => true);
 
     bool unlocked = false;
     await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
     await tester.pumpAndSettle();
 
-    verify(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason'))).called(1);
+    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
     expect(unlocked, isTrue);
   });
 
@@ -173,14 +158,14 @@ void main() {
     uiProvider.toggleBiometrics(true);
     when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
     when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')))
+    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
         .thenAnswer((_) async => false);
 
     bool unlocked = false;
     await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
     await tester.pumpAndSettle();
 
-    verify(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason'))).called(1);
+    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
     expect(unlocked, isFalse);
     expect(find.text('Ingresa tu PIN'), findsOneWidget);
   });
@@ -192,7 +177,7 @@ void main() {
     await tester.pumpWidget(buildLockScreen(() {}));
     await tester.pumpAndSettle();
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')));
+    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
   });
 
   testWidgets('no enrolled -> no prompt', (WidgetTester tester) async {
@@ -203,14 +188,14 @@ void main() {
     await tester.pumpWidget(buildLockScreen(() {}));
     await tester.pumpAndSettle();
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')));
+    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
   });
 
   testWidgets('múltiples rebuilds -> authenticate una sola vez', (WidgetTester tester) async {
     uiProvider.toggleBiometrics(true);
     when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
     when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason')))
+    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
         .thenAnswer((_) async => false);
 
     await tester.pumpWidget(buildLockScreen(() {}));
@@ -221,6 +206,6 @@ void main() {
     await tester.pumpWidget(buildLockScreen(() {}));
     await tester.pumpAndSettle();
 
-    verify(mockBiometricService.authenticate(localizedReason: anyNamed('localizedReason'))).called(1);
+    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
   });
 }
