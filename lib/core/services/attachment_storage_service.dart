@@ -123,6 +123,15 @@ class AttachmentStorageServiceImpl implements AttachmentStorageService {
     final absPath = await resolveAbsolutePath(storedPath);
     if (absPath == null) return; // Archivo ya no existe o path era inválido
 
+    // Security check: solo borrar si el archivo está dentro de los directorios permitidos (sandbox)
+    final docsDir = await _getDocsDir();
+    final normalizedAbsPath = p.normalize(absPath).replaceAll('\\', '/');
+    final normalizedDocsDirPath = p.normalize(docsDir.path).replaceAll('\\', '/');
+
+    if (!normalizedAbsPath.startsWith(normalizedDocsDirPath)) {
+      return; // Bloquea borrado fuera del entorno seguro
+    }
+
     try {
       final file = File(absPath);
       if (await file.exists()) {

@@ -130,5 +130,27 @@ void main() {
       await service.deleteAttachment(safePath);
       expect(true, isTrue); // Llego aquí sin crash
     });
+
+    test('delete absolute legacy interno -> sí lo borra', () async {
+      final legacyFile = File(p.join(mockDocsDir.path, 'legacy_absolute_delete.jpg'));
+      await legacyFile.writeAsString('legacy');
+
+      await service.deleteAttachment(legacyFile.path);
+
+      expect(await legacyFile.exists(), isFalse);
+    });
+
+    test('delete absolute legacy externo -> NO lo borra', () async {
+      final extDir = await Directory.systemTemp.createTemp('external_mock_dir');
+      final externalFile = File(p.join(extDir.path, 'external_delete.jpg'));
+      await externalFile.writeAsString('external');
+
+      await service.deleteAttachment(externalFile.path);
+
+      // Debería seguir existiendo porque no está en mockDocsDir
+      expect(await externalFile.exists(), isTrue);
+
+      await extDir.delete(recursive: true);
+    });
   });
 }

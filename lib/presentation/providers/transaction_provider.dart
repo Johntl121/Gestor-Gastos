@@ -139,12 +139,23 @@ class TransactionProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> updateTransaction(TransactionEntity transaction) async {
+  Future<void> updateTransaction(
+    TransactionEntity transaction, {
+    bool imageChanged = false,
+    String? newImageSourcePath,
+    String? oldImagePath,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     final result = await updateTransactionUseCase(
-        UpdateTransactionParams(transaction: transaction));
+      UpdateTransactionParams(
+        transaction: transaction,
+        imageChanged: imageChanged,
+        newImageSourcePath: newImageSourcePath,
+        oldImagePath: oldImagePath,
+      ),
+    );
 
     result.fold(
       (fail) {
@@ -157,11 +168,16 @@ class TransactionProvider extends ChangeNotifier {
   }
 
   Future<void> deleteTransaction(int id) async {
-    _transactions.removeWhere((t) => t.id == id); // Optimistic
+    final existingTxIndex = _transactions.indexWhere((t) => t.id == id);
+    String? oldImagePath;
+    if (existingTxIndex != -1) {
+      oldImagePath = _transactions[existingTxIndex].imagePath;
+      _transactions.removeAt(existingTxIndex); // Optimistic
+    }
     notifyListeners();
 
-    final result =
-        await deleteTransactionUseCase(DeleteTransactionParams(id: id));
+    final result = await deleteTransactionUseCase(
+        DeleteTransactionParams(id: id, imagePath: oldImagePath));
     result.fold(
       (fail) {
         errorMessage = fail.message;

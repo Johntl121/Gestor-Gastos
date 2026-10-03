@@ -165,12 +165,12 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetTransactionsUseCase(sl()));
   sl.registerLazySingleton(() => GetMonthlyBudgetUseCase(sl()));
-  sl.registerLazySingleton(() => UpdateTransactionUseCase(sl()));
-  sl.registerLazySingleton(() => DeleteTransactionUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateTransactionUseCase(sl(), sl()));
+  sl.registerLazySingleton(() => DeleteTransactionUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetAccountsUseCase(sl()));
   sl.registerLazySingleton(() => CreateAccountUseCase(sl()));
   sl.registerLazySingleton(() => UpdateAccountUseCase(sl()));
-  sl.registerLazySingleton(() => DeleteAccountUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteAccountUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetTransactionsByDateRangeUseCase(sl()));
   sl.registerLazySingleton(() => DepositToGoalUseCase(
       repository: sl(),

@@ -37,6 +37,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
 
   // Image Attachment
   File? _selectedImage;
+  bool _imageChanged = false;
   final ImagePicker _picker = ImagePicker();
 
   // Account Selection
@@ -129,6 +130,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
+          _imageChanged = true;
         });
       }
     } catch (e) {
@@ -142,6 +144,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   void _removeImage() {
     setState(() {
       _selectedImage = null;
+      _imageChanged = true;
     });
   }
 
@@ -328,10 +331,15 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             description: catName,
             note: note.isNotEmpty ? note : null,
             type: _transactionType, // Explicit type update
-            imagePath: _selectedImage?.path,
+            imagePath: _imageChanged ? null : widget.transactionToEdit!.imagePath,
             subscriptionId: widget.transactionToEdit!.subscriptionId,
           );
-          await transactionProvider.updateTransaction(updatedTransaction);
+          await transactionProvider.updateTransaction(
+            updatedTransaction,
+            imageChanged: _imageChanged,
+            newImageSourcePath: _imageChanged ? _selectedImage?.path : null,
+            oldImagePath: widget.transactionToEdit!.imagePath,
+          );
         } else {
           // Add Mode
           final transaction = TransactionEntity(

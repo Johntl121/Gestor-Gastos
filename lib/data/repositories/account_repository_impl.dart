@@ -82,11 +82,20 @@ class AccountRepositoryImpl implements AccountRepository {
   }
 
   @override
-  Future<Either<Failure, void>> deleteAccount(int id) async {
+  Future<Either<Failure, List<String>>> deleteAccount(int id) async {
     try {
       final db = await localDatabase.database;
-      await db.delete('accounts', where: 'id = ?', whereArgs: [id]);
-      return const Right(null);
+      List<String> imagePaths = [];
+      await db.transaction((txn) async {
+        final result = await txn.query('transactions',
+            columns: ['imagePath'],
+            where: 'accountId = ? AND imagePath IS NOT NULL AND imagePath != ""',
+            whereArgs: [id]);
+        imagePaths = result.map((row) => row['imagePath'] as String).toSet().toList();
+
+        await txn.delete('accounts', where: 'id = ?', whereArgs: [id]);
+      });
+      return Right(imagePaths);
     } catch (e) {
       return Left(DatabaseFailure(e.toString()));
     }

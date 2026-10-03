@@ -7,7 +7,7 @@ abstract class AccountRepository {
   Future<Either<Failure, List<AccountEntity>>> getAccounts();
   Future<Either<Failure, int>> createAccount(AccountEntity account);
   Future<Either<Failure, void>> updateAccount(AccountEntity account);
-  Future<Either<Failure, void>> deleteAccount(int id);
+  Future<Either<Failure, List<String>>> deleteAccount(int id);
   Future<Either<Failure, BalanceBreakdown>> getBalanceBreakdown();
   Future<Either<Failure, double>> getMonthlyBudget();
 }
