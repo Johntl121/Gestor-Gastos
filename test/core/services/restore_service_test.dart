@@ -149,12 +149,204 @@ void main() {
     expect(tables, contains('accounts'));
   });
 
-  test('Restore failed durante rename -> rollback', () async {
+
+
+  test('A. Restore exitoso limpia todos los artefactos', () async {
     await localDatabase.database;
-    // Para forzar que falle en try-catch durante el maintenance, podríamos simularlo, pero la mejor forma 
-    // en este nivel de prueba de integración de dart:io es que candidate.copy() a .restore sea validado y luego borrar .restore
-    // wait, if we delete .restore while it's pending, rename throws.
-    // However, the test might be flaky. Instead, we trust the code logic, or we can lock .restore.
+    final candidatePath = await createValidMockDatabase();
+
+    await restoreService.restoreDatabase(candidatePath);
+
+    expect(await File(dbPath).exists(), isTrue);
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+    expect(await File('$dbPath.restore').exists(), isFalse);
+    expect(await File(p.join(await getDatabasesPath(), 'gestor_gastos.restore.pending')).exists(), isFalse);
   });
 
+  test('B y C. Fallo al reabrir la DB restaurada -> rollback', () async {
+    final mockDb = _MockTestLocalDatabase();
+    await mockDb.database;
+    final restoreSvc = RestoreService(localDatabase: mockDb);
+    
+    final candidatePath = await createValidMockDatabase();
+    mockDb.failReopen = true;
+
+    expect(
+      () => restoreSvc.restoreDatabase(candidatePath),
+      throwsA(isA<RestoreFailedException>()),
+    );
+
+    // Debe existir la productiva intacta
+    expect(await File(dbPath).exists(), isTrue);
+    // El fallback debió volver a su lugar
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+    
+    await mockDb.closeAndRelease();
+  });
+
+  test('D. Fallo durante migración de backup antiguo -> rollback', () async {
+    final mockDb = _MockTestLocalDatabase();
+    await mockDb.database;
+    final restoreSvc = RestoreService(localDatabase: mockDb);
+    
+    final candidatePath = await createValidMockDatabase(version: 22);
+    // Simulamos que al abrir para migrar, sqflite lanza un error de migracion
+    mockDb.failReopen = true;
+
+    expect(
+      () => restoreSvc.restoreDatabase(candidatePath),
+      throwsA(isA<RestoreFailedException>()),
+    );
+
+    expect(await File(dbPath).exists(), isTrue);
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+    
+    await mockDb.closeAndRelease();
+  });
+
+  test('E. Health check post-restore falla -> rollback', () async {
+    final mockDb = _MockTestLocalDatabase();
+    await mockDb.database;
+    final restoreSvc = RestoreService(localDatabase: mockDb);
+    
+    final candidatePath = await createValidMockDatabase();
+    mockDb.failHealthCheck = true; // Forzará user_version = 0 post-swap
+
+    expect(
+      () => restoreSvc.restoreDatabase(candidatePath),
+      throwsA(isA<RestoreFailedException>()),
+    );
+
+    expect(await File(dbPath).exists(), isTrue);
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+    
+    await mockDb.closeAndRelease();
+  });
+
+  test('F. RollbackFailedException', () async {
+    final mockDb = _MockTestLocalDatabase();
+    await mockDb.database;
+    final restoreSvc = RestoreService(localDatabase: mockDb);
+    
+    final candidatePath = await createValidMockDatabase();
+    mockDb.failReopen = true; // Fallamos en swap
+    mockDb.lockFallback = true; // Bloqueamos el fallback para evitar rename
+
+    try {
+      await restoreSvc.restoreDatabase(candidatePath);
+      fail('Debió lanzar RollbackFailedException');
+    } catch (e) {
+      expect(e, isA<RollbackFailedException>());
+    }
+
+    await mockDb.unlock();
+    await mockDb.closeAndRelease();
+  });
+
+  test('G. Restore concurrente rechaza con excepción', () async {
+    await localDatabase.database;
+    final candidatePath = await createValidMockDatabase();
+    final candidatePath2 = await createValidMockDatabase();
+
+    // Lanzar dos simultaneamente
+    final future1 = restoreService.restoreDatabase(candidatePath);
+    final future2 = restoreService.restoreDatabase(candidatePath2);
+
+    try {
+      await Future.wait([future1, future2]);
+      fail('Debió rechazar la concurrencia');
+    } catch (e) {
+      expect(e, isA<RestoreFailedException>().having((e) => e.message, 'msg', contains('Ya hay una restauración en progreso.')));
+    }
+
+    expect(await File(dbPath).exists(), isTrue);
+  });
+
+  test('H. Backup antiguo exitoso', () async {
+    await localDatabase.database;
+    // v22 valida sin tabla reminders
+    final candidatePath = await createValidMockDatabase(version: 22);
+
+    await restoreService.restoreDatabase(candidatePath);
+
+    final db = await localDatabase.database;
+    final res = await db.rawQuery('PRAGMA user_version;');
+    expect(res.first.values.first, 24);
+  });
+
+  test('I. Limpieza de auxiliares', () async {
+    await localDatabase.database;
+    await localDatabase.closeAndRelease();
+
+    await File('$dbPath-journal').writeAsString('fake');
+    await File('$dbPath-wal').writeAsString('fake');
+    await File('$dbPath-shm').writeAsString('fake');
+
+    await File(dbPath).rename('$dbPath.fallback');
+    await File(p.join(await getDatabasesPath(), 'gestor_gastos.restore.pending')).writeAsString('pending');
+
+    await localDatabase.database; // Dispara recovery
+
+    expect(await File('$dbPath-journal').exists(), isFalse);
+    expect(await File('$dbPath-wal').exists(), isFalse);
+    expect(await File('$dbPath-shm').exists(), isFalse);
+  });
+
+  test('J. .restore residual se limpia', () async {
+    await localDatabase.database;
+    final candidatePath = await createValidMockDatabase();
+    
+    await File('$dbPath.restore').writeAsString('basura');
+
+    await restoreService.restoreDatabase(candidatePath);
+
+    expect(await File('$dbPath.restore').exists(), isFalse);
+  });
+}
+
+
+class _MockTestLocalDatabase implements LocalDatabase {
+  final LocalDatabase real = LocalDatabase();
+  bool failReopen = false;
+  bool failHealthCheck = false;
+  bool lockFallback = false;
+  RandomAccessFile? _lockedRaf;
+
+  @override
+  Future<Database> get database => real.database;
+
+  @override
+  Future<void> clearAllTables() => real.clearAllTables();
+
+  @override
+  Future<void> closeAndRelease() => real.closeAndRelease();
+
+  @override
+  Future<T> executeMaintenance<T>(Future<T> Function() operation) => real.executeMaintenance(operation);
+
+  @override
+  Future<Database> forceOpen() async {
+    if (lockFallback) {
+      final fallbackFile = File(p.join(await getDatabasesPath(), 'gestor_gastos.db.fallback'));
+      if (await fallbackFile.exists()) {
+        _lockedRaf = await fallbackFile.open(mode: FileMode.write);
+        await _lockedRaf!.lock();
+      }
+    }
+
+    if (failReopen) throw Exception('Simulated reopen failure');
+    final db = await real.forceOpen();
+    if (failHealthCheck) {
+      await db.rawQuery('PRAGMA user_version = 0;');
+    }
+    return db;
+  }
+
+  Future<void> unlock() async {
+    if (_lockedRaf != null) {
+      await _lockedRaf!.unlock();
+      await _lockedRaf!.close();
+      _lockedRaf = null;
+    }
+  }
 }
