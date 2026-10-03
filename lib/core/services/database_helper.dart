@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../constants/app_categories.dart';
@@ -21,6 +22,10 @@ class LocalDatabase {
     while (_isMaintenanceActive) {
       await _maintenanceCompleter?.future;
     }
+    return await forceOpen();
+  }
+
+  Future<Database> forceOpen() async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
@@ -50,8 +55,45 @@ class LocalDatabase {
     }
   }
 
+  Future<void> _crashRecoveryCheck(String dbPath) async {
+    final marker = File(join(await getDatabasesPath(), 'gestor_gastos.restore.pending'));
+    final fallback = File('$dbPath.fallback');
+    final dbFile = File(dbPath);
+
+    if (await marker.exists()) {
+      if (await fallback.exists()) {
+        // Restore no confirmado. Rollback obligatorio
+        if (await dbFile.exists()) await dbFile.delete();
+        final journal = File('$dbPath-journal');
+        final wal = File('$dbPath-wal');
+        final shm = File('$dbPath-shm');
+        if (await journal.exists()) await journal.delete();
+        if (await wal.exists()) await wal.delete();
+        if (await shm.exists()) await shm.delete();
+
+        await fallback.rename(dbPath);
+        await marker.delete();
+      } else {
+        // Marker sin fallback. Validar production
+        try {
+          final db = await openDatabase(dbPath, readOnly: true, singleInstance: false);
+          final res = await db.rawQuery('PRAGMA quick_check;');
+          await db.close();
+          if (res.isNotEmpty && res.first.values.first.toString().toLowerCase() == 'ok') {
+            await marker.delete();
+          } else {
+            throw Exception('Corrupted DB');
+          }
+        } catch (e) {
+          throw Exception('CRITICAL ERROR: Fallback missing and DB corrupted during restore recovery: $e');
+        }
+      }
+    }
+  }
+
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'gestor_gastos.db');
+    await _crashRecoveryCheck(path);
     return await openDatabase(
       path,
       version: _databaseVersion,

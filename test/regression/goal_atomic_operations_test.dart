@@ -285,4 +285,7 @@ class _MockLocalDatabase implements LocalDatabase {
   Future<T> executeMaintenance<T>(Future<T> Function() operation) async {
     return await operation();
   }
+
+  @override
+  Future<Database> forceOpen() async => _db;
 }
