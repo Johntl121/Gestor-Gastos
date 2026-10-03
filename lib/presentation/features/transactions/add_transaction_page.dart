@@ -1,7 +1,5 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +13,8 @@ import '../../providers/wallet_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../../core/constants/app_categories.dart';
+import '../../../injection_container.dart';
+import '../../../core/services/attachment_storage_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
   final TransactionEntity? transactionToEdit;
@@ -60,39 +60,43 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
     });
   }
 
-  void _initializeData() {
-    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    void _initializeData() async {
+      final walletProvider = Provider.of<WalletProvider>(context, listen: false);
 
-    if (widget.transactionToEdit != null) {
-      _editingTransaction = widget.transactionToEdit!;
-      _transactionType = _editingTransaction!.amount < 0
-          ? TransactionType.expense
-          : (_editingTransaction!.type == TransactionType.transfer
-              ? TransactionType.transfer
-              : TransactionType.income);
+      if (widget.transactionToEdit != null) {
+        _editingTransaction = widget.transactionToEdit!;
+        _transactionType = _editingTransaction!.amount < 0
+            ? TransactionType.expense
+            : (_editingTransaction!.type == TransactionType.transfer
+                ? TransactionType.transfer
+                : TransactionType.income);
 
-      if (_editingTransaction!.type == TransactionType.transfer ||
-          _editingTransaction!.description
-              .toLowerCase()
-              .contains('transferencia')) {
-        _transactionType = TransactionType.transfer;
-      }
-
-      _amountController.text = _editingTransaction!.amount.abs().toString();
-      _selectedCategoryId = _editingTransaction!.categoryId;
-      _selectedSourceAccountId = _editingTransaction!.accountId;
-      _selectedDestAccountId = _editingTransaction!.destinationAccountId;
-      _noteController.text = _editingTransaction!.note ?? '';
-
-      // Load Image
-      if (_editingTransaction!.imagePath != null) {
-        final file = File(_editingTransaction!.imagePath!);
-        if (file.existsSync()) {
-          setState(() {
-            _selectedImage = file;
-          });
+        if (_editingTransaction!.type == TransactionType.transfer ||
+            _editingTransaction!.description
+                .toLowerCase()
+                .contains('transferencia')) {
+          _transactionType = TransactionType.transfer;
         }
-      }
+
+        _amountController.text = _editingTransaction!.amount.abs().toString();
+        _selectedCategoryId = _editingTransaction!.categoryId;
+        _selectedSourceAccountId = _editingTransaction!.accountId;
+        _selectedDestAccountId = _editingTransaction!.destinationAccountId;
+        _noteController.text = _editingTransaction!.note ?? '';
+
+        // Load Image (resolve absolute)
+        if (_editingTransaction!.imagePath != null) {
+          final resolvedPath = await sl<AttachmentStorageService>()
+              .resolveAbsolutePath(_editingTransaction!.imagePath!);
+          if (resolvedPath != null) {
+            final file = File(resolvedPath);
+            if (file.existsSync()) {
+              setState(() {
+                _selectedImage = file;
+              });
+            }
+          }
+        }
     } else if (widget.draftTransaction != null) {
       final t = widget.draftTransaction!;
       _transactionType = t.type;
@@ -123,16 +127,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       );
 
       if (pickedFile != null) {
-        // Save permanently
-        final directory = await getApplicationDocumentsDirectory();
-        final String fileName = path.basename(pickedFile.path);
-        final String savedPath = path.join(directory.path, fileName);
-
-        // Copy to app docs
-        final File savedFile = await File(pickedFile.path).copy(savedPath);
-
         setState(() {
-          _selectedImage = savedFile;
+          _selectedImage = File(pickedFile.path);
         });
       }
     } catch (e) {

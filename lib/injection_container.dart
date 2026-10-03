@@ -38,6 +38,7 @@ import 'domain/usecases/account_usecases.dart';
 import 'domain/usecases/add_transaction_usecase.dart';
 import 'domain/usecases/delete_transaction_usecase.dart';
 import 'domain/usecases/get_account_balance_usecase.dart';
+import 'core/services/attachment_storage_service.dart';
 import 'domain/usecases/get_budget_mood_usecase.dart';
 import 'domain/usecases/get_monthly_budget_usecase.dart';
 import 'domain/usecases/get_transactions_by_date_range_usecase.dart';
@@ -154,8 +155,12 @@ Future<void> init() async {
     () => CoachCacheRepositoryImpl(),
   );
 
+  sl.registerLazySingleton<AttachmentStorageService>(
+    () => AttachmentStorageServiceImpl(),
+  );
+
   //! Casos de Uso
-  sl.registerLazySingleton(() => AddTransactionUseCase(sl()));
+  sl.registerLazySingleton(() => AddTransactionUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
   sl.registerLazySingleton(() => GetBudgetMoodUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetTransactionsUseCase(sl()));

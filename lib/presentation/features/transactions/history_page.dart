@@ -14,6 +14,8 @@ import '../../../core/utils/currency_formatter.dart';
 
 import '../../../core/constants/app_categories.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../injection_container.dart';
+import '../../../core/services/attachment_storage_service.dart';
 import 'transaction_search_delegate.dart';
 import 'add_transaction_page.dart';
 import 'widgets/history_filters_bar.dart';
@@ -244,22 +246,36 @@ void _showTransactionDetails(BuildContext context, TransactionEntity t,
                         label: "Nota",
                         value: t.note!,
                         isDarkMode: isDarkMode),
-                  if (t.imagePath != null &&
-                      File(t.imagePath!).existsSync()) ...[
-                    const SizedBox(height: 20),
-                    const Text("Adjunto",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        File(t.imagePath!),
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  ]
+                  if (t.imagePath != null && t.imagePath!.isNotEmpty)
+                    FutureBuilder<String?>(
+                      future: sl<AttachmentStorageService>().resolveAbsolutePath(t.imagePath!),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 20),
+                              const Text("Adjunto",
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(snapshot.data!),
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                 ],
               ),
             ),
