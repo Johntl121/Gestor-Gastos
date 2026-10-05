@@ -13,8 +13,11 @@ import 'package:gestor_gastos/core/services/snapshot_service.dart';
 import 'package:gestor_gastos/data/services/backup_creation_service_impl.dart';
 
 class MockSnapshotService extends Mock implements SnapshotService {}
+
 class MockPreferencesService extends Mock implements BackupPreferencesService {}
+
 class MockCryptoService extends Mock implements BackupCryptoService {}
+
 class MockAppInfoProvider extends Mock implements AppInfoProvider {}
 
 class FakeAttachmentService extends Fake implements AttachmentStorageService {
@@ -38,7 +41,7 @@ void main() {
   late FakeAttachmentService fakeAttachmentService;
   late MockCryptoService mockCryptoService;
   late MockAppInfoProvider mockAppInfoProvider;
-  
+
   late Directory tempDocsDir;
 
   setUpAll(() {
@@ -49,7 +52,7 @@ void main() {
 
   setUp(() async {
     tempDocsDir = await Directory.systemTemp.createTemp('backup_creation_test');
-    
+
     mockSnapshotService = MockSnapshotService();
     mockPreferencesService = MockPreferencesService();
     fakeAttachmentService = FakeAttachmentService();
@@ -65,8 +68,10 @@ void main() {
       getDocsDirProvider: () async => tempDocsDir,
     );
 
-    when(() => mockAppInfoProvider.getAppVersion()).thenAnswer((_) async => '1.0.0');
-    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {'USER_NAME': 'Test User'});
+    when(() => mockAppInfoProvider.getAppVersion())
+        .thenAnswer((_) async => '1.0.0');
+    when(() => mockPreferencesService.exportPreferences())
+        .thenAnswer((_) async => {'USER_NAME': 'Test User'});
     when(() => mockCryptoService.encrypt(any(), any())).thenAnswer((i) async {
       final bytes = i.positionalArguments[0] as Uint8List;
       return Uint8List.fromList([...bytes, 0, 1, 2]); // dummy encrypt
@@ -80,7 +85,8 @@ void main() {
   });
 
   Future<Database> createMockSnapshot(String path) async {
-    final db = await openDatabase(path, version: 1, onCreate: (db, version) async {
+    final db =
+        await openDatabase(path, version: 1, onCreate: (db, version) async {
       await db.execute('''
         CREATE TABLE transactions (
           id INTEGER PRIMARY KEY,
@@ -92,7 +98,8 @@ void main() {
   }
 
   test('backup válido sin attachments', () async {
-    when(() => mockSnapshotService.createDatabaseSnapshot(any())).thenAnswer((i) async {
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
       final db = await createMockSnapshot(i.positionalArguments[0] as String);
       await db.close();
       return File(i.positionalArguments[0] as String);
@@ -116,8 +123,11 @@ void main() {
     expect(entries.length, 1); // Only the generated .gestorbackup file
   });
 
-  test('backup válido con attachment relative, missing attachment y legacy absolute (deduplicado)', () async {
-    final realRelativeFile = File(p.join(tempDocsDir.path, 'attachments', 'transactions', 'real.jpg'));
+  test(
+      'backup válido con attachment relative, missing attachment y legacy absolute (deduplicado)',
+      () async {
+    final realRelativeFile = File(
+        p.join(tempDocsDir.path, 'attachments', 'transactions', 'real.jpg'));
     await realRelativeFile.parent.create(recursive: true);
     await realRelativeFile.writeAsString('relative content');
 
@@ -125,20 +135,28 @@ void main() {
     await realLegacyFile.parent.create(recursive: true);
     await realLegacyFile.writeAsString('legacy content');
 
-    when(() => mockSnapshotService.createDatabaseSnapshot(any())).thenAnswer((i) async {
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
       final db = await createMockSnapshot(i.positionalArguments[0] as String);
       // Insert 1 relative, 1 missing, 2 sharing same legacy absolute
-      await db.insert('transactions', {'id': 1, 'imagePath': 'attachments/transactions/real.jpg'});
-      await db.insert('transactions', {'id': 2, 'imagePath': 'attachments/transactions/missing.jpg'});
-      await db.insert('transactions', {'id': 3, 'imagePath': realLegacyFile.path});
-      await db.insert('transactions', {'id': 4, 'imagePath': realLegacyFile.path});
+      await db.insert('transactions',
+          {'id': 1, 'imagePath': 'attachments/transactions/real.jpg'});
+      await db.insert('transactions',
+          {'id': 2, 'imagePath': 'attachments/transactions/missing.jpg'});
+      await db
+          .insert('transactions', {'id': 3, 'imagePath': realLegacyFile.path});
+      await db
+          .insert('transactions', {'id': 4, 'imagePath': realLegacyFile.path});
       await db.close();
       return File(i.positionalArguments[0] as String);
     });
 
-    fakeAttachmentService.mockResolvedPaths['attachments/transactions/real.jpg'] = realRelativeFile.path;
+    fakeAttachmentService
+            .mockResolvedPaths['attachments/transactions/real.jpg'] =
+        realRelativeFile.path;
     // Missing attachment -> null (already default in map since it's not set)
-    fakeAttachmentService.mockResolvedPaths[realLegacyFile.path] = realLegacyFile.path;
+    fakeAttachmentService.mockResolvedPaths[realLegacyFile.path] =
+        realLegacyFile.path;
 
     final result = await service.generatePortableBackup('password123');
 
@@ -161,19 +179,21 @@ void main() {
       cryptoService: mockCryptoService,
       appInfoProvider: mockAppInfoProvider,
       getDocsDirProvider: () async => tempDocsDir,
-      maxPlaintextZipBytes: 10, // 10 bytes limit
+      maxPlaintextZipBytesOverride: 10, // 10 bytes limit
     );
 
-    when(() => mockSnapshotService.createDatabaseSnapshot(any())).thenAnswer((i) async {
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
       final db = await createMockSnapshot(i.positionalArguments[0] as String);
       await db.close();
       return File(i.positionalArguments[0] as String);
     });
 
-    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {'a': 'b'});
+    when(() => mockPreferencesService.exportPreferences())
+        .thenAnswer((_) async => {'a': 'b'});
 
     final result = await smallSizeService.generatePortableBackup('password123');
-    
+
     expect(result.isLeft(), isTrue);
     result.fold(
       (l) {
@@ -186,21 +206,84 @@ void main() {
     verifyNever(() => mockCryptoService.encrypt(any(), any()));
 
     // Verify temp files are cleaned up
-    final entries = tempDocsDir.listSync().where((e) => !e.path.contains('backup_staging_')).toList();
+    final entries = tempDocsDir
+        .listSync()
+        .where((e) => !e.path.contains('backup_staging_'))
+        .toList();
     expect(entries.isEmpty, isTrue);
   });
 
+  test('pre-zip supera max uncompressed lanza BackupTooLarge', () async {
+    final smallSizeService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: mockCryptoService,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+      maxUncompressedPayloadBytesOverride: 1, // 1 byte limit
+    );
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await createMockSnapshot(i.positionalArguments[0] as String);
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+    when(() => mockPreferencesService.exportPreferences())
+        .thenAnswer((_) async => {'a': 'b'});
+
+    final result = await smallSizeService.generatePortableBackup('password123');
+
+    expect(result.isLeft(), isTrue);
+    result.fold(
+      (l) => expect(l.message, contains('supera los límites permitidos')),
+      (r) => fail('Should fail'),
+    );
+  });
+
+  test('pre-zip supera max entries lanza BackupTooLarge', () async {
+    final smallSizeService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: mockCryptoService,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+      maxEntriesOverride: 1, // 1 file max limit
+    );
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await createMockSnapshot(i.positionalArguments[0] as String);
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+    when(() => mockPreferencesService.exportPreferences())
+        .thenAnswer((_) async => {'a': 'b'});
+
+    final result = await smallSizeService.generatePortableBackup('password123');
+
+    expect(result.isLeft(), isTrue);
+    result.fold(
+      (l) => expect(l.message, contains('supera los límites permitidos')),
+      (r) => fail('Should fail'),
+    );
+  });
+
   test('crypto falla -> limpia temporales', () async {
-    when(() => mockSnapshotService.createDatabaseSnapshot(any())).thenAnswer((i) async {
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
       final db = await createMockSnapshot(i.positionalArguments[0] as String);
       await db.close();
       return File(i.positionalArguments[0] as String);
     });
 
-    when(() => mockCryptoService.encrypt(any(), any())).thenThrow(Exception('Crypto error'));
+    when(() => mockCryptoService.encrypt(any(), any()))
+        .thenThrow(Exception('Crypto error'));
 
     final result = await service.generatePortableBackup('password123');
-    
+
     expect(result.isLeft(), isTrue);
     result.fold(
       (l) {
@@ -209,7 +292,10 @@ void main() {
       (r) => fail('Should fail'),
     );
 
-    final entries = tempDocsDir.listSync().where((e) => !e.path.contains('backup_staging_')).toList();
+    final entries = tempDocsDir
+        .listSync()
+        .where((e) => !e.path.contains('backup_staging_'))
+        .toList();
     expect(entries.isEmpty, isTrue);
   });
 }

@@ -14,6 +14,12 @@ import 'core/services/notification_service.dart';
 import 'core/services/notification_coordinator.dart';
 import 'core/services/gemini_client.dart';
 import 'core/services/pin_security_service.dart';
+import 'core/services/restore_service.dart';
+import 'core/services/backup_preferences_service.dart';
+import 'core/services/backup_crypto_service.dart';
+import 'core/services/app_info_provider.dart';
+import 'domain/services/backup_restore_service.dart';
+import 'data/services/backup_restore_service_impl.dart';
 
 // Repositorios
 import 'domain/repositories/transaction_repository.dart';
@@ -49,6 +55,12 @@ import 'domain/usecases/delete_account_usecase.dart';
 import 'domain/usecases/update_account_usecase.dart';
 import 'domain/usecases/coach/build_financial_context_usecase.dart';
 import 'domain/usecases/coach/get_financial_advice_usecase.dart';
+
+// Backup
+import 'domain/services/backup_creation_service.dart';
+import 'data/services/backup_creation_service_impl.dart';
+import 'domain/usecases/create_backup_usecase.dart';
+import 'domain/usecases/restore_backup_usecase.dart';
 
 // Providers (New)
 import 'presentation/providers/ui_provider.dart';
@@ -159,6 +171,44 @@ Future<void> init() async {
     () => AttachmentStorageServiceImpl(),
   );
 
+  sl.registerLazySingleton<AppInfoProvider>(
+    () => AppInfoProviderImpl(),
+  );
+
+  sl.registerLazySingleton<BackupCryptoService>(
+    () => BackupCryptoService(),
+  );
+
+  sl.registerLazySingleton<BackupPreferencesService>(
+    () => BackupPreferencesService(sl()),
+  );
+
+  sl.registerLazySingleton<RestoreService>(
+    () => RestoreService(
+      localDatabase: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<BackupCreationService>(
+    () => BackupCreationServiceImpl(
+      snapshotService: sl(),
+      preferencesService: sl(),
+      attachmentService: sl(),
+      cryptoService: sl(),
+      appInfoProvider: sl(),
+    ),
+  );
+
+  sl.registerLazySingleton<BackupRestoreService>(
+    () => BackupRestoreServiceImpl(
+      restoreService: sl(),
+      preferencesService: sl(),
+      attachmentService: sl(),
+      cryptoService: sl(),
+      appInfoProvider: sl(),
+    ),
+  );
+
   //! Casos de Uso
   sl.registerLazySingleton(() => AddTransactionUseCase(sl(), sl()));
   sl.registerLazySingleton(() => GetAccountBalanceUseCase(sl()));
@@ -202,6 +252,9 @@ Future<void> init() async {
         cacheRepository: sl(),
         geminiClient: sl(),
       ));
+
+  sl.registerLazySingleton(() => CreateBackupUseCase(sl()));
+  sl.registerLazySingleton(() => RestoreBackupUseCase(sl()));
 
   //! Proveedores (Refactored)
 

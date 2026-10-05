@@ -13,6 +13,7 @@ import '../../core/services/app_info_provider.dart';
 import '../../core/services/attachment_storage_service.dart';
 import '../../core/services/backup_crypto_service.dart';
 import '../../core/services/backup_preferences_service.dart';
+import '../../core/constants/backup_v1_limits.dart';
 import '../../core/services/snapshot_service.dart';
 import '../../domain/services/backup_creation_service.dart';
 
@@ -23,7 +24,9 @@ class BackupCreationServiceImpl implements BackupCreationService {
   final BackupCryptoService _cryptoService;
   final AppInfoProvider _appInfoProvider;
   final Future<Directory> Function() _getDocsDirProvider;
-  final int _maxPlaintextZipBytes;
+  final int? _maxPlaintextZipBytesOverride;
+  final int? _maxUncompressedPayloadBytesOverride;
+  final int? _maxEntriesOverride;
 
   BackupCreationServiceImpl({
     required SnapshotService snapshotService,
@@ -32,29 +35,46 @@ class BackupCreationServiceImpl implements BackupCreationService {
     required BackupCryptoService cryptoService,
     required AppInfoProvider appInfoProvider,
     Future<Directory> Function()? getDocsDirProvider,
-    int maxPlaintextZipBytes = 50 * 1024 * 1024,
+    int? maxPlaintextZipBytesOverride,
+    int? maxUncompressedPayloadBytesOverride,
+    int? maxEntriesOverride,
   })  : _snapshotService = snapshotService,
         _preferencesService = preferencesService,
         _attachmentService = attachmentService,
         _cryptoService = cryptoService,
         _appInfoProvider = appInfoProvider,
-        _getDocsDirProvider = getDocsDirProvider ?? getApplicationDocumentsDirectory,
-        _maxPlaintextZipBytes = maxPlaintextZipBytes;
+        _getDocsDirProvider =
+            getDocsDirProvider ?? getApplicationDocumentsDirectory,
+        _maxPlaintextZipBytesOverride = maxPlaintextZipBytesOverride,
+        _maxUncompressedPayloadBytesOverride =
+            maxUncompressedPayloadBytesOverride,
+        _maxEntriesOverride = maxEntriesOverride;
+
+  int get _maxPlaintextZipBytes =>
+      _maxPlaintextZipBytesOverride ?? BackupV1Limits.maxPlaintextZipBytes;
+  int get _maxUncompressedPayloadBytes =>
+      _maxUncompressedPayloadBytesOverride ??
+      BackupV1Limits.maxUncompressedPayloadBytes;
+  int get _maxEntries => _maxEntriesOverride ?? BackupV1Limits.maxEntries;
 
   @override
-  Future<Either<Failure, BackupCreationResult>> generatePortableBackup(String password) async {
+  Future<Either<Failure, BackupCreationResult>> generatePortableBackup(
+      String password) async {
     final docsDir = await _getDocsDirProvider();
     final stagingDirName = 'backup_staging_${const Uuid().v4()}';
     final stagingDir = Directory(p.join(docsDir.path, stagingDirName));
-    
+
     final dbSnapshotPath = p.join(stagingDir.path, 'gestor_gastos.db');
     final zipPlaintextPath = p.join(docsDir.path, '$stagingDirName.zip');
-    final tempOutputPath = p.join(docsDir.path, '$stagingDirName.gestorbackup.tmp');
-    final finalOutputPath = p.join(docsDir.path, 'backup_${DateTime.now().millisecondsSinceEpoch}.gestorbackup');
+    final tempOutputPath =
+        p.join(docsDir.path, '$stagingDirName.gestorbackup.tmp');
+    final finalOutputPath = p.join(docsDir.path,
+        'backup_${DateTime.now().millisecondsSinceEpoch}.gestorbackup');
 
     int attachmentsIncluded = 0;
     int attachmentsMissing = 0;
     int dbSchemaVersion = 1;
+    final List<String> deduplicatedRelativePaths = [];
 
     try {
       await stagingDir.create(recursive: true);
@@ -67,14 +87,17 @@ class BackupCreationServiceImpl implements BackupCreationService {
         // Open snapshot and normalize paths / copy attachments
         Database? snapshotDb;
         try {
-          snapshotDb = await openDatabase(dbSnapshotPath, singleInstance: false);
+          snapshotDb =
+              await openDatabase(dbSnapshotPath, singleInstance: false);
 
-          final versionResult = await snapshotDb.rawQuery('PRAGMA user_version;');
+          final versionResult =
+              await snapshotDb.rawQuery('PRAGMA user_version;');
           if (versionResult.isNotEmpty) {
             dbSchemaVersion = versionResult.first.values.first as int? ?? 1;
           }
 
-          final attachmentsDir = Directory(p.join(stagingDir.path, 'attachments', 'transactions'));
+          final attachmentsDir =
+              Directory(p.join(stagingDir.path, 'attachments', 'transactions'));
           await attachmentsDir.create(recursive: true);
 
           final rows = await snapshotDb.query(
@@ -89,7 +112,8 @@ class BackupCreationServiceImpl implements BackupCreationService {
             final id = row['id'] as int;
             final storedPath = row['imagePath'] as String;
 
-            final physicalPath = await _attachmentService.resolveAbsolutePath(storedPath);
+            final physicalPath =
+                await _attachmentService.resolveAbsolutePath(storedPath);
 
             if (physicalPath == null || !(await File(physicalPath).exists())) {
               // Missing attachment
@@ -107,11 +131,14 @@ class BackupCreationServiceImpl implements BackupCreationService {
                 newRelativePath = physicalSourceToRelativePath[physicalPath]!;
               } else {
                 final ext = p.extension(physicalPath);
-                newRelativePath = 'attachments/transactions/${const Uuid().v4()}$ext';
-                final stagingDestPath = p.join(stagingDir.path, newRelativePath);
-                
+                newRelativePath =
+                    'attachments/transactions/${const Uuid().v4()}$ext';
+                final stagingDestPath =
+                    p.join(stagingDir.path, newRelativePath);
+
                 await File(physicalPath).copy(stagingDestPath);
                 physicalSourceToRelativePath[physicalPath] = newRelativePath;
+                deduplicatedRelativePaths.add(newRelativePath);
               }
 
               attachmentsIncluded++;
@@ -148,13 +175,40 @@ class BackupCreationServiceImpl implements BackupCreationService {
       final manifestFile = File(p.join(stagingDir.path, 'manifest.json'));
       await manifestFile.writeAsString(jsonEncode(manifestMap));
 
-      // 4. ZIP Encoding (Directly to disk)
+      // 4. Pre-zip structural validation
+      int uncompressedBytes = 0;
+      int entriesCount = 0;
+
+      Future<void> addFileToCounts(File file) async {
+        if (await file.exists()) {
+          uncompressedBytes += await file.length();
+          entriesCount++;
+        }
+      }
+
+      await addFileToCounts(File(dbSnapshotPath));
+      await addFileToCounts(prefsFile);
+      await addFileToCounts(manifestFile);
+
+      for (final relativePath in deduplicatedRelativePaths) {
+        await addFileToCounts(File(p.join(stagingDir.path, relativePath)));
+      }
+
+      if (uncompressedBytes > _maxUncompressedPayloadBytes ||
+          entriesCount > _maxEntries) {
+        throw BackupTooLargeException(
+          'El contenido a respaldar (descomprimido: ${(uncompressedBytes / 1024 / 1024).toStringAsFixed(1)} MB, '
+          'archivos: $entriesCount) supera los límites permitidos de Backup V1.',
+        );
+      }
+
+      // 5. ZIP Encoding (Directly to disk)
       final encoder = ZipFileEncoder();
       encoder.create(zipPlaintextPath);
       encoder.addDirectory(stagingDir, includeDirName: false);
       encoder.close();
 
-      // 5. Size check
+      // 6. Size check
       final zipFile = File(zipPlaintextPath);
       if (!await zipFile.exists()) {
         throw BackupException('No se pudo generar el archivo ZIP temporal.');
@@ -162,20 +216,21 @@ class BackupCreationServiceImpl implements BackupCreationService {
       final zipLength = await zipFile.length();
       if (zipLength > _maxPlaintextZipBytes) {
         throw BackupTooLargeException(
-          'El archivo de copia (${(zipLength / 1024 / 1024).toStringAsFixed(1)} MB) '
+          'El archivo de copia comprimido (${(zipLength / 1024 / 1024).toStringAsFixed(1)} MB) '
           'supera el límite técnico temporal de Backup V1 (${_maxPlaintextZipBytes ~/ (1024 * 1024)} MB).',
         );
       }
 
-      // 6. Crypto V1
+      // 7. Crypto V1
       final payloadBytes = await zipFile.readAsBytes();
-      final encryptedBytes = await _cryptoService.encrypt(payloadBytes, password);
+      final encryptedBytes =
+          await _cryptoService.encrypt(payloadBytes, password);
 
-      // 7. Output and rename
+      // 8. Output and rename
       final tempOutputFile = File(tempOutputPath);
       await tempOutputFile.writeAsBytes(encryptedBytes, flush: true);
       final finalFile = await tempOutputFile.rename(finalOutputPath);
-      
+
       final finalLength = await finalFile.length();
 
       return Right(BackupCreationResult(
@@ -184,14 +239,13 @@ class BackupCreationServiceImpl implements BackupCreationService {
         attachmentsMissing,
         finalLength,
       ));
-
     } catch (e) {
       if (e is BackupException) {
         return Left(CacheFailure(e.toString()));
       }
       return Left(CacheFailure('Fallo al generar el backup: $e'));
     } finally {
-      // 8. Cleanup
+      // 9. Cleanup
       try {
         if (await stagingDir.exists()) await stagingDir.delete(recursive: true);
       } catch (_) {}
