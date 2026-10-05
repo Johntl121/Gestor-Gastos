@@ -39,6 +39,8 @@ dependencies:
   flutter_timezone: ^5.1.0
   cryptography: ^2.9.0
   local_auth: 3.0.2
+  archive: 4.0.2
+  package_info_plus: 8.2.0
 
 dev_dependencies:
   flutter_test:

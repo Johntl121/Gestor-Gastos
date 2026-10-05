@@ -33,3 +33,7 @@ class RestoreFailedException extends BackupException {
 class RollbackFailedException extends BackupException {
   RollbackFailedException(String message) : super('ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar la copia de seguridad previa: $message');
 }
+
+class BackupTooLargeException extends BackupException {
+  BackupTooLargeException(String message) : super(message);
+}

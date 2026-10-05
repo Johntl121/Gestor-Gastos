@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -18,6 +19,9 @@ abstract class AttachmentStorageService {
 
   /// Borra el archivo físico best-effort. No lanza error si falla o no existe.
   Future<void> deleteAttachment(String storedPath);
+
+  /// Ejecuta una acción con exclusión mutua para las mutaciones de archivos.
+  Future<T> executeMaintenance<T>(Future<T> Function() action);
 }
 
 class AttachmentStorageServiceImpl implements AttachmentStorageService {
@@ -33,6 +37,21 @@ class AttachmentStorageServiceImpl implements AttachmentStorageService {
   static const String _transactionsNamespace = 'attachments/transactions';
   static const List<String> _allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
   static const String _defaultExtension = '.jpg';
+  Completer<void>? _maintenanceLock;
+
+  @override
+  Future<T> executeMaintenance<T>(Future<T> Function() action) async {
+    while (_maintenanceLock != null) {
+      await _maintenanceLock!.future;
+    }
+    _maintenanceLock = Completer<void>();
+    try {
+      return await action();
+    } finally {
+      _maintenanceLock?.complete();
+      _maintenanceLock = null;
+    }
+  }
 
   Future<Directory> _getDocsDir() async {
     return await _getDocsDirProvider();
@@ -64,6 +83,9 @@ class AttachmentStorageServiceImpl implements AttachmentStorageService {
 
   @override
   Future<String> saveTransactionAttachment(String sourceAbsolutePath) async {
+    while (_maintenanceLock != null) {
+      await _maintenanceLock!.future;
+    }
     final sourceFile = File(sourceAbsolutePath);
     if (!await sourceFile.exists()) {
       throw FileSystemException("El archivo origen no existe", sourceAbsolutePath);
@@ -120,6 +142,9 @@ class AttachmentStorageServiceImpl implements AttachmentStorageService {
 
   @override
   Future<void> deleteAttachment(String storedPath) async {
+    while (_maintenanceLock != null) {
+      await _maintenanceLock!.future;
+    }
     final absPath = await resolveAbsolutePath(storedPath);
     if (absPath == null) return; // Archivo ya no existe o path era inválido
 

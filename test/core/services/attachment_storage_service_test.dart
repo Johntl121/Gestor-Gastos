@@ -153,4 +153,51 @@ void main() {
       await extDir.delete(recursive: true);
     });
   });
+
+  group('AttachmentStorageService - Maintenance Lock', () {
+    test('executeMaintenance locks mutations', () async {
+      final sourceFile = File(p.join(mockDocsDir.path, 'source_test.jpg'))..writeAsStringSync('dummy_content');
+
+      bool maintenanceFinished = false;
+      bool saveFinished = false;
+
+      // Start maintenance that takes some time
+      final maintenanceFuture = service.executeMaintenance(() async {
+        await Future.delayed(const Duration(milliseconds: 100));
+        maintenanceFinished = true;
+      });
+
+      // Attempt to save an attachment while maintenance is running
+      final saveFuture = service.saveTransactionAttachment(sourceFile.path).then((_) {
+        saveFinished = true;
+      });
+
+      // Verify that save is waiting for maintenance
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(maintenanceFinished, isFalse);
+      expect(saveFinished, isFalse); // Save shouldn't finish while maintenance is running
+
+      await maintenanceFuture;
+      expect(maintenanceFinished, isTrue);
+
+      await saveFuture;
+      expect(saveFinished, isTrue); // Save finishes after maintenance
+    });
+
+    test('executeMaintenance releases lock on exception', () async {
+      final sourceFile = File(p.join(mockDocsDir.path, 'source_test.jpg'))..writeAsStringSync('dummy_content');
+
+      try {
+        await service.executeMaintenance(() async {
+          throw Exception('Maintenance Error');
+        });
+      } catch (e) {
+        expect(e.toString(), contains('Maintenance Error'));
+      }
+
+      // Next save should run fine
+      final path = await service.saveTransactionAttachment(sourceFile.path);
+      expect(path, isNotEmpty);
+    });
+  });
 }
