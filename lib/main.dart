@@ -55,12 +55,17 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
+enum SecurityGateState { checking, locked, unlocked, error }
+
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  bool _isLocked = false;
+  SecurityGateState _gateState = SecurityGateState.checking;
+
   bool _showPrivacyShield = false;
   DateTime? _backgroundedAt;
-  static const Duration _gracePeriod = Duration(seconds: 60);
-  int _lifecycleToken = 0;
+  final Duration _gracePeriod = const Duration(minutes: 1);
+
+  // Variable to safely unmount
+  Object _lifecycleToken = Object();
 
   @override
   void initState() {
@@ -70,33 +75,46 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _checkInitialLock() async {
-    final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
-    if (pin != null && pin.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _isLocked = true;
-        });
-      }
+    try {
+      final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+
+      if (!mounted) return;
+      setState(() {
+        if (pin != null && pin.isNotEmpty) {
+          _gateState = SecurityGateState.locked;
+        } else {
+          _gateState = SecurityGateState.unlocked;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _gateState = SecurityGateState.error;
+      });
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Invalidar token para cancelar ciclos
+    _lifecycleToken = Object();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    final currentToken = ++_lifecycleToken;
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
-      if (!_isLocked && !_showPrivacyShield) {
+    final currentToken = _lifecycleToken;
+    final bool isLocked = _gateState == SecurityGateState.locked;
+
+    if (state == AppLifecycleState.inactive) {
+      if (!isLocked) {
         setState(() {
           _showPrivacyShield = true;
         });
       }
     } else if (state == AppLifecycleState.paused) {
-      if (!_isLocked) {
+      if (!isLocked) {
         _backgroundedAt ??= appClock();
         if (!_showPrivacyShield) {
           setState(() {
@@ -116,14 +134,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
 
       if (lock) {
-        final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
-        if (mounted && currentToken == _lifecycleToken) {
-          setState(() {
-            _showPrivacyShield = false;
-            if (pin != null && pin.isNotEmpty) {
-              _isLocked = true;
-            }
-          });
+        try {
+          final pin = await di.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+          if (mounted && currentToken == _lifecycleToken) {
+            setState(() {
+              _showPrivacyShield = false;
+              if (pin != null && pin.isNotEmpty) {
+                _gateState = SecurityGateState.locked;
+              }
+            });
+          }
+        } catch (e) {
+          if (mounted && currentToken == _lifecycleToken) {
+            setState(() {
+              _gateState = SecurityGateState.error;
+            });
+          }
         }
       } else {
         if (mounted && currentToken == _lifecycleToken) {
@@ -254,7 +280,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               return Stack(
                 children: [
                   if (child != null) child,
-                  if (_showPrivacyShield && !_isLocked)
+                  if (_showPrivacyShield && _gateState != SecurityGateState.locked)
                     Container(
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: const Center(
@@ -264,13 +290,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 ],
               );
             },
-            home: _isLocked
-                ? LockScreen(onUnlocked: () {
-                    setState(() {
-                      _isLocked = false;
-                    });
-                  })
-                : (widget.isFirstTime ? const IntroPage() : const MainPage()),
+            home: _gateState == SecurityGateState.checking
+                ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+                : _gateState == SecurityGateState.error
+                    ? const Scaffold(
+                        body: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.lock_outline, size: 64, color: Colors.redAccent),
+                              SizedBox(height: 16),
+                              Text("Error de seguridad local."),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _gateState == SecurityGateState.locked
+                        ? LockScreen(onUnlocked: () {
+                            setState(() {
+                              _gateState = SecurityGateState.unlocked;
+                            });
+                          })
+                        : (widget.isFirstTime ? const IntroPage() : const MainPage()),
           );
         },
       ),
