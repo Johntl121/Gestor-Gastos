@@ -68,6 +68,8 @@ class MockUiProvider extends Mock implements UiProvider {
   bool get enableNotifications => false;
   @override
   bool get isDarkMode => false;
+  @override
+  bool get enableBiometrics => false;
 
   @override
   void addListener(VoidCallback listener) {}
@@ -108,7 +110,6 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       filePickerChannel,
       (MethodCall methodCall) async {
-        
         if (methodCall.method == 'pickFiles' || methodCall.method == 'custom') {
           if (filePickerCanceled) return null;
           return [
