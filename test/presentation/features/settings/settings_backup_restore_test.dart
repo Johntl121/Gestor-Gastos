@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
 import 'package:dartz/dartz.dart';
-import 'package:gestor_gastos/core/errors/backup_exceptions.dart';
 import 'package:gestor_gastos/core/errors/failure.dart';
 import 'package:gestor_gastos/domain/services/backup_creation_service.dart';
 import 'package:gestor_gastos/domain/entities/backup_restore_result.dart';
@@ -69,15 +68,6 @@ class MockUiProvider extends Mock implements UiProvider {
   bool get enableNotifications => false;
   @override
   bool get isDarkMode => false;
-  @override
-  bool get hasPin => false;
-  @override
-  bool get enableBiometrics => false;
-  @override
-  String get selectedCurrency => 'USD';
-
-  @override
-  Future<void> loadSettings() async {}
 
   @override
   void addListener(VoidCallback listener) {}
@@ -118,7 +108,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       filePickerChannel,
       (MethodCall methodCall) async {
-        print('Mock method called: ${methodCall.method}');
+        
         if (methodCall.method == 'pickFiles' || methodCall.method == 'custom') {
           if (filePickerCanceled) return null;
           return [
@@ -235,7 +225,7 @@ void main() {
   });
 
   testWidgets('CREATE: BackupTooLarge mapping', (tester) async {
-    mockCreate.mockResult = () async => Left(CacheFailure('BackupTooLargeException'));
+    mockCreate.mockResult = () async => const Left(CacheFailure('BackupTooLargeException'));
 
     await tester.pumpWidget(createTestWidget());  
     await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
@@ -283,7 +273,7 @@ void main() {
   testWidgets('RESTORE: error mapping (RollbackFailed y RestoreFailed)', (tester) async {
     await tester.pumpWidget(createTestWidget());  
 
-    mockRestore.mockResult = () async => Left(CacheFailure('RollbackFailedException'));
+    mockRestore.mockResult = () async => const Left(CacheFailure('RollbackFailedException'));
 
     await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
@@ -299,7 +289,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 5));
 
-    mockRestore.mockResult = () async => Left(CacheFailure('RestoreFailedException'));
+    mockRestore.mockResult = () async => const Left(CacheFailure('RestoreFailedException'));
     await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));

@@ -962,7 +962,7 @@ class SettingsPage extends StatelessWidget {
                   ),
                   onChanged: (val) => setState(() {}),
                 ),
-                if (isSaving) const Padding(padding: EdgeInsets.only(top: 20), child: const CircularProgressIndicator()),
+                if (isSaving) const Padding(padding: EdgeInsets.only(top: 20), child: CircularProgressIndicator()),
               ],
             ),
             actions: [
@@ -996,6 +996,7 @@ class SettingsPage extends StatelessWidget {
 
                       try {
                         final box = context.findRenderObject() as RenderBox?;
+                        // ignore: deprecated_member_use
                         await Share.shareXFiles(
                           [XFile(backupResult.backupFilePath)],
                           text: 'Mi copia de seguridad de Gestor Gastos',
@@ -1087,7 +1088,7 @@ class SettingsPage extends StatelessWidget {
         builder: (context, setState) {
           return AlertDialog(
             backgroundColor: backgroundColor,
-            title: Text("Advertencia destructiva", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            title: const Text("Advertencia destructiva", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1095,7 +1096,7 @@ class SettingsPage extends StatelessWidget {
                   "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
                   style: TextStyle(color: textColor),
                 ),
-                if (isRestoring) const Padding(padding: EdgeInsets.only(top: 20), child: const CircularProgressIndicator()),
+                if (isRestoring) const Padding(padding: EdgeInsets.only(top: 20), child: CircularProgressIndicator()),
               ],
             ),
             actions: [
