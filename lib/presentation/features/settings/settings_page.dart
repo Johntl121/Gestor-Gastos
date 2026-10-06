@@ -17,6 +17,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../auth/onboarding_page.dart';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../../../domain/usecases/create_backup_usecase.dart';
+import '../../../../domain/usecases/restore_backup_usecase.dart';
+
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -276,9 +282,9 @@ class SettingsPage extends StatelessWidget {
                     textColor,
                     isDarkMode, (val) async {
                   final status = await uiProvider.toggleNotifications(val);
-                  
+
                   if (!context.mounted) return;
-                  
+
                   // Using string matching to avoid importing NotificationCoordinator directly in UI if possible
                   if (status.toString() == 'NotificationStatus.scheduled') {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -359,6 +365,20 @@ class SettingsPage extends StatelessWidget {
                     subtitle: Text("Copia tus gastos al portapapeles",
                         style: TextStyle(color: subTextColor, fontSize: 12)),
                     onTap: () => _exportData(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.backup, color: Colors.cyan),
+                    title: Text("Crear copia de seguridad", style: TextStyle(color: textColor)),
+                    subtitle: Text("Guarda un respaldo cifrado de tus datos", style: TextStyle(color: subTextColor, fontSize: 12)),
+                    onTap: () => _showCreateBackupDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.settings_backup_restore, color: Colors.orangeAccent),
+                    title: Text("Restaurar copia de seguridad", style: TextStyle(color: textColor)),
+                    subtitle: Text("Recupera tus datos desde un archivo", style: TextStyle(color: subTextColor, fontSize: 12)),
+                    onTap: () => _restoreBackup(context),
                   ),
                 ],
               ),
@@ -892,6 +912,238 @@ class SettingsPage extends StatelessWidget {
                 style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCreateBackupDialog(BuildContext context) {
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
+    final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+
+    final passController = TextEditingController();
+    final confirmController = TextEditingController();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          final passwordsMatch = passController.text == confirmController.text;
+          final isNotEmpty = passController.text.isNotEmpty;
+          final canSave = passwordsMatch && isNotEmpty && !isSaving;
+
+          return AlertDialog(
+            backgroundColor: backgroundColor,
+            title: Text("Contraseña de Copia", style: TextStyle(color: textColor)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: passController,
+                  obscureText: true,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: "Contraseña",
+                    labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                  ),
+                  onChanged: (val) => setState(() {}),
+                ),
+                TextField(
+                  controller: confirmController,
+                  obscureText: true,
+                  style: TextStyle(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: "Confirmar Contraseña",
+                    labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                    errorText: (isNotEmpty && !passwordsMatch) ? "Las contraseñas no coinciden" : null,
+                  ),
+                  onChanged: (val) => setState(() {}),
+                ),
+                if (isSaving) const Padding(padding: EdgeInsets.only(top: 20), child: const CircularProgressIndicator()),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+              ),
+              ElevatedButton(
+                onPressed: canSave ? () async {
+                  setState(() => isSaving = true);
+                  final createUseCase = sl.sl<CreateBackupUseCase>();
+                  final result = await createUseCase(CreateBackupParams(password: passController.text));
+
+                  if (!context.mounted) return;
+                  Navigator.pop(ctx);
+
+                  result.fold(
+                    (failure) {
+                      String msg = "Error al crear la copia.";
+                      if (failure.message.contains("BackupTooLargeException")) {
+                        msg = "La copia de seguridad supera el tamaño compatible con esta versión.";
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                    },
+                    (backupResult) async {
+                      if (backupResult.transactionAttachmentsMissing > 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Copia creada, pero ${backupResult.transactionAttachmentsMissing} recibos no pudieron incluirse.")));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copia de seguridad creada correctamente.")));
+                      }
+
+                      try {
+                        final box = context.findRenderObject() as RenderBox?;
+                        await Share.shareXFiles(
+                          [XFile(backupResult.backupFilePath)],
+                          text: 'Mi copia de seguridad de Gestor Gastos',
+                          sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
+                        );
+                      } catch (e) {
+                        debugPrint("Error sharing: \$e");
+                      }
+                    }
+                  );
+                } : null,
+                child: const Text("Aceptar"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _restoreBackup(BuildContext context) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['gestorbackup'],
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    if (!context.mounted) return;
+
+    _showRestorePasswordDialog(context, filePath);
+  }
+
+  void _showRestorePasswordDialog(BuildContext context, String filePath) {
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
+    final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+
+    final passController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: backgroundColor,
+        title: Text("Contraseña de Copia", style: TextStyle(color: textColor)),
+        content: TextField(
+          controller: passController,
+          obscureText: true,
+          style: TextStyle(color: textColor),
+          decoration: InputDecoration(
+            labelText: "Contraseña",
+            labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final password = passController.text;
+              if (password.isNotEmpty) {
+                Navigator.pop(ctx);
+                _showDestructiveWarningDialog(context, filePath, password);
+              }
+            },
+            child: const Text("Aceptar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDestructiveWarningDialog(BuildContext context, String filePath, String password) {
+    final uiProvider = Provider.of<UiProvider>(context, listen: false);
+    final isDarkMode = uiProvider.isDarkMode;
+    final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    bool isRestoring = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: backgroundColor,
+            title: Text("Advertencia destructiva", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
+                  style: TextStyle(color: textColor),
+                ),
+                if (isRestoring) const Padding(padding: EdgeInsets.only(top: 20), child: const CircularProgressIndicator()),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isRestoring ? null : () => Navigator.pop(ctx),
+                child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+              ),
+              ElevatedButton(
+                onPressed: isRestoring ? null : () async {
+                  setState(() => isRestoring = true);
+                  final restoreUseCase = sl.sl<RestoreBackupUseCase>();
+                  final result = await restoreUseCase(filePath, password);
+
+                  if (!context.mounted) return;
+                  Navigator.pop(ctx); // Cierra advertencia
+
+                  result.fold(
+                    (failure) {
+                      String msg = "Error al restaurar la copia.";
+                      if (failure.message.contains("RollbackFailedException")) {
+                        msg = "ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.";
+                      } else if (failure.message.contains("RestoreFailedException")) {
+                        msg = "No se pudo completar la restauración. Se ha vuelto a la versión anterior.";
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                    },
+                    (restoreResult) {
+                      if (restoreResult.warnings.isNotEmpty || restoreResult.attachmentsMissing > 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Restaurado con advertencias (adjuntos faltantes).")));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copia restaurada exitosamente.")));
+                      }
+                      // Recargar la app
+                      Provider.of<WalletProvider>(context, listen: false).refreshData();
+                      Provider.of<TransactionProvider>(context, listen: false).refreshData();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (context) => const OnboardingPage()),
+                        (route) => false,
+                      );
+                    }
+                  );
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                child: const Text("Sí, restaurar", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        }
       ),
     );
   }

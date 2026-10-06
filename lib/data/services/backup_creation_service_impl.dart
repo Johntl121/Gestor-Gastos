@@ -77,6 +77,19 @@ class BackupCreationServiceImpl implements BackupCreationService {
     final List<String> deduplicatedRelativePaths = [];
 
     try {
+      // 0. Cleanup previous temp backups
+      try {
+        final dir = Directory(docsDir.path);
+        if (await dir.exists()) {
+          final entities = dir.listSync();
+          for (var entity in entities) {
+            if (entity is File && p.basename(entity.path).startsWith('backup_') && p.basename(entity.path).endsWith('.gestorbackup')) {
+              await entity.delete();
+            }
+          }
+        }
+      } catch (_) {}
+
       await stagingDir.create(recursive: true);
 
       // 1. Critical window: DB Snapshot + Attachments with Mutex

@@ -44,7 +44,78 @@ void main() async {
   // Check First Time
   final isFirstTime = di.sl<PreferencesLocalDataSource>().isFirstTime();
 
-  runApp(MyApp(isFirstTime: isFirstTime));
+  runApp(RestartWidget(initialIsFirstTime: isFirstTime));
+}
+
+class RestartWidget extends StatefulWidget {
+  final bool initialIsFirstTime;
+  const RestartWidget({super.key, required this.initialIsFirstTime});
+
+  static Future<void> restartApp(BuildContext context) async {
+    final state = context.findAncestorStateOfType<_RestartWidgetState>();
+    await state?.restartApp();
+  }
+
+  @override
+  State<RestartWidget> createState() => _RestartWidgetState();
+}
+
+class _RestartWidgetState extends State<RestartWidget> {
+  Key _key = UniqueKey();
+  bool _isRestarting = false;
+  late bool _isFirstTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFirstTime = widget.initialIsFirstTime;
+  }
+
+  Future<void> restartApp() async {
+    // 1. Desmontar subtree actual
+    setState(() {
+      _isRestarting = true;
+    });
+
+    // Esperar al final del frame para que Flutter desmonte MyApp y llame a los dispose()
+    await WidgetsBinding.instance.endOfFrame;
+
+    // 2. Resetear dependencias
+    await di.sl.reset();
+
+    // 3. Volver a inicializar
+    await di.init();
+    await di.sl<NotificationService>().init();
+    await di.sl<NotificationCoordinator>().init();
+
+    // Re-evaluar first time
+    _isFirstTime = di.sl<PreferencesLocalDataSource>().isFirstTime();
+
+    // 4. Reconstruir
+    setState(() {
+      _key = UniqueKey();
+      _isRestarting = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isRestarting) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    return KeyedSubtree(
+      key: _key,
+      child: MyApp(isFirstTime: _isFirstTime),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
