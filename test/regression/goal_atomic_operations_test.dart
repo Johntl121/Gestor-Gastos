@@ -288,4 +288,7 @@ class _MockLocalDatabase implements LocalDatabase {
 
   @override
   Future<Database> forceOpen() async => _db;
+
+  @override
+  Future<Database> forceOpenPendingRestore() async => _db;
 }

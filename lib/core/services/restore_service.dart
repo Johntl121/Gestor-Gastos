@@ -60,7 +60,7 @@ class RestoreService {
             await restoreFile.rename(activeFile.path);
             await _cleanAuxiliaryFiles(activeDbPath);
             
-            final newDb = await _localDatabase.forceOpen();
+            final newDb = await _localDatabase.forceOpenPendingRestore();
             
             final checkRes = await newDb.rawQuery('PRAGMA quick_check;');
             if (checkRes.isEmpty || checkRes.first.values.first.toString().toLowerCase() != 'ok') {

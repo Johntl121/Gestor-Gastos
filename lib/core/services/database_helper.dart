@@ -31,6 +31,24 @@ class LocalDatabase {
     return _database!;
   }
 
+  Future<Database> forceOpenPendingRestore() async {
+    final marker =
+        File(join(await getDatabasesPath(), 'gestor_gastos.restore.pending'));
+    if (!await marker.exists()) {
+      throw StateError(
+          'forceOpenPendingRestore solo puede invocarse durante una restauración pendiente activa (marker no encontrado).');
+    }
+
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+
+    final String path = join(await getDatabasesPath(), 'gestor_gastos.db');
+    _database = await _openDatabaseHandle(path);
+    return _database!;
+  }
+
   Future<void> closeAndRelease() async {
     if (_database != null) {
       await _database!.close();
@@ -91,9 +109,7 @@ class LocalDatabase {
     }
   }
 
-  Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'gestor_gastos.db');
-    await _crashRecoveryCheck(path);
+  Future<Database> _openDatabaseHandle(String path) async {
     return await openDatabase(
       path,
       version: _databaseVersion,
@@ -101,6 +117,12 @@ class LocalDatabase {
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<Database> _initDatabase() async {
+    final String path = join(await getDatabasesPath(), 'gestor_gastos.db');
+    await _crashRecoveryCheck(path);
+    return await _openDatabaseHandle(path);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {

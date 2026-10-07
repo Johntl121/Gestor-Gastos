@@ -302,6 +302,67 @@ void main() {
 
     expect(await File('$dbPath.restore').exists(), isFalse);
   });
+
+  test('REGRESIÓN: restoreDatabase instala y commitea datos reales (sentinel OLD -> NEW) sin rollback prematuro', () async {
+    final activeDb = await localDatabase.database;
+    await activeDb.execute(
+      "INSERT INTO accounts(name, type, balance) VALUES('SENTINEL_OLD', 'CASH', 100.0);",
+    );
+    final activeRowsBefore = await activeDb.query('accounts');
+    expect(activeRowsBefore.any((r) => r['name'] == 'SENTINEL_OLD'), isTrue);
+
+    final candidatePath = p.join(await getDatabasesPath(), 'candidate_sentinel.db');
+    if (await File(candidatePath).exists()) await File(candidatePath).delete();
+    final candDb = await openDatabase(
+      candidatePath,
+      version: 24,
+      onCreate: (db, v) async {
+        await db.execute('CREATE TABLE accounts(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, type TEXT NOT NULL, balance REAL DEFAULT 0.0, color INTEGER, currencySymbol TEXT, iconCode INTEGER, includeInTotal INTEGER);');
+        await db.execute('CREATE TABLE categories(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, icon TEXT NOT NULL, color INTEGER NOT NULL, type TEXT NOT NULL);');
+        await db.execute('CREATE TABLE transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL NOT NULL, date INTEGER NOT NULL, categoryId INTEGER NOT NULL, type TEXT NOT NULL, accountId INTEGER NOT NULL, destinationAccountId INTEGER, description TEXT, imagePath TEXT, subscriptionId TEXT, isPaid INTEGER DEFAULT 1);');
+        await db.execute(
+          "INSERT INTO accounts(name, type, balance) VALUES('SENTINEL_NEW', 'CASH', 777.0);",
+        );
+      },
+    );
+    await candDb.close();
+
+    await restoreService.restoreDatabase(candidatePath);
+
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+    expect(await File(p.join(await getDatabasesPath(), 'gestor_gastos.restore.pending')).exists(), isFalse);
+
+    final activeDbAfter = await localDatabase.database;
+    final activeRowsAfter = await activeDbAfter.query('accounts');
+    expect(activeRowsAfter.any((r) => r['name'] == 'SENTINEL_NEW'), isTrue);
+    expect(activeRowsAfter.any((r) => r['name'] == 'SENTINEL_OLD'), isFalse);
+    final restoredAccount = activeRowsAfter.firstWhere((r) => r['name'] == 'SENTINEL_NEW');
+    expect(restoredAccount['balance'], 777.0);
+  });
+
+  test('Process-death: marker + no fallback + producción sana -> producción se conserva y marker se resuelve', () async {
+    final dbInit = await localDatabase.database;
+    await dbInit.execute(
+      "INSERT INTO accounts(name, type, balance) VALUES('PRODUCTION_HEALTHY', 'CASH', 300.0);",
+    );
+    await localDatabase.closeAndRelease();
+
+    await File(p.join(await getDatabasesPath(), 'gestor_gastos.restore.pending')).writeAsString('pending');
+    expect(await File('$dbPath.fallback').exists(), isFalse);
+
+    final db = await localDatabase.database;
+
+    expect(await File(p.join(await getDatabasesPath(), 'gestor_gastos.restore.pending')).exists(), isFalse);
+    final rows = await db.query('accounts');
+    expect(rows.any((r) => r['name'] == 'PRODUCTION_HEALTHY'), isTrue);
+  });
+
+  test('Defensa: forceOpenPendingRestore sin marker activo lanza StateError', () async {
+    expect(
+      () => localDatabase.forceOpenPendingRestore(),
+      throwsStateError,
+    );
+  });
 }
 
 
@@ -325,7 +386,10 @@ class _MockTestLocalDatabase implements LocalDatabase {
   Future<T> executeMaintenance<T>(Future<T> Function() operation) => real.executeMaintenance(operation);
 
   @override
-  Future<Database> forceOpen() async {
+  Future<Database> forceOpen() => real.forceOpen();
+
+  @override
+  Future<Database> forceOpenPendingRestore() async {
     if (lockFallback) {
       final fallbackFile = File(p.join(await getDatabasesPath(), 'gestor_gastos.db.fallback'));
       if (await fallbackFile.exists()) {
@@ -335,7 +399,7 @@ class _MockTestLocalDatabase implements LocalDatabase {
     }
 
     if (failReopen) throw Exception('Simulated reopen failure');
-    final db = await real.forceOpen();
+    final db = await real.forceOpenPendingRestore();
     if (failHealthCheck) {
       await db.rawQuery('PRAGMA user_version = 0;');
     }
