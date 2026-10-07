@@ -400,4 +400,254 @@ void main() {
     expect(photoEntry.isFile, isTrue);
     expect(photoEntry.size, greaterThan(0));
   });
+
+  test('REGRESIÓN: canonical relative existente conserva exactamente el mismo imagePath', () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    const canonicalPath = 'attachments/transactions/ed1b09cc-9d6e-4d16-9911-46d9f8c59353.jpg';
+    final physicalFile = File(p.join(tempDocsDir.path, 'attachments', 'transactions', 'ed1b09cc-9d6e-4d16-9911-46d9f8c59353.jpg'));
+    await physicalFile.parent.create(recursive: true);
+    await physicalFile.writeAsString('bytes deterministas');
+    fakeAttachmentService.mockResolvedPaths[canonicalPath] = physicalFile.path;
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, imagePath TEXT)');
+        await db.insert('transactions', {'id': 1, 'imagePath': canonicalPath});
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
+
+    const password = 'TestPassword123!';
+    final result = await realCreationService.generatePortableBackup(password);
+    expect(result.isRight(), isTrue);
+
+    final backupPath = result.getOrElse(() => throw Exception('')).backupFilePath;
+    final encBytes = await File(backupPath).readAsBytes();
+    final decBytes = await realCrypto.decrypt(encBytes, password);
+    final archive = ZipDecoder().decodeBytes(decBytes);
+
+    // ZIP debe contener exactamente el mismo canonical relative path
+    expect(archive.files.map((f) => f.name), contains(canonicalPath));
+
+    // Base de datos en snapshot debe conservar exactamente el mismo imagePath
+    final dbEntry = archive.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    final inspectDbFile = File(p.join(tempDocsDir.path, 'inspect_canonical.db'));
+    await inspectDbFile.writeAsBytes(dbEntry.content as List<int>);
+    final inspectDb = await openDatabase(inspectDbFile.path);
+    final rows = await inspectDb.query('transactions');
+    await inspectDb.close();
+    await inspectDbFile.delete();
+
+    expect(rows.first['imagePath'], canonicalPath);
+  });
+
+  test('REGRESIÓN: legacy absolute se normaliza a nuevo canonical relative', () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    final legacyFile = File(p.join(tempDocsDir.path, 'legacy_dir', 'receipt_legacy.png'));
+    await legacyFile.parent.create(recursive: true);
+    await legacyFile.writeAsString('bytes legacy');
+    fakeAttachmentService.mockResolvedPaths[legacyFile.path] = legacyFile.path;
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, imagePath TEXT)');
+        await db.insert('transactions', {'id': 1, 'imagePath': legacyFile.path});
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
+
+    const password = 'TestPassword123!';
+    final result = await realCreationService.generatePortableBackup(password);
+    expect(result.isRight(), isTrue);
+
+    final backupPath = result.getOrElse(() => throw Exception('')).backupFilePath;
+    final encBytes = await File(backupPath).readAsBytes();
+    final decBytes = await realCrypto.decrypt(encBytes, password);
+    final archive = ZipDecoder().decodeBytes(decBytes);
+
+    final dbEntry = archive.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    final inspectDbFile = File(p.join(tempDocsDir.path, 'inspect_legacy.db'));
+    await inspectDbFile.writeAsBytes(dbEntry.content as List<int>);
+    final inspectDb = await openDatabase(inspectDbFile.path);
+    final rows = await inspectDb.query('transactions');
+    await inspectDb.close();
+    await inspectDbFile.delete();
+
+    final normalizedPath = rows.first['imagePath'] as String;
+    expect(normalizedPath != legacyFile.path, isTrue);
+    expect(normalizedPath.startsWith('attachments/transactions/'), isTrue);
+    expect(normalizedPath.endsWith('.png'), isTrue);
+    expect(archive.files.map((f) => f.name), contains(normalizedPath));
+  });
+
+  test('REGRESIÓN: dos referencias idénticas al mismo canonical path -> una copia física y conservan mismo path', () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    const canonicalPath = 'attachments/transactions/common_receipt.webp';
+    final physicalFile = File(p.join(tempDocsDir.path, 'attachments', 'transactions', 'common_receipt.webp'));
+    await physicalFile.parent.create(recursive: true);
+    await physicalFile.writeAsString('bytes comunes');
+    fakeAttachmentService.mockResolvedPaths[canonicalPath] = physicalFile.path;
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, imagePath TEXT)');
+        await db.insert('transactions', {'id': 1, 'imagePath': canonicalPath});
+        await db.insert('transactions', {'id': 2, 'imagePath': canonicalPath});
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
+
+    const password = 'TestPassword123!';
+    final result = await realCreationService.generatePortableBackup(password);
+    expect(result.isRight(), isTrue);
+
+    final backupPath = result.getOrElse(() => throw Exception('')).backupFilePath;
+    final encBytes = await File(backupPath).readAsBytes();
+    final decBytes = await realCrypto.decrypt(encBytes, password);
+    final archive = ZipDecoder().decodeBytes(decBytes);
+
+    final attachmentEntries = archive.files
+        .where((f) => f.name.startsWith('attachments/transactions/'))
+        .toList();
+    expect(attachmentEntries.length, 1);
+    expect(attachmentEntries.first.name, canonicalPath);
+
+    final dbEntry = archive.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    final inspectDbFile = File(p.join(tempDocsDir.path, 'inspect_dedup.db'));
+    await inspectDbFile.writeAsBytes(dbEntry.content as List<int>);
+    final inspectDb = await openDatabase(inspectDbFile.path);
+    final rows = await inspectDb.query('transactions');
+    await inspectDb.close();
+    await inspectDbFile.delete();
+
+    expect(rows.length, 2);
+    expect(rows[0]['imagePath'], canonicalPath);
+    expect(rows[1]['imagePath'], canonicalPath);
+  });
+
+  test('REGRESIÓN: mismo physical file con una referencia legacy y una canonical -> canonical gana independientemente del orden', () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    const canonicalPath = 'attachments/transactions/winner_receipt.jpg';
+    final physicalFile = File(p.join(tempDocsDir.path, 'attachments', 'transactions', 'winner_receipt.jpg'));
+    await physicalFile.parent.create(recursive: true);
+    await physicalFile.writeAsString('bytes compartidos');
+
+    const legacyPath = 'C:\\old_photos\\receipt_old.jpg';
+    fakeAttachmentService.mockResolvedPaths[canonicalPath] = physicalFile.path;
+    fakeAttachmentService.mockResolvedPaths[legacyPath] = physicalFile.path;
+
+    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
+    const password = 'TestPassword123!';
+
+    // Subcaso A: canonical primero (id: 1), legacy después (id: 2)
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, imagePath TEXT)');
+        await db.insert('transactions', {'id': 1, 'imagePath': canonicalPath});
+        await db.insert('transactions', {'id': 2, 'imagePath': legacyPath});
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+
+    final resultA = await realCreationService.generatePortableBackup(password);
+    expect(resultA.isRight(), isTrue);
+    final backupPathA = resultA.getOrElse(() => throw Exception('')).backupFilePath;
+    final encBytesA = await File(backupPathA).readAsBytes();
+    final decBytesA = await realCrypto.decrypt(encBytesA, password);
+    final archiveA = ZipDecoder().decodeBytes(decBytesA);
+
+    final dbEntryA = archiveA.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    final inspectDbFileA = File(p.join(tempDocsDir.path, 'inspect_order_a.db'));
+    await inspectDbFileA.writeAsBytes(dbEntryA.content as List<int>);
+    final inspectDbA = await openDatabase(inspectDbFileA.path);
+    final rowsA = await inspectDbA.query('transactions', orderBy: 'id ASC');
+    await inspectDbA.close();
+    await inspectDbFileA.delete();
+
+    expect(rowsA[0]['imagePath'], canonicalPath);
+    expect(rowsA[1]['imagePath'], canonicalPath);
+
+    // Subcaso B: legacy primero (id: 1), canonical después (id: 2)
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, imagePath TEXT)');
+        await db.insert('transactions', {'id': 1, 'imagePath': legacyPath});
+        await db.insert('transactions', {'id': 2, 'imagePath': canonicalPath});
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+
+    final resultB = await realCreationService.generatePortableBackup(password);
+    expect(resultB.isRight(), isTrue);
+    final backupPathB = resultB.getOrElse(() => throw Exception('')).backupFilePath;
+    final encBytesB = await File(backupPathB).readAsBytes();
+    final decBytesB = await realCrypto.decrypt(encBytesB, password);
+    final archiveB = ZipDecoder().decodeBytes(decBytesB);
+
+    final dbEntryB = archiveB.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    final inspectDbFileB = File(p.join(tempDocsDir.path, 'inspect_order_b.db'));
+    await inspectDbFileB.writeAsBytes(dbEntryB.content as List<int>);
+    final inspectDbB = await openDatabase(inspectDbFileB.path);
+    final rowsB = await inspectDbB.query('transactions', orderBy: 'id ASC');
+    await inspectDbB.close();
+    await inspectDbFileB.delete();
+
+    // En ambos subcasos, independientemente del orden, gana el path canónico
+    expect(rowsB[0]['imagePath'], canonicalPath);
+    expect(rowsB[1]['imagePath'], canonicalPath);
+  });
 }

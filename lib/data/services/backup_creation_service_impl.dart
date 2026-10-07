@@ -119,7 +119,7 @@ class BackupCreationServiceImpl implements BackupCreationService {
             where: 'imagePath IS NOT NULL',
           );
 
-          final Map<String, String> physicalSourceToRelativePath = {};
+          final List<_AttachmentReference> validReferences = [];
 
           for (final row in rows) {
             final id = row['id'] as int;
@@ -138,29 +138,63 @@ class BackupCreationServiceImpl implements BackupCreationService {
                 whereArgs: [id],
               );
             } else {
-              // Attachment exists, deduplicate
-              String newRelativePath;
-              if (physicalSourceToRelativePath.containsKey(physicalPath)) {
-                newRelativePath = physicalSourceToRelativePath[physicalPath]!;
-              } else {
-                final ext = p.extension(physicalPath);
-                newRelativePath =
-                    'attachments/transactions/${const Uuid().v4()}$ext';
-                final stagingDestPath =
-                    p.join(stagingDir.path, newRelativePath);
+              validReferences.add(_AttachmentReference(
+                transactionId: id,
+                storedPath: storedPath,
+                physicalPath: physicalPath,
+              ));
+            }
+          }
 
-                await File(physicalPath).copy(stagingDestPath);
-                physicalSourceToRelativePath[physicalPath] = newRelativePath;
-                deduplicatedRelativePaths.add(newRelativePath);
-              }
+          // Agrupar referencias por archivo físico para deduplicación determinista
+          final Map<String, List<_AttachmentReference>> physicalPathGroups = {};
+          for (final ref in validReferences) {
+            physicalPathGroups
+                .putIfAbsent(ref.physicalPath, () => [])
+                .add(ref);
+          }
 
+          for (final entry in physicalPathGroups.entries) {
+            final physicalPath = entry.key;
+            final refs = entry.value;
+
+            // Determinar candidatos canónicos relativos válidos
+            final canonicalCandidates = refs
+                .map((r) => r.storedPath.replaceAll('\\', '/'))
+                .where(isCanonicalRelativePath)
+                .toSet()
+                .toList()
+              ..sort();
+
+            final String chosenRelativePath;
+            if (canonicalCandidates.isNotEmpty) {
+              chosenRelativePath = canonicalCandidates.first;
+            } else {
+              final ext = p.extension(physicalPath);
+              chosenRelativePath =
+                  'attachments/transactions/${const Uuid().v4()}$ext';
+            }
+
+            final stagingDestPath = p.joinAll([
+              stagingDir.path,
+              ...p.posix.split(chosenRelativePath),
+            ]);
+            final stagingDestFile = File(stagingDestPath);
+            await stagingDestFile.parent.create(recursive: true);
+            await File(physicalPath).copy(stagingDestPath);
+
+            deduplicatedRelativePaths.add(chosenRelativePath);
+
+            for (final ref in refs) {
               attachmentsIncluded++;
-              await snapshotDb.update(
-                'transactions',
-                {'imagePath': newRelativePath},
-                where: 'id = ?',
-                whereArgs: [id],
-              );
+              if (ref.storedPath != chosenRelativePath) {
+                await snapshotDb.update(
+                  'transactions',
+                  {'imagePath': chosenRelativePath},
+                  where: 'id = ?',
+                  whereArgs: [ref.transactionId],
+                );
+              }
             }
           }
         } finally {
@@ -292,4 +326,31 @@ class BackupCreationServiceImpl implements BackupCreationService {
       } catch (_) {}
     }
   }
+
+  static const String _transactionsNamespace = 'attachments/transactions';
+
+  /// Valida si un path almacenado en DB es un path canónico relativo seguro
+  /// conforme al namespace canónico de la aplicación.
+  static bool isCanonicalRelativePath(String relativePath) {
+    if (p.isAbsolute(relativePath)) return false;
+    if (relativePath.contains('..')) return false;
+    final normalized = p.normalize(relativePath).replaceAll('\\', '/');
+    if (normalized.startsWith('..')) return false;
+    if (!normalized.startsWith('$_transactionsNamespace/')) return false;
+    final fileName = normalized.substring('$_transactionsNamespace/'.length);
+    if (fileName.isEmpty || fileName.contains('/')) return false;
+    return true;
+  }
+}
+
+class _AttachmentReference {
+  final int transactionId;
+  final String storedPath;
+  final String physicalPath;
+
+  _AttachmentReference({
+    required this.transactionId,
+    required this.storedPath,
+    required this.physicalPath,
+  });
 }
