@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:archive/archive_io.dart';
 import 'package:gestor_gastos/core/services/app_info_provider.dart';
 import 'package:gestor_gastos/core/services/attachment_storage_service.dart';
 import 'package:gestor_gastos/core/services/backup_crypto_service.dart';
@@ -297,5 +298,106 @@ void main() {
         .where((e) => !e.path.contains('backup_staging_'))
         .toList();
     expect(entries.isEmpty, isTrue);
+  });
+
+  test(
+      'REGRESIÓN: ZIP generado contiene archivos reales (manifest, DB, prefs, attachment) con rutas normalizadas POSIX y await real',
+      () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    // Adjunto real
+    final attachmentFile = File(p.join(
+        tempDocsDir.path, 'attachments', 'transactions', 'receipt_01.jpg'));
+    await attachmentFile.parent.create(recursive: true);
+    await attachmentFile.writeAsString('bytes de imagen');
+    fakeAttachmentService.mockResolvedPaths[
+            'attachments/transactions/receipt_01.jpg'] =
+        attachmentFile.path;
+
+    when(() => mockSnapshotService.createDatabaseSnapshot(any()))
+        .thenAnswer((i) async {
+      final db = await openDatabase(i.positionalArguments[0] as String,
+          version: 1, onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE transactions (
+            id INTEGER PRIMARY KEY,
+            imagePath TEXT
+          )
+        ''');
+        await db.insert('transactions', {
+          'id': 1,
+          'imagePath': 'attachments/transactions/receipt_01.jpg',
+        });
+      });
+      await db.close();
+      return File(i.positionalArguments[0] as String);
+    });
+
+    when(() => mockPreferencesService.exportPreferences())
+        .thenAnswer((_) async => {'USER_NAME': 'Juan Perez'});
+
+    const password = 'StrongPassword!123';
+    final result = await realCreationService.generatePortableBackup(password);
+
+    expect(result.isRight(), isTrue);
+    final backupPath =
+        result.getOrElse(() => throw Exception('')).backupFilePath;
+    expect(File(backupPath).existsSync(), isTrue);
+
+    // 1. Descifrado real con BackupCryptoService
+    final encryptedBytes = await File(backupPath).readAsBytes();
+    final decryptedBytes = await realCrypto.decrypt(encryptedBytes, password);
+
+    // 2. Abrir y decodificar ZIP real
+    final archive = ZipDecoder().decodeBytes(decryptedBytes);
+
+    // 3. Inspeccionar las entradas del ZIP
+    final entryNames = archive.files.map((f) => f.name).toList();
+    expect(entryNames, contains('manifest.json'));
+    expect(entryNames, contains('gestor_gastos.db'));
+    expect(entryNames, contains('preferences.json'));
+
+    // Debe contener el attachment con prefijo POSIX
+    final attachmentEntries = entryNames
+        .where((n) => n.startsWith('attachments/transactions/'))
+        .toList();
+    expect(attachmentEntries.length, 1);
+    expect(attachmentEntries.first, endsWith('.jpg'));
+
+    // Invariante multiplataforma: NINGUNA entrada debe contener separadores backslash '\'
+    for (final name in entryNames) {
+      expect(name.contains('\\'), isFalse,
+          reason: 'La entrada ZIP $name no debe contener backslashes');
+      expect(name.startsWith('/'), isFalse);
+    }
+
+    // Verificar que los archivos dentro del ZIP sean regulares y no estén vacíos
+    final manifestEntry =
+        archive.files.firstWhere((f) => f.name == 'manifest.json');
+    expect(manifestEntry.isFile, isTrue);
+    expect(manifestEntry.size, greaterThan(0));
+
+    final dbEntry =
+        archive.files.firstWhere((f) => f.name == 'gestor_gastos.db');
+    expect(dbEntry.isFile, isTrue);
+    expect(dbEntry.size, greaterThan(0));
+
+    final prefsEntry =
+        archive.files.firstWhere((f) => f.name == 'preferences.json');
+    expect(prefsEntry.isFile, isTrue);
+    expect(prefsEntry.size, greaterThan(0));
+
+    final photoEntry = archive.files.firstWhere(
+        (f) => f.name.startsWith('attachments/transactions/'));
+    expect(photoEntry.isFile, isTrue);
+    expect(photoEntry.size, greaterThan(0));
   });
 }

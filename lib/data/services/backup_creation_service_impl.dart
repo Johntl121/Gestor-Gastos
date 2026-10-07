@@ -204,7 +204,12 @@ class BackupCreationServiceImpl implements BackupCreationService {
       await addFileToCounts(manifestFile);
 
       for (final relativePath in deduplicatedRelativePaths) {
-        await addFileToCounts(File(p.join(stagingDir.path, relativePath)));
+        final archivePath = relativePath.replaceAll('\\', '/');
+        final sourcePath = p.joinAll([
+          stagingDir.path,
+          ...p.posix.split(archivePath),
+        ]);
+        await addFileToCounts(File(sourcePath));
       }
 
       if (uncompressedBytes > _maxUncompressedPayloadBytes ||
@@ -215,11 +220,26 @@ class BackupCreationServiceImpl implements BackupCreationService {
         );
       }
 
-      // 5. ZIP Encoding (Directly to disk)
+      // 5. ZIP Encoding (Directly to disk con rutas normalizadas POSIX)
       final encoder = ZipFileEncoder();
       encoder.create(zipPlaintextPath);
-      encoder.addDirectory(stagingDir, includeDirName: false);
-      encoder.close();
+
+      try {
+        await encoder.addFile(File(dbSnapshotPath), 'gestor_gastos.db');
+        await encoder.addFile(prefsFile, 'preferences.json');
+        await encoder.addFile(manifestFile, 'manifest.json');
+
+        for (final relativePath in deduplicatedRelativePaths) {
+          final archivePath = relativePath.replaceAll('\\', '/');
+          final sourcePath = p.joinAll([
+            stagingDir.path,
+            ...p.posix.split(archivePath),
+          ]);
+          await encoder.addFile(File(sourcePath), archivePath);
+        }
+      } finally {
+        await encoder.close();
+      }
 
       // 6. Size check
       final zipFile = File(zipPlaintextPath);
