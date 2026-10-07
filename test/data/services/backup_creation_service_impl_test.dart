@@ -564,7 +564,7 @@ void main() {
     expect(rows[1]['imagePath'], canonicalPath);
   });
 
-  test('REGRESIÓN: mismo physical file con una referencia legacy y una canonical -> canonical gana independientemente del orden', () async {
+  test('REGRESIÓN: legacy + canonical, canonical procesada primero -> canonical gana', () async {
     final realCrypto = BackupCryptoService();
     final realCreationService = BackupCreationServiceImpl(
       snapshotService: mockSnapshotService,
@@ -587,7 +587,7 @@ void main() {
     when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
     const password = 'TestPassword123!';
 
-    // Subcaso A: canonical primero (id: 1), legacy después (id: 2)
+    // Canonical primero (id: 1), legacy después (id: 2)
     when(() => mockSnapshotService.createDatabaseSnapshot(any()))
         .thenAnswer((i) async {
       final db = await openDatabase(i.positionalArguments[0] as String,
@@ -607,6 +607,12 @@ void main() {
     final decBytesA = await realCrypto.decrypt(encBytesA, password);
     final archiveA = ZipDecoder().decodeBytes(decBytesA);
 
+    final attachmentEntriesA = archiveA.files
+        .where((f) => f.name.startsWith('attachments/transactions/'))
+        .toList();
+    expect(attachmentEntriesA.length, 1);
+    expect(attachmentEntriesA.first.name, canonicalPath);
+
     final dbEntryA = archiveA.files.firstWhere((f) => f.name == 'gestor_gastos.db');
     final inspectDbFileA = File(p.join(tempDocsDir.path, 'inspect_order_a.db'));
     await inspectDbFileA.writeAsBytes(dbEntryA.content as List<int>);
@@ -617,8 +623,32 @@ void main() {
 
     expect(rowsA[0]['imagePath'], canonicalPath);
     expect(rowsA[1]['imagePath'], canonicalPath);
+  });
 
-    // Subcaso B: legacy primero (id: 1), canonical después (id: 2)
+  test('REGRESIÓN: legacy + canonical, legacy procesada primero -> canonical gana', () async {
+    final realCrypto = BackupCryptoService();
+    final realCreationService = BackupCreationServiceImpl(
+      snapshotService: mockSnapshotService,
+      preferencesService: mockPreferencesService,
+      attachmentService: fakeAttachmentService,
+      cryptoService: realCrypto,
+      appInfoProvider: mockAppInfoProvider,
+      getDocsDirProvider: () async => tempDocsDir,
+    );
+
+    const canonicalPath = 'attachments/transactions/winner_receipt.jpg';
+    final physicalFile = File(p.join(tempDocsDir.path, 'attachments', 'transactions', 'winner_receipt.jpg'));
+    await physicalFile.parent.create(recursive: true);
+    await physicalFile.writeAsString('bytes compartidos');
+
+    const legacyPath = 'C:\\old_photos\\receipt_old.jpg';
+    fakeAttachmentService.mockResolvedPaths[canonicalPath] = physicalFile.path;
+    fakeAttachmentService.mockResolvedPaths[legacyPath] = physicalFile.path;
+
+    when(() => mockPreferencesService.exportPreferences()).thenAnswer((_) async => {});
+    const password = 'TestPassword123!';
+
+    // Legacy primero (id: 1), canonical después (id: 2)
     when(() => mockSnapshotService.createDatabaseSnapshot(any()))
         .thenAnswer((i) async {
       final db = await openDatabase(i.positionalArguments[0] as String,
@@ -638,6 +668,12 @@ void main() {
     final decBytesB = await realCrypto.decrypt(encBytesB, password);
     final archiveB = ZipDecoder().decodeBytes(decBytesB);
 
+    final attachmentEntriesB = archiveB.files
+        .where((f) => f.name.startsWith('attachments/transactions/'))
+        .toList();
+    expect(attachmentEntriesB.length, 1);
+    expect(attachmentEntriesB.first.name, canonicalPath);
+
     final dbEntryB = archiveB.files.firstWhere((f) => f.name == 'gestor_gastos.db');
     final inspectDbFileB = File(p.join(tempDocsDir.path, 'inspect_order_b.db'));
     await inspectDbFileB.writeAsBytes(dbEntryB.content as List<int>);
@@ -646,7 +682,6 @@ void main() {
     await inspectDbB.close();
     await inspectDbFileB.delete();
 
-    // En ambos subcasos, independientemente del orden, gana el path canónico
     expect(rowsB[0]['imagePath'], canonicalPath);
     expect(rowsB[1]['imagePath'], canonicalPath);
   });
