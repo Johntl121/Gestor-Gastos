@@ -16,6 +16,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../auth/onboarding_page.dart';
+import '../../../main.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1143,86 +1144,149 @@ class SettingsPage extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(builder: (context, setState) {
-        return AlertDialog(
-          backgroundColor: backgroundColor,
-          title: const Text("Advertencia destructiva",
-              style: TextStyle(
-                  color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
-                style: TextStyle(color: textColor),
+      builder: (ctx) => StatefulBuilder(builder: (dialogContext, setState) {
+        return PopScope(
+          canPop: !isRestoring,
+          child: AlertDialog(
+            backgroundColor: backgroundColor,
+            title: const Text("Advertencia destructiva",
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
+                  style: TextStyle(color: textColor),
+                ),
+                if (isRestoring) ...[
+                  const SizedBox(height: 20),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Descifrando y restaurando datos. Por favor, espera",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isRestoring ? null : () => Navigator.pop(ctx),
+                child: Text("Cancelar",
+                    style: TextStyle(
+                        color: isRestoring
+                            ? (isDarkMode ? Colors.grey[800] : Colors.grey[400])
+                            : (isDarkMode ? Colors.grey : Colors.grey[600]))),
               ),
-              if (isRestoring)
-                const Padding(
-                    padding: EdgeInsets.only(top: 20),
-                    child: CircularProgressIndicator()),
+              ElevatedButton(
+                onPressed: isRestoring
+                    ? null
+                    : () async {
+                        setState(() => isRestoring = true);
+                        try {
+                          final restoreUseCase = sl.sl<RestoreBackupUseCase>();
+                          final result =
+                              await restoreUseCase(filePath, password);
+
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx); // Cierra advertencia
+
+                          if (!context.mounted) return;
+
+                          result.fold(
+                            (failure) {
+                              String msg =
+                                  "Error al restaurar la copia de seguridad.";
+                              if (failure.message.contains(
+                                      "BackupAuthenticationException") ||
+                                  failure.message
+                                      .contains("No se pudo desbloquear") ||
+                                  failure.message.contains(
+                                      "SecretBoxAuthenticationError")) {
+                                msg =
+                                    "La contraseña es incorrecta o el archivo no es válido.";
+                              } else if (failure.message
+                                      .contains("RollbackFailedException") ||
+                                  failure.message.contains("ERROR CRÍTICO")) {
+                                msg =
+                                    "ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.";
+                              } else if (failure.message.contains(
+                                      "IncompatibleSchemaException") ||
+                                  failure.message
+                                      .contains("versión más nueva")) {
+                                msg =
+                                    "La copia de seguridad fue creada por una versión más nueva de la aplicación.";
+                              } else if (failure.message
+                                      .contains("BackupFormatException") ||
+                                  failure.message.contains(
+                                      "Formato de copia de seguridad inválido") ||
+                                  failure.message.contains(
+                                      "El formato de la copia de seguridad no es válido")) {
+                                msg =
+                                    "El formato de la copia de seguridad no es válido o está dañado.";
+                              } else if (failure.message
+                                      .contains("RestoreFailedException") ||
+                                  failure.message.contains(
+                                      "Fallo durante la restauración")) {
+                                msg =
+                                    "No se pudo completar la restauración. Se ha vuelto a la versión anterior.";
+                              }
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(msg)));
+                            },
+                            (restoreResult) async {
+                              if (restoreResult.warnings.isNotEmpty ||
+                                  restoreResult.attachmentsMissing > 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: Text(
+                                        "Restaurado con advertencias (${restoreResult.attachmentsMissing} adjuntos faltantes).")));
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            "Copia restaurada exitosamente.")));
+                              }
+
+                              try {
+                                Provider.of<WalletProvider>(context,
+                                        listen: false)
+                                    .refreshData();
+                                Provider.of<TransactionProvider>(context,
+                                        listen: false)
+                                    .refreshData();
+                              } catch (_) {}
+
+                              await RestartWidget.restartApp(context);
+                            },
+                          );
+                        } catch (e) {
+                          debugPrint("Error al ejecutar la restauración: $e");
+                          if (ctx.mounted) {
+                            setState(() => isRestoring = false);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Error al restaurar: $e"),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isRestoring ? Colors.grey : Colors.redAccent,
+                  foregroundColor: isRestoring ? Colors.white60 : Colors.white,
+                ),
+                child: const Text("Sí, restaurar"),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: isRestoring ? null : () => Navigator.pop(ctx),
-              child: Text("Cancelar",
-                  style: TextStyle(
-                      color: isDarkMode ? Colors.grey : Colors.grey[600])),
-            ),
-            ElevatedButton(
-              onPressed: isRestoring
-                  ? null
-                  : () async {
-                      setState(() => isRestoring = true);
-                      final restoreUseCase = sl.sl<RestoreBackupUseCase>();
-                      final result = await restoreUseCase(filePath, password);
-
-                      if (!context.mounted) return;
-                      Navigator.pop(ctx); // Cierra advertencia
-
-                      result.fold((failure) {
-                        String msg = "Error al restaurar la copia.";
-                        if (failure.message
-                            .contains("RollbackFailedException")) {
-                          msg =
-                              "ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.";
-                        } else if (failure.message
-                            .contains("RestoreFailedException")) {
-                          msg =
-                              "No se pudo completar la restauración. Se ha vuelto a la versión anterior.";
-                        }
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(msg)));
-                      }, (restoreResult) {
-                        if (restoreResult.warnings.isNotEmpty ||
-                            restoreResult.attachmentsMissing > 0) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text(
-                                  "Restaurado con advertencias (adjuntos faltantes).")));
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text("Copia restaurada exitosamente.")));
-                        }
-                        // Recargar la app
-                        Provider.of<WalletProvider>(context, listen: false)
-                            .refreshData();
-                        Provider.of<TransactionProvider>(context, listen: false)
-                            .refreshData();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                              builder: (context) => const OnboardingPage()),
-                          (route) => false,
-                        );
-                      });
-                    },
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("Sí, restaurar",
-                  style: TextStyle(color: Colors.white)),
-            ),
-          ],
         );
       }),
     );

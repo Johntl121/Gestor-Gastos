@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:gestor_gastos/domain/entities/transaction_entity.dart';
 import 'package:gestor_gastos/domain/usecases/create_backup_usecase.dart';
 import 'package:gestor_gastos/domain/usecases/restore_backup_usecase.dart';
 import 'package:gestor_gastos/presentation/features/settings/settings_page.dart';
+import 'package:gestor_gastos/presentation/features/auth/onboarding_page.dart';
 import 'package:gestor_gastos/presentation/providers/ui_provider.dart';
 import 'package:gestor_gastos/presentation/providers/transaction_provider.dart';
 import 'package:gestor_gastos/presentation/providers/wallet_provider.dart';
@@ -445,7 +447,177 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('RESTORE: success -> solicita restart', (tester) async {
+  testWidgets(
+      'RESTORE: contraseña incorrecta muestra mensaje específico («La contraseña es incorrecta o el archivo no es válido»)',
+      (tester) async {
+    mockRestore.mockResult = () async => const Left(CacheFailure(
+        'BackupAuthenticationException: No se pudo desbloquear la copia de seguridad.'));
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'wrong_pass');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('La contraseña es incorrecta o el archivo no es válido.'),
+        findsOneWidget);
+  });
+
+  testWidgets(
+      'RESTORE: IncompatibleSchema y BackupFormat muestran mensajes diferenciados',
+      (tester) async {
+    mockRestore.mockResult =
+        () async => const Left(CacheFailure('IncompatibleSchemaException'));
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text(
+            'La copia de seguridad fue creada por una versión más nueva de la aplicación.'),
+        findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+
+    mockRestore.mockResult =
+        () async => const Left(CacheFailure('BackupFormatException'));
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text(
+            'El formato de la copia de seguridad no es válido o está dañado.'),
+        findsOneWidget);
+  });
+
+  testWidgets(
+      'RESTORE: loading deshabilita botones, PopScope bloquea pop y muestra texto explicativo',
+      (tester) async {
+    final completer = Completer<Either<Failure, BackupRestoreResult>>();
+    mockRestore.mockResult = () => completer.future;
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+
+    // Tocar 'Sí, restaurar'
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    await tester.pump();
+
+    // 1. Mensaje de progreso visible
+    expect(find.text('Descifrando y restaurando datos. Por favor, espera'),
+        findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // 2. Botones deshabilitados
+    final cancelBtn =
+        tester.widget<TextButton>(find.widgetWithText(TextButton, 'Cancelar'));
+    expect(cancelBtn.onPressed, isNull);
+
+    final confirmBtn = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    expect(confirmBtn.onPressed, isNull);
+
+    // 3. PopScope activo impidiendo pop durante restore
+    final popScope = tester.widget<PopScope>(find.byType(PopScope));
+    expect(popScope.canPop, isFalse);
+
+    // Completar el future
+    completer.complete(Right(BackupRestoreResult(
+      attachmentsRestored: 0,
+      attachmentsMissing: 0,
+      attachmentsConflicted: 0,
+      preferencesRestored: false,
+      warnings: [],
+    )));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Copia restaurada exitosamente.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'RESTORE: excepción inesperada no bloquea el modal y desactiva spinner',
+      (tester) async {
+    mockRestore.mockResult =
+        () async => throw Exception('Fallo catastrófico inesperado');
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
+    await tester.pumpAndSettle();
+
+    // Spinner apagado
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    // Diálogo aún abierto para permitir cancelar o reintentar
+    expect(find.text('Advertencia destructiva'), findsOneWidget);
+    // Error mostrado en SnackBar
+    expect(
+        find.text(
+            'Error al restaurar: Exception: Fallo catastrófico inesperado'),
+        findsOneWidget);
+
+    // Cancelar funciona
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Advertencia destructiva'), findsNothing);
+  });
+
+  testWidgets(
+      'RESTORE: success -> solicita restart y no navega a OnboardingPage',
+      (tester) async {
     mockRestore.mockResult = () async => Right(BackupRestoreResult(
         attachmentsRestored: 0,
         attachmentsMissing: 0,
@@ -474,12 +646,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Copia restaurada exitosamente.'), findsOneWidget);
+    // Demuestra que NUNCA se empujó OnboardingPage
+    expect(find.byType(OnboardingPage), findsNothing);
   });
 
   testWidgets('RESTORE: warnings de adjuntos', (tester) async {
     mockRestore.mockResult = () async => Right(BackupRestoreResult(
         attachmentsRestored: 0,
-        attachmentsMissing: 0,
+        attachmentsMissing: 2,
         attachmentsConflicted: 0,
         preferencesRestored: false,
         warnings: ['missing/path']));
@@ -504,7 +678,7 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Restaurado con advertencias (adjuntos faltantes).'),
+    expect(find.text('Restaurado con advertencias (2 adjuntos faltantes).'),
         findsOneWidget);
   });
 }
