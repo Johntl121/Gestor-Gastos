@@ -15,6 +15,7 @@ import 'core/services/notification_coordinator.dart';
 import 'core/services/gemini_client.dart';
 import 'core/services/pin_security_service.dart';
 import 'core/services/restore_service.dart';
+import 'core/services/snapshot_service.dart';
 import 'core/services/backup_preferences_service.dart';
 import 'core/services/backup_crypto_service.dart';
 import 'core/services/app_info_provider.dart';
@@ -181,6 +182,12 @@ Future<void> init() async {
 
   sl.registerLazySingleton<BackupPreferencesService>(
     () => BackupPreferencesService(sl()),
+  );
+
+  sl.registerLazySingleton<SnapshotService>(
+    () => SnapshotService(
+      localDatabase: sl(),
+    ),
   );
 
   sl.registerLazySingleton<RestoreService>(

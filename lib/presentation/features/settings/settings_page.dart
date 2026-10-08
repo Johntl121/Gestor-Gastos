@@ -22,7 +22,6 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../domain/usecases/create_backup_usecase.dart';
 import '../../../../domain/usecases/restore_backup_usecase.dart';
 
-
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -266,7 +265,8 @@ class SettingsPage extends StatelessWidget {
                               });
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("PIN Incorrecto")));
+                                  const SnackBar(
+                                      content: Text("PIN Incorrecto")));
                             }
                           });
                         },
@@ -289,10 +289,12 @@ class SettingsPage extends StatelessWidget {
                   if (status.toString() == 'NotificationStatus.scheduled') {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text("🔔 Notificaciones Activas")));
-                  } else if (status.toString() == 'NotificationStatus.permissionDenied') {
+                  } else if (status.toString() ==
+                      'NotificationStatus.permissionDenied') {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text("❌ Permiso denegado por el sistema")));
-                  } else if (status.toString() == 'NotificationStatus.timezoneUnavailable') {
+                  } else if (status.toString() ==
+                      'NotificationStatus.timezoneUnavailable') {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text("❌ Error de zona horaria")));
                   }
@@ -305,24 +307,29 @@ class SettingsPage extends StatelessWidget {
                     textColor,
                     isDarkMode, (val) async {
                   if (val) {
-                    final pin = await sl.sl<PreferencesLocalDataSource>().getSecurityPinAsync();
+                    final pin = await sl
+                        .sl<PreferencesLocalDataSource>()
+                        .getSecurityPinAsync();
                     if (pin == null || pin.isEmpty) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("❌ Configure un PIN de seguridad primero")));
+                          content:
+                              Text("❌ Configure un PIN de seguridad primero")));
                       return;
                     }
                     final biometricService = sl.sl<BiometricService>();
                     if (!await biometricService.isSupported()) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("❌ Dispositivo no compatible con biometría")));
+                          content: Text(
+                              "❌ Dispositivo no compatible con biometría")));
                       return;
                     }
                     if (!await biometricService.hasEnrolledBiometrics()) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text("❌ Debe enrolar su huella/rostro en los ajustes del dispositivo")));
+                          content: Text(
+                              "❌ Debe enrolar su huella/rostro en los ajustes del dispositivo")));
                       return;
                     }
                   }
@@ -369,15 +376,20 @@ class SettingsPage extends StatelessWidget {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.backup, color: Colors.cyan),
-                    title: Text("Crear copia de seguridad", style: TextStyle(color: textColor)),
-                    subtitle: Text("Guarda un respaldo cifrado de tus datos", style: TextStyle(color: subTextColor, fontSize: 12)),
+                    title: Text("Crear copia de seguridad",
+                        style: TextStyle(color: textColor)),
+                    subtitle: Text("Guarda un respaldo cifrado de tus datos",
+                        style: TextStyle(color: subTextColor, fontSize: 12)),
                     onTap: () => _showCreateBackupDialog(context),
                   ),
                   const Divider(height: 1),
                   ListTile(
-                    leading: const Icon(Icons.settings_backup_restore, color: Colors.orangeAccent),
-                    title: Text("Restaurar copia de seguridad", style: TextStyle(color: textColor)),
-                    subtitle: Text("Recupera tus datos desde un archivo", style: TextStyle(color: subTextColor, fontSize: 12)),
+                    leading: const Icon(Icons.settings_backup_restore,
+                        color: Colors.orangeAccent),
+                    title: Text("Restaurar copia de seguridad",
+                        style: TextStyle(color: textColor)),
+                    subtitle: Text("Recupera tus datos desde un archivo",
+                        style: TextStyle(color: subTextColor, fontSize: 12)),
                     onTap: () => _restoreBackup(context),
                   ),
                 ],
@@ -937,7 +949,8 @@ class SettingsPage extends StatelessWidget {
 
           return AlertDialog(
             backgroundColor: backgroundColor,
-            title: Text("Contraseña de Copia", style: TextStyle(color: textColor)),
+            title:
+                Text("Contraseña de Copia", style: TextStyle(color: textColor)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -947,7 +960,8 @@ class SettingsPage extends StatelessWidget {
                   style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     labelText: "Contraseña",
-                    labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                    labelStyle: TextStyle(
+                        color: isDarkMode ? Colors.grey : Colors.grey[600]),
                   ),
                   onChanged: (val) => setState(() {}),
                 ),
@@ -957,57 +971,98 @@ class SettingsPage extends StatelessWidget {
                   style: TextStyle(color: textColor),
                   decoration: InputDecoration(
                     labelText: "Confirmar Contraseña",
-                    labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
-                    errorText: (isNotEmpty && !passwordsMatch) ? "Las contraseñas no coinciden" : null,
+                    labelStyle: TextStyle(
+                        color: isDarkMode ? Colors.grey : Colors.grey[600]),
+                    errorText: (isNotEmpty && !passwordsMatch)
+                        ? "Las contraseñas no coinciden"
+                        : null,
                   ),
                   onChanged: (val) => setState(() {}),
                 ),
-                if (isSaving) const Padding(padding: EdgeInsets.only(top: 20), child: CircularProgressIndicator()),
+                if (isSaving)
+                  const Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: CircularProgressIndicator()),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+                child: Text("Cancelar",
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.grey : Colors.grey[600])),
               ),
               ElevatedButton(
-                onPressed: canSave ? () async {
-                  setState(() => isSaving = true);
-                  final createUseCase = sl.sl<CreateBackupUseCase>();
-                  final result = await createUseCase(CreateBackupParams(password: passController.text));
+                onPressed: canSave
+                    ? () async {
+                        setState(() => isSaving = true);
+                        try {
+                          final createUseCase = sl.sl<CreateBackupUseCase>();
+                          final result = await createUseCase(CreateBackupParams(
+                              password: passController.text));
 
-                  if (!context.mounted) return;
-                  Navigator.pop(ctx);
+                          if (!context.mounted) return;
 
-                  result.fold(
-                    (failure) {
-                      String msg = "Error al crear la copia.";
-                      if (failure.message.contains("BackupTooLargeException")) {
-                        msg = "La copia de seguridad supera el tamaño compatible con esta versión.";
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                    },
-                    (backupResult) async {
-                      if (backupResult.transactionAttachmentsMissing > 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Copia creada, pero ${backupResult.transactionAttachmentsMissing} recibos no pudieron incluirse.")));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copia de seguridad creada correctamente.")));
-                      }
+                          result.fold(
+                            (failure) {
+                              setState(() => isSaving = false);
+                              String msg = "Error al crear la copia.";
+                              if (failure.message
+                                  .contains("BackupTooLargeException")) {
+                                msg =
+                                    "La copia de seguridad supera el tamaño compatible con esta versión.";
+                              }
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(msg)));
+                            },
+                            (backupResult) async {
+                              Navigator.pop(ctx);
 
-                      try {
-                        final box = context.findRenderObject() as RenderBox?;
-                        // ignore: deprecated_member_use
-                        await Share.shareXFiles(
-                          [XFile(backupResult.backupFilePath)],
-                          text: 'Mi copia de seguridad de Gestor Gastos',
-                          sharePositionOrigin: box!.localToGlobal(Offset.zero) & box.size,
-                        );
-                      } catch (e) {
-                        debugPrint("Error sharing: \$e");
+                              if (backupResult.transactionAttachmentsMissing >
+                                  0) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: Text(
+                                        "Copia creada, pero ${backupResult.transactionAttachmentsMissing} recibos no pudieron incluirse.")));
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            "Copia de seguridad creada correctamente.")));
+                              }
+
+                              try {
+                                final box =
+                                    context.findRenderObject() as RenderBox?;
+                                // ignore: deprecated_member_use
+                                await Share.shareXFiles(
+                                  [XFile(backupResult.backupFilePath)],
+                                  text:
+                                      'Mi copia de seguridad de Gestor Gastos',
+                                  sharePositionOrigin: box != null
+                                      ? (box.localToGlobal(Offset.zero) &
+                                          box.size)
+                                      : null,
+                                );
+                              } catch (e) {
+                                debugPrint("Error sharing: $e");
+                              }
+                            },
+                          );
+                        } catch (e) {
+                          debugPrint(
+                              "Error al iniciar la copia de seguridad: $e");
+                          if (context.mounted) {
+                            setState(() => isSaving = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Error al crear la copia: $e"),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        }
                       }
-                    }
-                  );
-                } : null,
+                    : null,
                 child: const Text("Aceptar"),
               ),
             ],
@@ -1051,13 +1106,16 @@ class SettingsPage extends StatelessWidget {
           style: TextStyle(color: textColor),
           decoration: InputDecoration(
             labelText: "Contraseña",
-            labelStyle: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
+            labelStyle:
+                TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600]),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+            child: Text("Cancelar",
+                style: TextStyle(
+                    color: isDarkMode ? Colors.grey : Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1074,7 +1132,8 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _showDestructiveWarningDialog(BuildContext context, String filePath, String password) {
+  void _showDestructiveWarningDialog(
+      BuildContext context, String filePath, String password) {
     final uiProvider = Provider.of<UiProvider>(context, listen: false);
     final isDarkMode = uiProvider.isDarkMode;
     final backgroundColor = isDarkMode ? const Color(0xFF1E2730) : Colors.white;
@@ -1084,68 +1143,88 @@ class SettingsPage extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: backgroundColor,
-            title: const Text("Advertencia destructiva", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
-                  style: TextStyle(color: textColor),
-                ),
-                if (isRestoring) const Padding(padding: EdgeInsets.only(top: 20), child: CircularProgressIndicator()),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: isRestoring ? null : () => Navigator.pop(ctx),
-                child: Text("Cancelar", style: TextStyle(color: isDarkMode ? Colors.grey : Colors.grey[600])),
+      builder: (ctx) => StatefulBuilder(builder: (context, setState) {
+        return AlertDialog(
+          backgroundColor: backgroundColor,
+          title: const Text("Advertencia destructiva",
+              style: TextStyle(
+                  color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Restaurar una copia de seguridad sobrescribirá todos tus datos actuales. Esta acción no se puede deshacer.",
+                style: TextStyle(color: textColor),
               ),
-              ElevatedButton(
-                onPressed: isRestoring ? null : () async {
-                  setState(() => isRestoring = true);
-                  final restoreUseCase = sl.sl<RestoreBackupUseCase>();
-                  final result = await restoreUseCase(filePath, password);
-
-                  if (!context.mounted) return;
-                  Navigator.pop(ctx); // Cierra advertencia
-
-                  result.fold(
-                    (failure) {
-                      String msg = "Error al restaurar la copia.";
-                      if (failure.message.contains("RollbackFailedException")) {
-                        msg = "ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.";
-                      } else if (failure.message.contains("RestoreFailedException")) {
-                        msg = "No se pudo completar la restauración. Se ha vuelto a la versión anterior.";
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-                    },
-                    (restoreResult) {
-                      if (restoreResult.warnings.isNotEmpty || restoreResult.attachmentsMissing > 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Restaurado con advertencias (adjuntos faltantes).")));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Copia restaurada exitosamente.")));
-                      }
-                      // Recargar la app
-                      Provider.of<WalletProvider>(context, listen: false).refreshData();
-                      Provider.of<TransactionProvider>(context, listen: false).refreshData();
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (context) => const OnboardingPage()),
-                        (route) => false,
-                      );
-                    }
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                child: const Text("Sí, restaurar", style: TextStyle(color: Colors.white)),
-              ),
+              if (isRestoring)
+                const Padding(
+                    padding: EdgeInsets.only(top: 20),
+                    child: CircularProgressIndicator()),
             ],
-          );
-        }
-      ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isRestoring ? null : () => Navigator.pop(ctx),
+              child: Text("Cancelar",
+                  style: TextStyle(
+                      color: isDarkMode ? Colors.grey : Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: isRestoring
+                  ? null
+                  : () async {
+                      setState(() => isRestoring = true);
+                      final restoreUseCase = sl.sl<RestoreBackupUseCase>();
+                      final result = await restoreUseCase(filePath, password);
+
+                      if (!context.mounted) return;
+                      Navigator.pop(ctx); // Cierra advertencia
+
+                      result.fold((failure) {
+                        String msg = "Error al restaurar la copia.";
+                        if (failure.message
+                            .contains("RollbackFailedException")) {
+                          msg =
+                              "ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.";
+                        } else if (failure.message
+                            .contains("RestoreFailedException")) {
+                          msg =
+                              "No se pudo completar la restauración. Se ha vuelto a la versión anterior.";
+                        }
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(msg)));
+                      }, (restoreResult) {
+                        if (restoreResult.warnings.isNotEmpty ||
+                            restoreResult.attachmentsMissing > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text(
+                                  "Restaurado con advertencias (adjuntos faltantes).")));
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content:
+                                      Text("Copia restaurada exitosamente.")));
+                        }
+                        // Recargar la app
+                        Provider.of<WalletProvider>(context, listen: false)
+                            .refreshData();
+                        Provider.of<TransactionProvider>(context, listen: false)
+                            .refreshData();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                              builder: (context) => const OnboardingPage()),
+                          (route) => false,
+                        );
+                      });
+                    },
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text("Sí, restaurar",
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      }),
     );
   }
 }

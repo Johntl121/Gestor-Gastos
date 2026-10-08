@@ -21,9 +21,11 @@ class MockCreateBackupUseCase extends Mock implements CreateBackupUseCase {
   Future<Either<Failure, BackupCreationResult>> Function()? mockResult;
 
   @override
-  Future<Either<Failure, BackupCreationResult>> call(CreateBackupParams params) async {
+  Future<Either<Failure, BackupCreationResult>> call(
+      CreateBackupParams params) async {
     called = true;
-    return mockResult?.call() ?? Future.value(Right(BackupCreationResult('path', 0, 0, 100)));
+    return mockResult?.call() ??
+        Future.value(Right(BackupCreationResult('path', 0, 0, 100)));
   }
 }
 
@@ -32,9 +34,16 @@ class MockRestoreBackupUseCase extends Mock implements RestoreBackupUseCase {
   Future<Either<Failure, BackupRestoreResult>> Function()? mockResult;
 
   @override
-  Future<Either<Failure, BackupRestoreResult>> call(String filePath, String password) async {
+  Future<Either<Failure, BackupRestoreResult>> call(
+      String filePath, String password) async {
     called = true;
-    return mockResult?.call() ?? Future.value(Right(BackupRestoreResult(attachmentsRestored: 0, attachmentsMissing: 0, attachmentsConflicted: 0, preferencesRestored: false, warnings: [])));
+    return mockResult?.call() ??
+        Future.value(Right(BackupRestoreResult(
+            attachmentsRestored: 0,
+            attachmentsMissing: 0,
+            attachmentsConflicted: 0,
+            preferencesRestored: false,
+            warnings: [])));
   }
 }
 
@@ -100,14 +109,17 @@ void main() {
   late MockRestoreBackupUseCase mockRestore;
 
   // Platform channels for FilePicker and SharePlus
-  const MethodChannel filePickerChannel = MethodChannel('miguelruivo.flutter.plugins.filepicker');
-  const MethodChannel shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+  const MethodChannel filePickerChannel =
+      MethodChannel('miguelruivo.flutter.plugins.filepicker');
+  const MethodChannel shareChannel =
+      MethodChannel('dev.fluttercommunity.plus/share');
 
   bool filePickerCanceled = false;
 
   setUpAll(() {
     TestWidgetsFlutterBinding.ensureInitialized();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
       filePickerChannel,
       (MethodCall methodCall) async {
         if (methodCall.method == 'pickFiles' || methodCall.method == 'custom') {
@@ -124,7 +136,8 @@ void main() {
         return null;
       },
     );
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
       shareChannel,
       (MethodCall methodCall) async {
         return 'success';
@@ -149,8 +162,10 @@ void main() {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UiProvider>(create: (_) => MockUiProvider()),
-        ChangeNotifierProvider<TransactionProvider>(create: (_) => MockTransactionProvider()),
-        ChangeNotifierProvider<WalletProvider>(create: (_) => MockWalletProvider()),
+        ChangeNotifierProvider<TransactionProvider>(
+            create: (_) => MockTransactionProvider()),
+        ChangeNotifierProvider<WalletProvider>(
+            create: (_) => MockWalletProvider()),
       ],
       child: const MaterialApp(
         home: Scaffold(body: SettingsPage()),
@@ -159,16 +174,21 @@ void main() {
   }
 
   testWidgets('Tiles Crear/Restaurar son visibles', (tester) async {
-    await tester.pumpWidget(createTestWidget());  
+    await tester.pumpWidget(createTestWidget());
     await tester.ensureVisible(find.text('Crear copia de seguridad'));
     expect(find.text('Crear copia de seguridad'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Restaurar copia de seguridad'), 500, scrollable: find.byType(Scrollable));
+    await tester.scrollUntilVisible(
+        find.text('Restaurar copia de seguridad'), 500,
+        scrollable: find.byType(Scrollable));
     expect(find.text('Restaurar copia de seguridad'), findsOneWidget);
   });
 
-  testWidgets('CREATE: password vacío/diferente desactiva botón, igual lo activa', (tester) async {
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
+  testWidgets(
+      'CREATE: password vacío/diferente desactiva botón, igual lo activa',
+      (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear copia de seguridad'));
     await tester.pumpAndSettle();
 
@@ -187,11 +207,15 @@ void main() {
     expect(getBtn().onPressed, isNotNull);
   });
 
-  testWidgets('CREATE: doble tap llama UseCase una sola vez y maneja success', (tester) async {
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
+  testWidgets('CREATE: doble tap llama UseCase una sola vez y maneja success',
+      (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.enterText(find.byType(TextField).last, '123');
     await tester.pump();
@@ -206,46 +230,132 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockCreate.called, isTrue);
-    expect(find.text('Copia de seguridad creada correctamente.'), findsOneWidget);
+    expect(
+        find.text('Copia de seguridad creada correctamente.'), findsOneWidget);
   });
 
   testWidgets('CREATE: warning con contador', (tester) async {
-    mockCreate.mockResult = () async => Right(BackupCreationResult('path', 0, 5, 100));
+    mockCreate.mockResult =
+        () async => Right(BackupCreationResult('path', 0, 5, 100));
 
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.enterText(find.byType(TextField).last, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Copia creada, pero 5 recibos no pudieron incluirse.'), findsOneWidget);
+    expect(find.text('Copia creada, pero 5 recibos no pudieron incluirse.'),
+        findsOneWidget);
   });
 
   testWidgets('CREATE: BackupTooLarge mapping', (tester) async {
-    mockCreate.mockResult = () async => const Left(CacheFailure('BackupTooLargeException'));
+    mockCreate.mockResult =
+        () async => const Left(CacheFailure('BackupTooLargeException'));
 
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Crear copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.enterText(find.byType(TextField).last, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('La copia de seguridad supera el tamaño compatible con esta versión.'), findsOneWidget);
+    expect(
+        find.text(
+            'La copia de seguridad supera el tamaño compatible con esta versión.'),
+        findsOneWidget);
   });
 
-  testWidgets('RESTORE: FilePicker cancelado -> UseCase nunca llamado', (tester) async {
+  testWidgets(
+      'CREATE: excepción inesperada/DI no congela el modal y permite cancelar',
+      (tester) async {
+    mockCreate.mockResult =
+        () async => throw Exception('Fallo inesperado de DI/Plugin');
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.enterText(find.byType(TextField).last, '123');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+
+    // El spinner terminó y no queda en carga indefinida
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    // Mensaje de error visible
+    expect(
+        find.textContaining(
+            'Error al crear la copia: Exception: Fallo inesperado de DI/Plugin'),
+        findsOneWidget);
+    // El diálogo sigue accesible y permite cancelar
+    expect(find.text('Contraseña de Copia'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contraseña de Copia'), findsNothing);
+  });
+
+  testWidgets('CREATE: fallo de dominio no cierra modal y desactiva spinner',
+      (tester) async {
+    mockCreate.mockResult =
+        () async => const Left(CacheFailure('Error de almacenamiento'));
+
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '123');
+    await tester.enterText(find.byType(TextField).last, '123');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
+    await tester.pumpAndSettle();
+
+    // Spinner apagado
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    // Mensaje visible
+    expect(find.text('Error al crear la copia.'), findsOneWidget);
+    // Diálogo permanece abierto para que el usuario pueda reintentar o cancelar
+    expect(find.text('Contraseña de Copia'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Contraseña de Copia'), findsNothing);
+  });
+
+  testWidgets('RESTORE: FilePicker cancelado -> UseCase nunca llamado',
+      (tester) async {
     filePickerCanceled = true;
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
     await tester.pumpAndSettle();
 
@@ -253,12 +363,18 @@ void main() {
     expect(mockRestore.called, isFalse);
   });
 
-  testWidgets('RESTORE: confirmacion destructiva cancelada -> UseCase nunca llamado', (tester) async {
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+  testWidgets(
+      'RESTORE: confirmacion destructiva cancelada -> UseCase nunca llamado',
+      (tester) async {
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
@@ -271,47 +387,85 @@ void main() {
     expect(mockRestore.called, isFalse);
   });
 
-  testWidgets('RESTORE: error mapping (RollbackFailed y RestoreFailed)', (tester) async {
-    await tester.pumpWidget(createTestWidget());  
+  testWidgets('RESTORE: error mapping (RollbackFailed y RestoreFailed)',
+      (tester) async {
+    await tester.pumpWidget(createTestWidget());
 
-    mockRestore.mockResult = () async => const Left(CacheFailure('RollbackFailedException'));
+    mockRestore.mockResult =
+        () async => const Left(CacheFailure('RollbackFailedException'));
 
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
     await tester.pumpAndSettle();
-    expect(find.text('ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.'), findsOneWidget);
+    expect(
+        find.text(
+            'ERROR CRÍTICO: Fallo al restaurar y fallo al recuperar. La app podría estar inconsistente.'),
+        findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
 
-    mockRestore.mockResult = () async => const Left(CacheFailure('RestoreFailedException'));
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+    mockRestore.mockResult =
+        () async => const Left(CacheFailure('RestoreFailedException'));
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
     await tester.pumpAndSettle();
-    expect(find.text('No se pudo completar la restauración. Se ha vuelto a la versión anterior.'), findsOneWidget);
+    expect(
+        find.text(
+            'No se pudo completar la restauración. Se ha vuelto a la versión anterior.'),
+        findsOneWidget);
   });
 
   testWidgets('RESTORE: success -> solicita restart', (tester) async {
-    mockRestore.mockResult = () async => Right(BackupRestoreResult(attachmentsRestored: 0, attachmentsMissing: 0, attachmentsConflicted: 0, preferencesRestored: false, warnings: []));
+    mockRestore.mockResult = () async => Right(BackupRestoreResult(
+        attachmentsRestored: 0,
+        attachmentsMissing: 0,
+        attachmentsConflicted: 0,
+        preferencesRestored: false,
+        warnings: []));
 
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
@@ -323,13 +477,26 @@ void main() {
   });
 
   testWidgets('RESTORE: warnings de adjuntos', (tester) async {
-    mockRestore.mockResult = () async => Right(BackupRestoreResult(attachmentsRestored: 0, attachmentsMissing: 0, attachmentsConflicted: 0, preferencesRestored: false, warnings: ['missing/path']));
+    mockRestore.mockResult = () async => Right(BackupRestoreResult(
+        attachmentsRestored: 0,
+        attachmentsMissing: 0,
+        attachmentsConflicted: 0,
+        preferencesRestored: false,
+        warnings: ['missing/path']));
 
-    await tester.pumpWidget(createTestWidget());  
-    await tester.ensureVisible(find.text('Crear copia de seguridad')); await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Restaurar copia de seguridad')); await tester.pumpAndSettle();
+    await tester.pumpWidget(createTestWidget());
+    await tester.ensureVisible(find.text('Crear copia de seguridad'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Restaurar copia de seguridad'));
-    await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle(); await tester.pump(const Duration(seconds: 1)); await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '123');
     await tester.pump();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Aceptar'));
@@ -337,6 +504,7 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, 'Sí, restaurar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Restaurado con advertencias (adjuntos faltantes).'), findsOneWidget);
+    expect(find.text('Restaurado con advertencias (adjuntos faltantes).'),
+        findsOneWidget);
   });
 }
