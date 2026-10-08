@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/ui_provider.dart';
 import '../../../../data/datasources/preferences_local_data_source.dart';
 import '../../../core/services/biometric_service.dart';
+import '../../../core/services/pin_security_service.dart';
 import '../../../injection_container.dart' as sl;
 
 /// LockScreen: Bloquea el acceso a la app hasta validar el PIN.
@@ -19,6 +20,7 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   String _inputPin = "";
   bool _biometricAttempted = false;
+  bool _isVerifying = false;
 
   @override
   void initState() {
@@ -30,15 +32,20 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _attemptBiometrics() async {
     if (!mounted) return;
-    
-    final uiProvider = Provider.of<UiProvider>(context, listen: false);
-    if (!uiProvider.enableBiometrics) return;
-    
+
+    try {
+      final dataSource = sl.sl<PreferencesLocalDataSource>();
+      final isEnabled = dataSource.getEnableBiometrics();
+      if (!isEnabled) return;
+    } catch (_) {
+      return;
+    }
+
     if (_biometricAttempted) return;
     _biometricAttempted = true;
 
     final biometricService = sl.sl<BiometricService>();
-    
+
     final isSupported = await biometricService.isSupported();
     if (!isSupported || !mounted) return;
 
@@ -46,7 +53,7 @@ class _LockScreenState extends State<LockScreen> {
     if (!hasEnrolled || !mounted) return;
 
     final success = await biometricService.authenticate(
-      localizedReason: 'Desbloquee para acceder a sus gastos'
+      localizedReason: 'Desbloquee para acceder a sus gastos',
     );
 
     if (success && mounted) {
@@ -55,6 +62,8 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   void _onKeyPress(String val) {
+    if (_isVerifying) return;
+
     if (val == 'DEL') {
       if (_inputPin.isNotEmpty) {
         setState(
@@ -78,18 +87,32 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _validatePin() async {
-    if (!mounted) return;
+    if (!mounted || _isVerifying) return;
 
-    // Get stored PIN directly from DataSource (Async version for SecureStorage)
-    final dataSource = sl.sl<PreferencesLocalDataSource>();
-    final storedPin = await dataSource.getSecurityPinAsync();
+    setState(() {
+      _isVerifying = true;
+    });
 
-    // Verify
-    if (storedPin == _inputPin) {
-      widget.onUnlocked();
-    } else {
-      HapticFeedback.heavyImpact();
-      if (mounted) {
+    try {
+      final dataSource = sl.sl<PreferencesLocalDataSource>();
+      final pinSecurityService = sl.sl<PinSecurityService>();
+      final storedPin = await dataSource.getSecurityPinAsync();
+
+      bool isValid = false;
+      if (storedPin != null) {
+        if (pinSecurityService.isValidFormat(storedPin)) {
+          isValid = await pinSecurityService.verifyPin(_inputPin, storedPin);
+        } else if (pinSecurityService.isLegacyPin(storedPin)) {
+          isValid = (storedPin == _inputPin);
+        }
+      }
+
+      if (!mounted) return;
+
+      if (isValid) {
+        widget.onUnlocked();
+      } else {
+        HapticFeedback.heavyImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("PIN Incorrecto"),
@@ -99,8 +122,28 @@ class _LockScreenState extends State<LockScreen> {
             margin: EdgeInsets.only(top: 50, left: 20, right: 20),
           ),
         );
+        setState(() => _inputPin = "");
       }
-      setState(() => _inputPin = "");
+    } catch (_) {
+      // Fail-closed ante cualquier error inesperado
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error al verificar PIN"),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(milliseconds: 1000),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(top: 50, left: 20, right: 20),
+          ),
+        );
+        setState(() => _inputPin = "");
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+      }
     }
   }
 

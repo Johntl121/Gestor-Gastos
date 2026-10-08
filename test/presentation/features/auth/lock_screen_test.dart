@@ -32,17 +32,17 @@ class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDat
   bool get isBiometricEnabled => super.noSuchMethod(
       Invocation.getter(#isBiometricEnabled),
       returnValue: false, returnValueForMissingStub: false);
-      
-@override
+
+  @override
   String getCurrency() => super.noSuchMethod(
       Invocation.method(#getCurrency, []),
       returnValue: 'PEN');
-      
+
   @override
   bool getEnableBiometrics() => super.noSuchMethod(
       Invocation.method(#getEnableBiometrics, []),
       returnValue: false, returnValueForMissingStub: false);
-      
+
   @override
   bool getEnableNotifications() => super.noSuchMethod(
       Invocation.method(#getEnableNotifications, []),
@@ -86,39 +86,44 @@ class MockPreferencesLocalDataSource extends Mock implements PreferencesLocalDat
 
 class MockNotificationCoordinator extends Mock implements NotificationCoordinator {}
 
-class MockPinSecurityService extends Mock implements PinSecurityService {
-}
-
 void main() {
   late MockBiometricService mockBiometricService;
   late UiProvider uiProvider;
   late MockPreferencesLocalDataSource mockPrefs;
+  late PinSecurityService pinSecurityService;
+  late String validHash1234;
 
-  setUp(() {
+  setUp(() async {
     mockBiometricService = MockBiometricService();
     mockPrefs = MockPreferencesLocalDataSource();
-    
-    sl.sl.allowReassignment = true;
-    when(mockPrefs.saveEnableBiometrics(true)).thenAnswer((_) async {});
-    when(mockPrefs.saveEnableBiometrics(false)).thenAnswer((_) async {});
+    pinSecurityService = PinSecurityService();
+    validHash1234 = await pinSecurityService.hashPin('1234');
+
+    when(mockPrefs.saveEnableBiometrics(true)).thenAnswer((_) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+    });
+    when(mockPrefs.saveEnableBiometrics(false)).thenAnswer((_) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(false);
+    });
+    when(mockPrefs.getEnableBiometrics()).thenReturn(false);
     when(mockPrefs.migratePinIfNeeded()).thenAnswer((_) async {});
     when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => null);
     when(mockPrefs.getThemeMode()).thenReturn(false);
-    when(mockPrefs.getEnableBiometrics()).thenReturn(false);
     when(mockPrefs.getEnableNotifications()).thenReturn(false);
     when(mockPrefs.getUserAvatar()).thenReturn('assets/images/avatars/avatar1.png');
     when(mockPrefs.getUserName()).thenReturn('Usuario');
     when(mockPrefs.getProfileImagePath()).thenReturn(null);
-    
+
     uiProvider = UiProvider(
       preferencesLocalDataSource: mockPrefs,
       notificationCoordinator: MockNotificationCoordinator(),
-      pinSecurityService: MockPinSecurityService(),
+      pinSecurityService: pinSecurityService,
     );
 
     sl.sl.allowReassignment = true;
     sl.sl.registerLazySingleton<BiometricService>(() => mockBiometricService);
     sl.sl.registerLazySingleton<PreferencesLocalDataSource>(() => mockPrefs);
+    sl.sl.registerLazySingleton<PinSecurityService>(() => pinSecurityService);
   });
 
   Widget buildLockScreen(VoidCallback onUnlocked) {
@@ -130,82 +135,216 @@ void main() {
     );
   }
 
-  testWidgets('disabled -> authenticate no se llama', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(false);
-    
-    await tester.pumpWidget(buildLockScreen(() {}));
-    await tester.pumpAndSettle();
+  Future<void> enterPin(WidgetTester tester, String pin) async {
+    for (int i = 0; i < pin.length; i++) {
+      await tester.tap(find.text(pin[i]));
+      await tester.pump();
+    }
+  }
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
+  group('Biometría en LockScreen', () {
+    testWidgets('disabled -> authenticate no se llama', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(false);
+
+      await tester.pumpWidget(buildLockScreen(() {}));
+      await tester.pumpAndSettle();
+
+      verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
+    });
+
+    testWidgets('success -> onUnlock', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
+      when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
+      when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
+          .thenAnswer((_) async => true);
+
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
+
+      verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
+      expect(unlocked, isTrue);
+    });
+
+    testWidgets('failure -> LockScreen permanece, onUnlock no se llama', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
+      when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
+      when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
+          .thenAnswer((_) async => false);
+
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
+
+      verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
+      expect(unlocked, isFalse);
+      expect(find.text('Ingresa tu PIN'), findsOneWidget);
+    });
+
+    testWidgets('unsupported -> no prompt', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => false);
+
+      await tester.pumpWidget(buildLockScreen(() {}));
+      await tester.pumpAndSettle();
+
+      verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
+    });
+
+    testWidgets('no enrolled -> no prompt', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
+      when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => false);
+
+      await tester.pumpWidget(buildLockScreen(() {}));
+      await tester.pumpAndSettle();
+
+      verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
+    });
+
+    testWidgets('múltiples rebuilds -> authenticate una sola vez', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
+      when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
+      when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
+          .thenAnswer((_) async => false);
+
+      await tester.pumpWidget(buildLockScreen(() {}));
+      await tester.pumpAndSettle();
+
+      // Trigger rebuilds
+      await tester.pump();
+      await tester.pumpWidget(buildLockScreen(() {}));
+      await tester.pumpAndSettle();
+
+      verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
+    });
+
+    testWidgets('biometría cancelada -> fallback al PIN permanece disponible y funcional', (WidgetTester tester) async {
+      when(mockPrefs.getEnableBiometrics()).thenReturn(true);
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => validHash1234);
+      when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
+      when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
+      when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
+          .thenAnswer((_) async => false); // Usuario cancela biometría
+
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isFalse);
+      expect(find.text('Ingresa tu PIN'), findsOneWidget);
+
+      // Proceder con PIN manual
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isTrue);
+    });
   });
 
-  testWidgets('success -> onUnlock', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(true);
-    when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
-    when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
-        .thenAnswer((_) async => true);
+  group('Verificación de PIN en LockScreen', () {
+    testWidgets('PIN correcto contra hash PBKDF2 válido -> desbloquea', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => validHash1234);
 
-    bool unlocked = false;
-    await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
-    await tester.pumpAndSettle();
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
 
-    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
-    expect(unlocked, isTrue);
-  });
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
 
-  testWidgets('failure -> LockScreen permanece, onUnlock no se llama', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(true);
-    when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
-    when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
-        .thenAnswer((_) async => false);
+      expect(unlocked, isTrue);
+      expect(find.text("PIN Incorrecto"), findsNothing);
+    });
 
-    bool unlocked = false;
-    await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
-    await tester.pumpAndSettle();
+    testWidgets('PIN incorrecto contra hash PBKDF2 válido -> permanece bloqueado y muestra error', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => validHash1234);
 
-    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
-    expect(unlocked, isFalse);
-    expect(find.text('Ingresa tu PIN'), findsOneWidget);
-  });
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
 
-  testWidgets('unsupported -> no prompt', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(true);
-    when(mockBiometricService.isSupported()).thenAnswer((_) async => false);
+      await enterPin(tester, '9999');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(buildLockScreen(() {}));
-    await tester.pumpAndSettle();
+      expect(unlocked, isFalse);
+      expect(find.text("PIN Incorrecto"), findsOneWidget);
+    });
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
-  });
+    testWidgets('Hash corrupto / inválido -> fail-closed: permanece bloqueado', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => 'formato:invalido:corrupto');
 
-  testWidgets('no enrolled -> no prompt', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(true);
-    when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
-    when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => false);
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
 
-    await tester.pumpWidget(buildLockScreen(() {}));
-    await tester.pumpAndSettle();
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
 
-    verifyNever(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'));
-  });
+      expect(unlocked, isFalse);
+      expect(find.text("PIN Incorrecto"), findsOneWidget);
+    });
 
-  testWidgets('múltiples rebuilds -> authenticate una sola vez', (WidgetTester tester) async {
-    uiProvider.toggleBiometrics(true);
-    when(mockBiometricService.isSupported()).thenAnswer((_) async => true);
-    when(mockBiometricService.hasEnrolledBiometrics()).thenAnswer((_) async => true);
-    when(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos'))
-        .thenAnswer((_) async => false);
+    testWidgets('Error al leer SecureStorage -> fail-closed: muestra error y permanece bloqueado', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenThrow(Exception('Secure storage read error'));
 
-    await tester.pumpWidget(buildLockScreen(() {}));
-    await tester.pumpAndSettle();
-    
-    // Trigger rebuilds
-    await tester.pump();
-    await tester.pumpWidget(buildLockScreen(() {}));
-    await tester.pumpAndSettle();
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
 
-    verify(mockBiometricService.authenticate(localizedReason: 'Desbloquee para acceder a sus gastos')).called(1);
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isFalse);
+      expect(find.text("Error al verificar PIN"), findsOneWidget);
+    });
+
+    testWidgets('Compatibilidad con PIN legacy (4 dígitos texto plano) -> desbloquea', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async => '1234');
+
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
+
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isTrue);
+    });
+
+    testWidgets('Protección contra verificaciones concurrentes y múltiples toques durante validación', (WidgetTester tester) async {
+      when(mockPrefs.getSecurityPinAsync()).thenAnswer((_) async {
+        await Future.delayed(const Duration(milliseconds: 100));
+        return validHash1234;
+      });
+
+      bool unlocked = false;
+      await tester.pumpWidget(buildLockScreen(() { unlocked = true; }));
+      await tester.pumpAndSettle();
+
+      // Ingresar los 4 dígitos
+      await enterPin(tester, '1234');
+      await tester.pump(const Duration(milliseconds: 160)); // Comienza _validatePin (delay 150ms)
+
+      // Intentar presionar más teclas mientras está validando
+      await tester.tap(find.text('5'));
+      await tester.pump();
+      await tester.tap(find.text('6'));
+      await tester.pump();
+
+      // Completar verificación
+      await tester.pumpAndSettle();
+
+      expect(unlocked, isTrue);
+    });
   });
 }

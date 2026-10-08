@@ -34,6 +34,7 @@ void main() {
   setUp(() async {
     await di.sl.reset();
     mockPrefs = MockPreferences();
+    when(() => mockPrefs.getEnableBiometrics()).thenReturn(false);
 
     final ui = MockUiProvider();
     when(() => ui.isDarkMode).thenReturn(false);
