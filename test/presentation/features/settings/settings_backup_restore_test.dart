@@ -50,13 +50,17 @@ class MockRestoreBackupUseCase extends Mock implements RestoreBackupUseCase {
 }
 
 class MockWalletProvider extends Mock implements WalletProvider {
+  bool refreshDataCalled = false;
+
   @override
   String get currencySymbol => '\$';
   @override
   double get budgetLimit => 1000.0;
 
   @override
-  Future<void> refreshData() async {}
+  Future<void> refreshData() async {
+    refreshDataCalled = true;
+  }
 
   @override
   void addListener(VoidCallback listener) {}
@@ -91,11 +95,15 @@ class MockUiProvider extends Mock implements UiProvider {
 }
 
 class MockTransactionProvider extends Mock implements TransactionProvider {
+  bool refreshDataCalled = false;
+
   @override
   List<TransactionEntity> get transactions => [];
 
   @override
-  Future<void> refreshData() async {}
+  Future<void> refreshData() async {
+    refreshDataCalled = true;
+  }
 
   @override
   void addListener(VoidCallback listener) {}
@@ -160,14 +168,17 @@ void main() {
     sl.reset();
   });
 
-  Widget createTestWidget() {
+  Widget createTestWidget({
+    MockWalletProvider? walletProvider,
+    MockTransactionProvider? transactionProvider,
+  }) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<UiProvider>(create: (_) => MockUiProvider()),
         ChangeNotifierProvider<TransactionProvider>(
-            create: (_) => MockTransactionProvider()),
+            create: (_) => transactionProvider ?? MockTransactionProvider()),
         ChangeNotifierProvider<WalletProvider>(
-            create: (_) => MockWalletProvider()),
+            create: (_) => walletProvider ?? MockWalletProvider()),
       ],
       child: const MaterialApp(
         home: Scaffold(body: SettingsPage()),
@@ -616,8 +627,11 @@ void main() {
   });
 
   testWidgets(
-      'RESTORE: success -> solicita restart y no navega a OnboardingPage',
+      'RESTORE: success -> solicita restart, no navega a OnboardingPage y no refresca providers stale',
       (tester) async {
+    final mockWallet = MockWalletProvider();
+    final mockTx = MockTransactionProvider();
+
     mockRestore.mockResult = () async => Right(BackupRestoreResult(
         attachmentsRestored: 0,
         attachmentsMissing: 0,
@@ -625,7 +639,10 @@ void main() {
         preferencesRestored: false,
         warnings: []));
 
-    await tester.pumpWidget(createTestWidget());
+    await tester.pumpWidget(createTestWidget(
+      walletProvider: mockWallet,
+      transactionProvider: mockTx,
+    ));
     await tester.ensureVisible(find.text('Crear copia de seguridad'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Restaurar copia de seguridad'));
@@ -648,6 +665,9 @@ void main() {
     expect(find.text('Copia restaurada exitosamente.'), findsOneWidget);
     // Demuestra que NUNCA se empujó OnboardingPage
     expect(find.byType(OnboardingPage), findsNothing);
+    // Demuestra que NUNCA se invocó refreshData en providers que serán desmontados
+    expect(mockWallet.refreshDataCalled, isFalse);
+    expect(mockTx.refreshDataCalled, isFalse);
   });
 
   testWidgets('RESTORE: warnings de adjuntos', (tester) async {

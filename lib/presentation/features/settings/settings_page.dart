@@ -1252,15 +1252,6 @@ class SettingsPage extends StatelessWidget {
                                             "Copia restaurada exitosamente.")));
                               }
 
-                              try {
-                                Provider.of<WalletProvider>(context,
-                                        listen: false)
-                                    .refreshData();
-                                Provider.of<TransactionProvider>(context,
-                                        listen: false)
-                                    .refreshData();
-                              } catch (_) {}
-
                               await RestartWidget.restartApp(context);
                             },
                           );
