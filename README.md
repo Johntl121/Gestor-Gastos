@@ -62,8 +62,16 @@ Tu asistente personal inteligente para tomar mejores decisiones, diseñado bajo 
 ### 7. 🚀 Rendimiento Visual y Resiliencia (Arquitectura M8)
 *   **Descomposición de UI:** Política estricta de erradicación de `Consumer` globales en `Scaffold`, utilizando sub-widgets encapsulados e independientes (Scoped Selectors) para mitigar reconstrucciones innecesarias del árbol visual.
 *   **Caching de Renderizado:** Directiva obligatoria de instancias `const` y centralización de UI (eliminación de "magic numbers") mediante `AppConstants` y `AppColors`.
-*   **Self-Healing Database (SQLite v20):** Auto-reparación tras un Factory Reset (`clearAllTables()`) re-sembrando automáticamente las categorías Core para proteger la integridad de las Foreign Keys (`ON DELETE CASCADE`).
+*   **Self-Healing Database (SQLite v24):** Auto-reparación tras un Factory Reset (`clearAllTables()`) re-sembrando automáticamente las categorías Core para proteger la integridad de las Foreign Keys (`ON DELETE CASCADE`).
 *   **Manejo de Errores Funcional:** Implementación de `Either<Failure, T>` en la capa de datos.
+
+### 8. 🔐 Copias de Seguridad Cifradas (Backup V1 — GGBK)
+Protección y portabilidad total de los datos financieros sin depender de servicios en la nube:
+*   **Contenedor Criptográfico GGBK V1:** Archivo `.gestorbackup` protegido con **PBKDF2-HMAC-SHA256** (600 000 iteraciones) y cifrado autenticado **AES-256-GCM** con tag de 16 bytes y AAD.
+*   **Restauración Atómica y Resiliente:** Snapshot consistente de SQLite, intercambio seguro de base de datos con archivo `.fallback` y mecanismo automático de **Crash Recovery** en arranque.
+*   **Privacidad Estricta:** Exportación selectiva de 7 preferencias funcionales portables; las credenciales locales (PIN de seguridad, biometría) permanecen intactas en el dispositivo.
+*   **Defensa en Profundidad:** Exclusión total de Android Auto Backup y transferencias directas (`allowBackup="false"`, `backup_rules.xml` y `data_extraction_rules.xml`).
+*   **Documentación Completa:** Consulta la [Guía y Especificación del Subsistema Backup V1](doc/backup/README.md).
 
 ---
 
@@ -76,7 +84,7 @@ Este proyecto utiliza las mejores prácticas de desarrollo en Flutter:
 *   **Inteligencia Artificial:** **Google Gemini API** (Coach Financiero y Voz a JSON) + `flutter_markdown_plus`.
 *   **Gestión de Estado:** `Provider` (con Scoped Selectors para optimizar repintados).
 *   **Inyección de Dependencias:** `GetIt` para desacoplar componentes y facilitar testing.
-*   **Persistencia de Datos:** `sqflite` (SQLite v20) + `shared_preferences` (Caché).
+*   **Persistencia y Criptografía:** `sqflite` (SQLite v24) + `shared_preferences` + `cryptography` (PBKDF2 / AES-256-GCM) + `archive` (ZIP).
 *   **Gráficos e UI:** `fl_chart` para visualizaciones, animaciones dinámicas (`TweenAnimationBuilder`).
 *   **Internacionalización:** Módulo `intl` y `flutter_localizations` fijados a Español (es_ES).
 
@@ -93,7 +101,10 @@ lib/
 │   ├── errors/                             # Definición de Errores y Excepciones (Failure)
 │   │   └── failure.dart                    # Clases base para manejo de fallos
 │   ├── services/                           # Servicios Externos e Implementaciones Técnicas
-│   │   ├── database_helper.dart            # BD Local (SQLite v20 - Wipe & Rebuild, Self-Healing)
+│   │   ├── database_helper.dart            # BD Local (SQLite v24 - Wipe & Rebuild, Self-Healing)
+│   │   ├── backup_crypto_service.dart      # Criptografía AES-256-GCM + PBKDF2 para Backup V1
+│   │   ├── snapshot_service.dart           # Snapshot consistente de base de datos SQLite
+│   │   ├── restore_service.dart            # Restauración atómica y Crash Recovery
 │   │   ├── gemini_client.dart              # Cliente IA Gemini (Análisis Markdown y Parser de Voz JSON)
 │   │   ├── notification_service.dart       # Gestión de Notificaciones Locales
 │   │   └── speech_service.dart             # Servicio STT (Speech-to-Text)
@@ -200,7 +211,8 @@ Sigue estos pasos para correr el proyecto en tu entorno local:
 *   [x] **Billetera Modificada:** Componentes reordenables, divisas interactivas y tarjetas bancarias.
 *   [x] **Localización:** Calendarios e interfaz en español (es_ES).
 *   [x] **Refactor de Código:** Migrar propiedades deprecadas de Flutter 3.x (`withOpacity` a `withValues`).
-*   [ ] **Sincronización Opcional:** Backup cifrado en Google Drive.
+*   [x] **Copias de Seguridad (Backup V1):** Contenedor cifrado GGBK V1 (AES-256-GCM + PBKDF2) y restauración atómica con fallback ([doc/backup](doc/backup/README.md)).
+*   [ ] **Optimización Criptográfica:** Ejecución de PBKDF2 en isolate en segundo plano (`Isolate.run`).
 
 ---
 
