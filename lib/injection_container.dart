@@ -19,6 +19,7 @@ import 'core/services/snapshot_service.dart';
 import 'core/services/backup_preferences_service.dart';
 import 'core/services/backup_crypto_service.dart';
 import 'core/services/app_info_provider.dart';
+import 'core/services/database_key_manager.dart';
 import 'domain/services/backup_restore_service.dart';
 import 'data/services/backup_restore_service_impl.dart';
 
@@ -85,6 +86,7 @@ Future<void> init() async {
 
   // Storage Seguro para datos sensibles (PIN)
   sl.registerLazySingleton<SecureStorageService>(() => SecureStorageService());
+  sl.registerLazySingleton<DatabaseKeyManager>(() => DatabaseKeyManagerImpl());
   sl.registerLazySingleton<PinSecurityService>(() => PinSecurityService());
   sl.registerLazySingleton<BiometricService>(() => BiometricServiceImpl());
 
