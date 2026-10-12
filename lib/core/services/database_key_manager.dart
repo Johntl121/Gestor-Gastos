@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -32,6 +34,41 @@ class DatabaseKeyCreationForbiddenException extends DatabaseKeyException {
   const DatabaseKeyCreationForbiddenException(super.message);
 }
 
+/// Evidencia física verificada de una base de datos SQLite v24 apta para migración.
+///
+/// Vincula la ruta canónica, tamaño exacto en bytes, fecha de modificación física,
+/// marca temporal efímera (≤ 120s) y huella criptográfica SHA-256 del contenido
+/// para impedir que un llamador autorice la creación de claves con simples booleanos
+/// o reutilice evidencias tras modificaciones del archivo en disco.
+class MigrationPhysicalProof {
+  final String dbPath;
+  final int fileSizeBytes;
+  final DateTime lastModified;
+  final DateTime validationTimestamp;
+  final int userVersion;
+  final String sha256Fingerprint;
+
+  const MigrationPhysicalProof({
+    required this.dbPath,
+    required this.fileSizeBytes,
+    required this.lastModified,
+    required this.validationTimestamp,
+    this.userVersion = 24,
+    required this.sha256Fingerprint,
+  });
+}
+
+/// Evidencia física comprobada de ausencia de archivo para instalación limpia.
+class CleanInstallPhysicalProof {
+  final String dbPath;
+  final DateTime checkTimestamp;
+
+  const CleanInstallPhysicalProof({
+    required this.dbPath,
+    required this.checkTimestamp,
+  });
+}
+
 /// Contrato formal para la gestión segura y aislada de la clave de SQLCipher.
 abstract class DatabaseKeyManager {
   /// Recupera la clave existente desde la memoria o desde almacenamiento seguro.
@@ -42,21 +79,21 @@ abstract class DatabaseKeyManager {
   /// Comprueba si existe una clave registrada en almacenamiento seguro.
   Future<bool> hasExistingKey();
 
-  /// Genera y persiste una nueva clave únicamente para una instalación limpia autorizada.
+  /// Genera y persiste una nueva clave únicamente respaldada por una [CleanInstallPhysicalProof].
   ///
-  /// [RESTRICTED]: Prohibido su uso desde flujos productivos generales.
-  /// Restringido para pruebas y para el orquestador de migración en FASE 13B-05.
-  @visibleForTesting
-  Future<String> createKeyForCleanInstall({required bool dbFileExists});
+  /// Comprueba físicamente en tiempo de ejecución que el archivo objetivo no existe
+  /// y que la marca temporal de comprobación es reciente (< 120s).
+  Future<String> createKeyForCleanInstall({
+    required CleanInstallPhysicalProof proof,
+  });
 
-  /// Genera y persiste una nueva clave únicamente para una migración validada de SQLite v24 a SQLCipher.
+  /// Genera y persiste una nueva clave únicamente respaldada por una [MigrationPhysicalProof].
   ///
-  /// [RESTRICTED]: Prohibido su uso desde flujos productivos generales.
-  /// Restringido para pruebas y para el orquestador de migración en FASE 13B-05.
-  @visibleForTesting
-  Future<String> createKeyForValidatedMigration({
-    required bool isSourceValidated,
-    required bool isSourceUnencrypted,
+  /// Comprueba físicamente en tiempo de ejecución que el archivo existe en disco,
+  /// que su tamaño en bytes y fecha de modificación física coinciden de forma idéntica,
+  /// y que la prueba no ha caducado (< 120s).
+  Future<String> createKeyForMigration({
+    required MigrationPhysicalProof proof,
   });
 
   /// Limpia la clave de la memoria volátil (RAM) sin alterar el almacenamiento persistente.
@@ -158,13 +195,23 @@ class DatabaseKeyManagerImpl implements DatabaseKeyManager {
     return key != null && key.isNotEmpty;
   }
 
-  @visibleForTesting
   @override
-  Future<String> createKeyForCleanInstall({required bool dbFileExists}) async {
+  Future<String> createKeyForCleanInstall({
+    required CleanInstallPhysicalProof proof,
+  }) async {
     return await _synchronized(() async {
-      if (dbFileExists) {
+      final file = File(proof.dbPath);
+      if (await file.exists()) {
         throw const DatabaseKeyCreationForbiddenException(
-          'No se permite generar una clave de instalación limpia porque ya existe un archivo de base de datos en disco.',
+          'No se permite generar una clave de instalación limpia: ya existe un archivo de base de datos en disco.',
+        );
+      }
+
+      final ageSeconds =
+          DateTime.now().difference(proof.checkTimestamp).inSeconds.abs();
+      if (ageSeconds > 120) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'La evidencia de instalación limpia ha caducado (más de 120 segundos transcurridos).',
         );
       }
 
@@ -182,16 +229,55 @@ class DatabaseKeyManagerImpl implements DatabaseKeyManager {
     });
   }
 
-  @visibleForTesting
   @override
-  Future<String> createKeyForValidatedMigration({
-    required bool isSourceValidated,
-    required bool isSourceUnencrypted,
+  Future<String> createKeyForMigration({
+    required MigrationPhysicalProof proof,
   }) async {
     return await _synchronized(() async {
-      if (!isSourceValidated || !isSourceUnencrypted) {
+      final file = File(proof.dbPath);
+      if (!await file.exists()) {
         throw const DatabaseKeyCreationForbiddenException(
-          'No se permite generar clave de migración: la base origen no ha sido validada como SQLite plana íntegra.',
+          'No se permite generar clave de migración: el archivo origen no existe físicamente en disco.',
+        );
+      }
+
+      final currentSize = await file.length();
+      if (currentSize != proof.fileSizeBytes) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'No se permite generar clave de migración: el tamaño del archivo difiere de la evidencia física inspeccionada.',
+        );
+      }
+
+      final currentMod = await file.lastModified();
+      if (currentMod.millisecondsSinceEpoch !=
+          proof.lastModified.millisecondsSinceEpoch) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'No se permite generar clave de migración: la fecha de modificación del archivo difiere de la evidencia.',
+        );
+      }
+
+      if (proof.userVersion != 24) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'No se permite generar clave de migración: el esquema de la evidencia no es SQLite v24.',
+        );
+      }
+
+      final ageSeconds =
+          DateTime.now().difference(proof.validationTimestamp).inSeconds.abs();
+      if (ageSeconds > 120) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'No se permite generar clave de migración: la evidencia física ha caducado (más de 120 segundos transcurridos).',
+        );
+      }
+
+      // Verificación de integridad bit-a-bit por huella criptográfica SHA-256
+      final bytes = await file.readAsBytes();
+      final hash = await Sha256().hash(bytes);
+      final currentFingerprint =
+          hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      if (currentFingerprint != proof.sha256Fingerprint) {
+        throw const DatabaseKeyCreationForbiddenException(
+          'No se permite generar clave de migración: la huella de contenido (SHA-256) difiere de la evidencia física inspeccionada.',
         );
       }
 

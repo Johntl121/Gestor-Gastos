@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gestor_gastos/core/services/database_key_manager.dart';
+import 'package:path/path.dart' as p;
 
 /// Test double de [FlutterSecureStorage] que simula el almacenamiento en memoria
 /// con soporte para namespaces (sharedPreferencesName) e inyección de fallos controlados.
@@ -13,11 +16,35 @@ class FakeFlutterSecureStorage extends Fake implements FlutterSecureStorage {
   int deleteCallCount = 0;
 
   bool throwOnRead = false;
-  int throwOnReadAttemptsRemaining = 0;
+  int failReadNTimes = 0;
+  int currentReadFailures = 0;
   Object? errorToThrow;
 
   String _getNamespace(AndroidOptions? aOptions) {
-    return aOptions?.sharedPreferencesName ?? 'FlutterSecureStorage';
+    return aOptions?.sharedPreferencesName ?? 'default_namespace';
+  }
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    readCallCount++;
+    if (throwOnRead) {
+      throw errorToThrow ?? PlatformException(code: 'STORAGE_UNAVAILABLE', message: 'Fake error');
+    }
+    if (currentReadFailures < failReadNTimes) {
+      currentReadFailures++;
+      throw errorToThrow ?? PlatformException(code: 'TRANSIENT_ERROR', message: 'Temporary glitch');
+    }
+
+    final ns = _getNamespace(aOptions);
+    return _storageNamespaces[ns]?[key];
   }
 
   @override
@@ -39,39 +66,6 @@ class FakeFlutterSecureStorage extends Fake implements FlutterSecureStorage {
     } else {
       _storageNamespaces[ns]!.remove(key);
     }
-  }
-
-  @override
-  Future<String?> read({
-    required String key,
-    AppleOptions? iOptions,
-    AndroidOptions? aOptions,
-    LinuxOptions? lOptions,
-    WebOptions? webOptions,
-    AppleOptions? mOptions,
-    WindowsOptions? wOptions,
-  }) async {
-    readCallCount++;
-
-    if (throwOnRead) {
-      throw errorToThrow ??
-          PlatformException(
-            code: 'KEYSTORE_ERROR',
-            message: 'Android KeyStore operation failed',
-          );
-    }
-
-    if (throwOnReadAttemptsRemaining > 0) {
-      throwOnReadAttemptsRemaining--;
-      throw errorToThrow ??
-          PlatformException(
-            code: 'TRANSIENT_KEYSTORE_BUSY',
-            message: 'KeyStore daemon busy',
-          );
-    }
-
-    final ns = _getNamespace(aOptions);
-    return _storageNamespaces[ns]?[key];
   }
 
   @override
@@ -103,7 +97,6 @@ class FakeFlutterSecureStorage extends Fake implements FlutterSecureStorage {
     return _storageNamespaces[ns]?.containsKey(key) ?? false;
   }
 
-  /// Helper de inspección directa para aserciones de prueba.
   String? peekRawValue(String namespace, String key) {
     return _storageNamespaces[namespace]?[key];
   }
@@ -117,82 +110,112 @@ class FakeFlutterSecureStorage extends Fake implements FlutterSecureStorage {
 void main() {
   late FakeFlutterSecureStorage fakeStorage;
   late DatabaseKeyManagerImpl keyManager;
+  late Directory tempDir;
+
+  CleanInstallPhysicalProof getCleanProof() => CleanInstallPhysicalProof(
+        dbPath: p.join(tempDir.path, 'non_existent_${DateTime.now().microsecondsSinceEpoch}.db'),
+        checkTimestamp: DateTime.now(),
+      );
+
+  Future<MigrationPhysicalProof> getValidMigrationProof() async {
+    final file = File(p.join(tempDir.path, 'source_valid.db'));
+    if (!await file.exists()) {
+      await file.writeAsBytes(List.filled(1024, 0xAA));
+    }
+    final bytes = await file.readAsBytes();
+    final hash = await Sha256().hash(bytes);
+    final sha256 = hash.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+    return MigrationPhysicalProof(
+      dbPath: file.path,
+      fileSizeBytes: await file.length(),
+      lastModified: await file.lastModified(),
+      validationTimestamp: DateTime.now(),
+      userVersion: 24,
+      sha256Fingerprint: sha256,
+    );
+  }
 
   setUp(() {
+    tempDir = Directory.systemTemp.createTempSync('db_key_mgr_test_');
     fakeStorage = FakeFlutterSecureStorage();
     keyManager = DatabaseKeyManagerImpl(
       storage: fakeStorage,
     );
   });
 
-  group('DatabaseKeyManager — Suite de Validación Aislada (13B-04)', () {
+  tearDown(() {
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
+
+  group('DatabaseKeyManager — Suite de Validación Aislada con Evidencia Física (13B-05)', () {
     // TEST 1: Formato y generación de 256 bits (64 caracteres hex)
     test('1. Formato y generación criptográfica de 256 bits (64 caracteres hex)', () async {
-      final key = await keyManager.createKeyForCleanInstall(dbFileExists: false);
+      final key = await keyManager.createKeyForCleanInstall(proof: getCleanProof());
 
       expect(key, isNotNull);
       expect(key.length, equals(64));
-      // Debe ser estrictamente hexadecimal en minúsculas
       final hexRegex = RegExp(r'^[0-9a-f]{64}$');
       expect(hexRegex.hasMatch(key), isTrue);
-
-      // Verificar que los bytes no sean todos ceros ni triviales
       expect(key, isNot(equals('0' * 64)));
     });
 
-    // TEST 2: Persistencia y recuperación de clave existente
+    // TEST 2: Persistencia y recuperación
     test('2. Persistencia y recuperación segura de clave existente', () async {
-      final createdKey = await keyManager.createKeyForCleanInstall(dbFileExists: false);
+      const existingKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      fakeStorage.seedValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1', existingKey);
 
-      // Crear nueva instancia de keyManager para obligar a leer de storage sin caché en memoria
-      final freshManager = DatabaseKeyManagerImpl(storage: fakeStorage);
-      final retrievedKey = await freshManager.getExistingKey();
+      final hasKey = await keyManager.hasExistingKey();
+      expect(hasKey, isTrue);
 
-      expect(retrievedKey, equals(createdKey));
-      expect(await freshManager.hasExistingKey(), isTrue);
+      final retrievedKey = await keyManager.getExistingKey();
+      expect(retrievedKey, equals(existingKey));
     });
 
-    // TEST 3: Idempotencia en lecturas
+    // TEST 3: Idempotencia
     test('3. Idempotencia: múltiples consultas retornan la misma clave sin mutar storage', () async {
-      final key1 = await keyManager.createKeyForCleanInstall(dbFileExists: false);
+      final key1 = await keyManager.createKeyForCleanInstall(proof: getCleanProof());
+      final writesAfterCreate = fakeStorage.writeCallCount;
+
       final key2 = await keyManager.getExistingKey();
       final key3 = await keyManager.getExistingKey();
 
       expect(key2, equals(key1));
       expect(key3, equals(key1));
-      // Con caché en memoria, el conteo de escrituras en storage debe ser exactamente 1
+      expect(fakeStorage.writeCallCount, equals(writesAfterCreate));
+    });
+
+    // TEST 4: Llamadas concurrentes
+    test('4. Llamadas concurrentes resuelven coherentemente sin duplicación', () async {
+      final futures = [
+        keyManager.createKeyForCleanInstall(proof: getCleanProof()),
+        keyManager.getExistingKey(),
+        keyManager.hasExistingKey(),
+      ];
+
+      final results = await Future.wait(futures);
+      final createdKey = results[0] as String;
+      expect(createdKey.length, equals(64));
       expect(fakeStorage.writeCallCount, equals(1));
     });
 
-    // TEST 4: Concurrencia sin generación duplicada (Mutex protection)
-    test('4. Llamadas concurrentes resuelven coherentemente sin duplicación', () async {
-      // Iniciar 10 lecturas simultáneas de getExistingKey()
-      // Primero sembramos una clave válida en storage
-      const existingHex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-      fakeStorage.seedValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1', existingHex);
-
-      final results = await Future.wait(
-        List.generate(10, (_) => keyManager.getExistingKey()),
-      );
-
-      for (final r in results) {
-        expect(r, equals(existingHex));
-      }
-    });
-
-    // TEST 5: Errores transitorios y persistentes con reintentos
+    // TEST 5: Reintentos transitorios
     test('5. Reintentos ante fallos transitorios y excepción ante error persistente', () async {
-      // Configurar 2 fallos transitorios seguidos de éxito
-      fakeStorage.throwOnReadAttemptsRemaining = 2;
       const validKey = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
       fakeStorage.seedValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1', validKey);
 
-      // Debe recuperarse gracias a los 3 reintentos configurados
+      fakeStorage.failReadNTimes = 2;
+      fakeStorage.errorToThrow = PlatformException(
+        code: 'KEYSTORE_BUSY',
+        message: 'Keystore busy, retry later',
+      );
+
       final key = await keyManager.getExistingKey();
       expect(key, equals(validKey));
-      expect(fakeStorage.readCallCount, equals(3)); // 2 fallos + 1 éxito
+      expect(fakeStorage.readCallCount, equals(3));
 
-      // Ahora simular fallo persistente permanente
       keyManager.clearMemoryCache();
       fakeStorage.throwOnRead = true;
       fakeStorage.errorToThrow = PlatformException(
@@ -206,7 +229,7 @@ void main() {
       );
     });
 
-    // TEST 6: No eliminación ante fallos de lectura (resetOnError: false verificado)
+    // TEST 6: No eliminación ante fallos de lectura (resetOnError: false)
     test('6. No eliminación de datos en storage ante fallos de lectura (resetOnError: false)', () async {
       const validKey = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
       fakeStorage.seedValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1', validKey);
@@ -218,93 +241,109 @@ void main() {
         await keyManager.getExistingKey();
       } catch (_) {}
 
-      // Verificar que delete() NUNCA fue invocado por el servicio
       expect(fakeStorage.deleteCallCount, equals(0));
-      // El valor en storage permanece intacto
       expect(
         fakeStorage.peekRawValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1'),
         equals(validKey),
       );
     });
 
-    // TEST 7: No regeneración accidental ante precondiciones inválidas
-    test('7. No regeneración accidental ante archivo existente o clave previa', () async {
-      // Caso A: Se intenta createKeyForCleanInstall pero el archivo de base de datos existe en disco
+    // TEST 7: Validación de precondiciones y rechazo ante evidencias no coincidentes
+    test('7. No regeneración accidental y rechazo ante alteraciones físicas del archivo', () async {
+      // Caso A: CleanInstall falla si el archivo sí existe en disco
+      final existingFile = File(p.join(tempDir.path, 'existing_db.db'));
+      await existingFile.writeAsString('dummy');
       expect(
-        () => keyManager.createKeyForCleanInstall(dbFileExists: true),
-        throwsA(isA<DatabaseKeyCreationForbiddenException>()),
-      );
-
-      // Caso B: Se intenta createKeyForValidatedMigration pero la fuente no está validada
-      expect(
-        () => keyManager.createKeyForValidatedMigration(
-          isSourceValidated: false,
-          isSourceUnencrypted: true,
+        () => keyManager.createKeyForCleanInstall(
+          proof: CleanInstallPhysicalProof(dbPath: existingFile.path, checkTimestamp: DateTime.now()),
         ),
         throwsA(isA<DatabaseKeyCreationForbiddenException>()),
       );
 
-      // Caso C: Ya existe una clave en storage y se intenta llamar createKeyForCleanInstall
-      await keyManager.createKeyForCleanInstall(dbFileExists: false);
+      // Caso B: Migration falla si el archivo no existe
       expect(
-        () => keyManager.createKeyForCleanInstall(dbFileExists: false),
+        () => keyManager.createKeyForMigration(
+          proof: MigrationPhysicalProof(
+            dbPath: p.join(tempDir.path, 'missing.db'),
+            fileSizeBytes: 100,
+            lastModified: DateTime.now(),
+            validationTimestamp: DateTime.now(),
+            sha256Fingerprint: '00' * 32,
+          ),
+        ),
+        throwsA(isA<DatabaseKeyCreationForbiddenException>()),
+      );
+
+      // Caso C: Migration falla si el tamaño físico del archivo difiere de la prueba
+      final proof = await getValidMigrationProof();
+      expect(
+        () => keyManager.createKeyForMigration(
+          proof: MigrationPhysicalProof(
+            dbPath: proof.dbPath,
+            fileSizeBytes: proof.fileSizeBytes + 999, // tamaño alterado
+            lastModified: proof.lastModified,
+            validationTimestamp: proof.validationTimestamp,
+            sha256Fingerprint: proof.sha256Fingerprint,
+          ),
+        ),
+        throwsA(isA<DatabaseKeyCreationForbiddenException>()),
+      );
+
+      // Caso E: Migration falla si el contenido del archivo ha sido alterado (hash SHA-256 no coincide)
+      expect(
+        () => keyManager.createKeyForMigration(
+          proof: MigrationPhysicalProof(
+            dbPath: proof.dbPath,
+            fileSizeBytes: proof.fileSizeBytes,
+            lastModified: proof.lastModified,
+            validationTimestamp: proof.validationTimestamp,
+            sha256Fingerprint: 'deadbeef' * 8, // hash alterado
+          ),
+        ),
+        throwsA(isA<DatabaseKeyCreationForbiddenException>()),
+      );
+
+      // Caso D: Clave ya existente prohíbe reescritura
+      await keyManager.createKeyForMigration(proof: proof);
+      expect(
+        () => keyManager.createKeyForMigration(proof: proof),
         throwsA(isA<DatabaseKeyAlreadyExistsException>()),
       );
     });
 
-    // TEST 8: No exposición de claves en logs ni toString
+    // TEST 8: Ausencia de exposición en toString
     test('8. Ausencia absoluta de exposición de claves en logs y representaciones de depuración', () async {
-      final key = await keyManager.createKeyForCleanInstall(dbFileExists: false);
-
+      final key = await keyManager.createKeyForCleanInstall(proof: getCleanProof());
       final stringRep = keyManager.toString();
 
-      // toString() debe ser opaco y seguro
-      expect(stringRep, isNot(contains(key)));
+      expect(stringRep.contains(key), isFalse);
       expect(stringRep, contains('DatabaseKeyManagerImpl'));
       expect(stringRep, contains('cached: true'));
     });
 
-    // TEST 9: Limpieza de caché en memoria sin borrar persistencia
+    // TEST 9: clearMemoryCache
     test('9. clearMemoryCache() limpia la memoria volátil sin borrar storage', () async {
-      final key = await keyManager.createKeyForCleanInstall(dbFileExists: false);
-
+      final key = await keyManager.createKeyForCleanInstall(proof: getCleanProof());
       keyManager.clearMemoryCache();
-      expect(keyManager.toString(), contains('cached: false'));
 
-      // Pero el valor sigue existiendo en el storage persistente
-      final rawPersisted = fakeStorage.peekRawValue(
-        'gestor_gastos_sqlcipher_keys',
-        'sqlcipher_database_key_v1',
-      );
-      expect(rawPersisted, equals(key));
+      final readsBefore = fakeStorage.readCallCount;
+      final retrievedKey = await keyManager.getExistingKey();
 
-      // Y una lectura subsiguiente lo recarga sin problemas
-      final reloaded = await keyManager.getExistingKey();
-      expect(reloaded, equals(key));
+      expect(retrievedKey, equals(key));
+      expect(fakeStorage.readCallCount, greaterThan(readsBefore));
+      expect(fakeStorage.peekRawValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1'), equals(key));
     });
 
-    // TEST 10: Independencia frente al almacenamiento del PIN
+    // TEST 10: Independencia total frente al PIN
     test('10. Independencia total frente al almacenamiento y credenciales del PIN', () async {
-      // 1. Simular que el PIN ya fue guardado previamente en el namespace default de SecureStorageService
-      const pinKey = 'user_security_pin';
-      const defaultNamespace = 'FlutterSecureStorage';
-      const fakeHashedPin = 'hashed_pin_salt_998877';
-      fakeStorage.seedValue(defaultNamespace, pinKey, fakeHashedPin);
+      const pinKeyName = 'v1_pin_credential_data';
+      const pinValue = 'argon2id_hash_pin_personal_secret';
+      fakeStorage.seedValue('default_namespace', pinKeyName, pinValue);
 
-      // 2. Operar DatabaseKeyManager (crear clave para SQLCipher)
-      final dbKey = await keyManager.createKeyForCleanInstall(dbFileExists: false);
+      final dbKey = await keyManager.createKeyForCleanInstall(proof: getCleanProof());
 
-      // 3. Verificar que la clave de SQLCipher se escribió en SU PROPIO namespace
-      final sqlCipherPersisted = fakeStorage.peekRawValue(
-        'gestor_gastos_sqlcipher_keys',
-        'sqlcipher_database_key_v1',
-      );
-      expect(sqlCipherPersisted, equals(dbKey));
-
-      // 4. Verificar que el PIN en el namespace default permanece INTACTO e INALTERADO
-      final pinAfterDbKeyOperation = fakeStorage.peekRawValue(defaultNamespace, pinKey);
-      expect(pinAfterDbKeyOperation, equals(fakeHashedPin));
-      expect(pinAfterDbKeyOperation, isNot(equals(dbKey)));
+      expect(fakeStorage.peekRawValue('default_namespace', pinKeyName), equals(pinValue));
+      expect(fakeStorage.peekRawValue('gestor_gastos_sqlcipher_keys', 'sqlcipher_database_key_v1'), equals(dbKey));
     });
   });
 }
